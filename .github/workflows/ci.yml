@@ -1,0 +1,71 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+jobs:
+  build-test-sonar:
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_VERSION: 9.0.x
+      SONAR_PROJECT_KEY: controle-financeiro-backend
+      SONAR_PROJECT_NAME: controle-financeiro-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Java
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test with coverage
+        run: dotnet test --configuration Release --no-build
+
+      - name: Install SonarScanner
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Sonar Begin
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        shell: bash
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "${{ secrets.SONAR_ORGANIZATION }}" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS /o:${{ secrets.SONAR_ORGANIZATION }}"
+          fi
+          dotnet-sonarscanner begin \
+            /k:"${SONAR_PROJECT_KEY}" \
+            /n:"${SONAR_PROJECT_NAME}" \
+            /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage/coverage.opencover.xml" \
+            ${EXTRA_ARGS}
+
+      - name: Sonar Build
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Sonar End
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+
+      - name: Require Sonar configuration
+        if: ${{ secrets.SONAR_TOKEN == '' || secrets.SONAR_HOST_URL == '' }}
+        run: echo "Sonar disabled in CI because SONAR_TOKEN or SONAR_HOST_URL is missing. Configure secrets to enforce the quality gate."

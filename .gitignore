@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+.idea/
+TestResults/
+coverage/
+.sonarqube/
+build.log
+*.user
+*.suo
+*.cache
+*.db
+*.db-shm
+*.db-wal
+coverage.opencover.xml
+src/ControleFinanceiro.Api/appsettings.Local.json

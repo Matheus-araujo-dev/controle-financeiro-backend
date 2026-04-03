@@ -1,4 +1,5 @@
 using ControleFinanceiro.Api.Configuration;
+using ControleFinanceiro.Api.Extensions;
 using ControleFinanceiro.Api.Middleware;
 using ControleFinanceiro.Application;
 using ControleFinanceiro.Infrastructure;
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApiFoundation(builder.Configuration);
 builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 builder.Services.AddControllers();
@@ -33,6 +35,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");

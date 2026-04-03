@@ -1,4 +1,5 @@
 using ControleFinanceiro.SharedKernel.Common;
+using ControleFinanceiro.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Infrastructure.Persistence;
@@ -21,7 +22,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        modelBuilder.ApplyConfiguration(new AuditTrailEntryConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 

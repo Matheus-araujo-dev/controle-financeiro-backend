@@ -1,6 +1,6 @@
 namespace ControleFinanceiro.Contracts.Common;
 
-public sealed record PageRequest
+public record PageRequest
 {
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 20;

@@ -1,4 +1,6 @@
 using ControleFinanceiro.Infrastructure.Persistence;
+using ControleFinanceiro.Infrastructure.Identity;
+using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +15,10 @@ public static class DependencyInjection
     {
         var connectionString = configuration.GetConnectionString("SqlServer")
             ?? throw new InvalidOperationException("Connection string 'SqlServer' was not configured.");
+
+        services.AddHttpContextAccessor();
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<ICurrentUser, HttpCurrentUser>();
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(

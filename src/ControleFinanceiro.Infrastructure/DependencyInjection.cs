@@ -1,3 +1,4 @@
+using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Infrastructure.Persistence;
 using ControleFinanceiro.Infrastructure.Identity;
 using ControleFinanceiro.SharedKernel.Abstractions;
@@ -24,6 +25,7 @@ public static class DependencyInjection
             options.UseSqlServer(
                 connectionString,
                 sqlOptions => sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
+        services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
 
         return services;
     }

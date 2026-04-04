@@ -55,6 +55,7 @@ jobs:
             /n:"${SONAR_PROJECT_NAME}" \
             /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
             /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.qualitygate.wait=true \
             /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage/coverage.opencover.xml" \
             ${EXTRA_ARGS}
 

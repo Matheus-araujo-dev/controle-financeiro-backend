@@ -1,0 +1,32 @@
+using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace ControleFinanceiro.Infrastructure.Persistence.Configurations;
+
+public sealed class ContaGerencialConfiguration : IEntityTypeConfiguration<ContaGerencial>
+{
+    public void Configure(EntityTypeBuilder<ContaGerencial> builder)
+    {
+        builder.ToTable("contas_gerenciais");
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.Codigo)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.Descricao)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.Property(x => x.Tipo)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaPaiId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

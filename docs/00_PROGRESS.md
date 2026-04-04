@@ -1,15 +1,17 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 1: fundacao tecnica do backend concluida com auth preparada, filtros/paginacao base, endpoints tecnicos, build, testes e coverage.
+- Fase 2: cadastros de apoio concluida com pessoas, formas de pagamento, contas bancarias, cartoes e contas gerenciais.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
 - A auditoria inicial foi materializada com `AuditTrailEntry` e stamping base em `AuditableEntity`, sem adiantar regras financeiras.
-- A fundacao tecnica ficou restrita a health check, Swagger, contratos comuns, DbContext, auth base, filtros/paginacao e pipeline de erro padronizado.
+- As fases 0 e 1 foram revalidadas neste ciclo com build, testes, coverage e ajustes na fixture de integracao para SQLite em memoria.
+- A fundacao tecnica foi expandida para incluir `IAppDbContext`, auditoria com usuario/data injetados e quality gate remoto aguardando resultado do Sonar quando configurado.
 - O build local precisa usar `-m:1` para evitar falhas silenciosas de paralelismo no ambiente atual.
 - O endpoint protegido inicial usa o modo `Development` com header `X-Debug-User`, suficiente para preparar a autenticacao sem acoplar regra de negocio.
+- A fase 2 foi implementada mantendo o escopo canonico: CRUDs de apoio, filtros, paginacao, DTOs, controllers, mapeamentos EF e migration versionada.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.
-- evoluir a auditoria de before/after quando os modulos financeiros surgirem.
+- ampliar a cobertura combinada das camadas com testes adicionais focados em Application e Infrastructure conforme os modulos financeiros avancarem.

@@ -23,12 +23,6 @@ public sealed class AuditTrailEntryConfiguration : IEntityTypeConfiguration<Audi
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.Property(x => x.BeforeJson)
-            .HasColumnType("nvarchar(max)");
-
-        builder.Property(x => x.AfterJson)
-            .HasColumnType("nvarchar(max)");
-
         builder.HasIndex(x => new { x.EntityName, x.EntityId });
     }
 }

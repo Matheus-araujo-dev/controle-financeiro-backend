@@ -1,6 +1,6 @@
 # Backend - Controle Financeiro
 
-Fundacao tecnica inicial do backend do sistema de controle financeiro, alinhada ate a `Fase 1` do workspace.
+Backend do sistema de controle financeiro, alinhado ate a `Fase 2` do workspace.
 
 ## Stack
 
@@ -48,6 +48,16 @@ Endpoints estruturais:
 - `GET /api/v1/bootstrap/modules`
 - `POST /api/v1/bootstrap/echo`
 - `GET /api/v1/security/me`
+
+Cadastros de apoio:
+
+- `GET|POST|PUT /api/v1/pessoas`
+- `PATCH /api/v1/pessoas/{id}/ativar`
+- `PATCH /api/v1/pessoas/{id}/inativar`
+- `GET|POST|PUT /api/v1/formas-pagamento`
+- `GET|POST|PUT /api/v1/contas-bancarias`
+- `GET|POST|PUT /api/v1/cartoes`
+- `GET|POST|PUT /api/v1/contas-gerenciais`
 
 ## Qualidade
 

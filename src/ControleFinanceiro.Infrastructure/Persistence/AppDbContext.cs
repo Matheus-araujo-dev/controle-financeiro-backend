@@ -5,6 +5,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
+using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using ControleFinanceiro.SharedKernel.Common;
 using ControleFinanceiro.Infrastructure.Persistence.Configurations;
@@ -32,6 +33,18 @@ public sealed class AppDbContext(
 
     public DbSet<ContaGerencial> ContasGerenciais => Set<ContaGerencial>();
 
+    public DbSet<StatusConta> StatusContas => Set<StatusConta>();
+
+    public DbSet<StatusMovimentacao> StatusMovimentacoes => Set<StatusMovimentacao>();
+
+    public DbSet<ContaPagar> ContasPagar => Set<ContaPagar>();
+
+    public DbSet<ContaReceber> ContasReceber => Set<ContaReceber>();
+
+    public DbSet<RateioContaGerencial> RateiosContaGerencial => Set<RateioContaGerencial>();
+
+    public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
@@ -52,6 +65,12 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new ContaBancariaConfiguration());
         modelBuilder.ApplyConfiguration(new CartaoConfiguration());
         modelBuilder.ApplyConfiguration(new ContaGerencialConfiguration());
+        modelBuilder.ApplyConfiguration(new StatusContaConfiguration());
+        modelBuilder.ApplyConfiguration(new StatusMovimentacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new ContaPagarConfiguration());
+        modelBuilder.ApplyConfiguration(new ContaReceberConfiguration());
+        modelBuilder.ApplyConfiguration(new RateioContaGerencialConfiguration());
+        modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 

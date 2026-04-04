@@ -1,7 +1,7 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 3: nucleo financeiro concluida com contas a pagar, contas a receber, rateios gerenciais e movimentacoes financeiras.
+- Fase 4: cartoes e faturas concluida com compras em cartao, competencia de fatura, agrupamento de itens e pagamento de fatura.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
@@ -14,6 +14,9 @@
 - A fase 3 introduziu o nucleo financeiro sem antecipar as fases seguintes: parcelamento, rateio obrigatorio, liquidacao, cancelamento e geracao de movimentacao ficaram encapsulados no modulo `Financeiro`.
 - Os `Rateios` de `ContaPagar` e `ContaReceber` permaneceram como colecao de dominio, com persistencia explicita em `RateioContaGerencial`, para evitar acoplamento prematuro da modelagem EF.
 - O SQLite em memoria continuou sendo usado nos testes de integracao, com ajustes de ordenacao e logging para manter o comportamento deterministico e compativel com o provider.
+- A fase 4 passou a tratar compra em cartao como despesa economica na data da compra, com movimentacao economica dedicada e sem saida bancaria real naquele momento.
+- `FaturaCartao` foi introduzida como agregacao persistida por `CartaoId + Competencia`, com sincronizacao pragmatica a partir das compras em cartao e pagamento gerando uma unica movimentacao real de saida.
+- O calculo de competencia ficou centralizado em `FaturaCartaoCompetencia`, com testes automatizados cobrindo fechamento/vencimento inclusive quando o dia de vencimento cai no mes seguinte.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

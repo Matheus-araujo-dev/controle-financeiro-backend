@@ -42,6 +42,7 @@ public sealed record MovimentacaoResumoResponse(
     string? ContaBancariaNome,
     Guid? ContaPagarId,
     Guid? ContaReceberId,
+    Guid? FaturaCartaoId,
     string? Observacao);
 
 public sealed record MovimentacaoDetalheResponse(
@@ -56,6 +57,7 @@ public sealed record MovimentacaoDetalheResponse(
     string? ContaBancariaNome,
     Guid? ContaPagarId,
     Guid? ContaReceberId,
+    Guid? FaturaCartaoId,
     string? Observacao,
     DateOnly? DataConciliacao,
     DateTime CreatedAtUtc,

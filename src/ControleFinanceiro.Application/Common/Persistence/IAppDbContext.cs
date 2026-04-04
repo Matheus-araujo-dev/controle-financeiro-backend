@@ -32,5 +32,7 @@ public interface IAppDbContext
 
     DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras { get; }
 
+    DbSet<FaturaCartao> FaturasCartao { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

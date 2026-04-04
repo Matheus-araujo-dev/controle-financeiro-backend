@@ -31,6 +31,7 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
                 ContaBancariaNome = contaBancaria != null ? contaBancaria.Nome : null,
                 movimento.ContaPagarId,
                 movimento.ContaReceberId,
+                movimento.FaturaCartaoId,
                 movimento.Observacao,
                 movimento.DataConciliacao,
                 movimento.CreatedAtUtc,
@@ -96,6 +97,7 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
                 x.ContaBancariaNome,
                 x.ContaPagarId,
                 x.ContaReceberId,
+                x.FaturaCartaoId,
                 x.Observacao))
             .ToArray();
 
@@ -123,6 +125,7 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
                 ContaBancariaNome = contaBancaria != null ? contaBancaria.Nome : null,
                 movimento.ContaPagarId,
                 movimento.ContaReceberId,
+                movimento.FaturaCartaoId,
                 movimento.Observacao,
                 movimento.DataConciliacao,
                 movimento.CreatedAtUtc,
@@ -144,6 +147,7 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
                 item.ContaBancariaNome,
                 item.ContaPagarId,
                 item.ContaReceberId,
+                item.FaturaCartaoId,
                 item.Observacao,
                 item.DataConciliacao,
                 item.CreatedAtUtc,

@@ -45,6 +45,27 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
             contaBancariaId,
             contaPagarId,
             null,
+            null,
+            valor,
+            statusMovimentacaoId,
+            observacao);
+    }
+
+    public static MovimentacaoFinanceira CriarCompraCartaoEconomica(
+        Guid contaPagarId,
+        DateOnly dataMovimentacao,
+        decimal valor,
+        Guid statusMovimentacaoId,
+        string? observacao)
+    {
+        return Criar(
+            dataMovimentacao,
+            TipoMovimentacao.Saida,
+            NaturezaMovimentacao.Economica,
+            null,
+            contaPagarId,
+            null,
+            null,
             valor,
             statusMovimentacaoId,
             observacao);
@@ -65,9 +86,58 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
             contaBancariaId,
             null,
             contaReceberId,
+            null,
             valor,
             statusMovimentacaoId,
             observacao);
+    }
+
+    public static MovimentacaoFinanceira CriarPagamentoFatura(
+        Guid faturaCartaoId,
+        Guid contaBancariaId,
+        DateOnly dataMovimentacao,
+        decimal valor,
+        Guid statusMovimentacaoId,
+        string? observacao)
+    {
+        return Criar(
+            dataMovimentacao,
+            TipoMovimentacao.Saida,
+            NaturezaMovimentacao.Realizada,
+            contaBancariaId,
+            null,
+            null,
+            faturaCartaoId,
+            valor,
+            statusMovimentacaoId,
+            observacao);
+    }
+
+    public void AtualizarEconomicaContaPagar(
+        DateOnly dataMovimentacao,
+        decimal valor,
+        Guid statusMovimentacaoId,
+        string? observacao)
+    {
+        if (ContaPagarId is null || Natureza != NaturezaMovimentacao.Economica)
+        {
+            throw new InvalidOperationException("Apenas movimentacoes economicas de conta a pagar podem ser atualizadas.");
+        }
+
+        if (valor <= 0)
+        {
+            throw new ArgumentException("Valor da movimentacao deve ser maior que zero.", nameof(valor));
+        }
+
+        DataMovimentacao = dataMovimentacao;
+        Valor = decimal.Round(valor, 2, MidpointRounding.AwayFromZero);
+        StatusMovimentacaoId = statusMovimentacaoId;
+        Observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
+    }
+
+    public void Cancelar(Guid statusMovimentacaoId)
+    {
+        StatusMovimentacaoId = statusMovimentacaoId;
     }
 
     private static MovimentacaoFinanceira Criar(
@@ -77,6 +147,7 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
         Guid? contaBancariaId,
         Guid? contaPagarId,
         Guid? contaReceberId,
+        Guid? faturaCartaoId,
         decimal valor,
         Guid statusMovimentacaoId,
         string? observacao)
@@ -94,6 +165,7 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
             ContaBancariaId = contaBancariaId,
             ContaPagarId = contaPagarId,
             ContaReceberId = contaReceberId,
+            FaturaCartaoId = faturaCartaoId,
             Valor = decimal.Round(valor, 2, MidpointRounding.AwayFromZero),
             StatusMovimentacaoId = statusMovimentacaoId,
             Observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim()

@@ -132,6 +132,7 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
     public async Task<ContaPagarDetalheResponse> CriarAsync(CriarContaPagarRequest request, CancellationToken cancellationToken)
     {
         var contexto = await ValidarCriacaoOuAtualizacaoAsync(
+            request.DataEmissao,
             request.RecebedorId,
             request.ResponsavelCompraId,
             request.FormaPagamentoId,
@@ -171,6 +172,10 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
         {
             dbContext.MovimentacoesFinanceiras.AddRange(AplicarLiquidacaoAutomatica(contas, request.DataLiquidacao, request.ContaBancariaId!.Value));
         }
+        else if (contexto.CompraCartao)
+        {
+            dbContext.MovimentacoesFinanceiras.AddRange(CriarMovimentacoesEconomicasCompraCartao(contas));
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -195,6 +200,7 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
         }
 
         var contexto = await ValidarCriacaoOuAtualizacaoAsync(
+            request.DataEmissao,
             request.RecebedorId,
             request.ResponsavelCompraId,
             request.FormaPagamentoId,
@@ -242,6 +248,31 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
         {
             dbContext.MovimentacoesFinanceiras.AddRange(
                 AplicarLiquidacaoAutomatica([conta], request.DataLiquidacao, request.ContaBancariaId!.Value));
+        }
+
+        var movimentoEconomico = await dbContext.MovimentacoesFinanceiras
+            .SingleOrDefaultAsync(
+                x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica,
+                cancellationToken);
+
+        if (contexto.CompraCartao)
+        {
+            if (movimentoEconomico is null)
+            {
+                dbContext.MovimentacoesFinanceiras.Add(CriarMovimentacaoEconomicaCompraCartao(conta));
+            }
+            else
+            {
+                movimentoEconomico.AtualizarEconomicaContaPagar(
+                    conta.DataEmissao,
+                    conta.ValorLiquido,
+                    StatusMovimentacao.EfetivadaId,
+                    conta.Descricao);
+            }
+        }
+        else if (movimentoEconomico is not null)
+        {
+            movimentoEconomico.Cancelar(StatusMovimentacao.CanceladaId);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -313,6 +344,13 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
             throw ConverterParaValidacao(exception);
         }
 
+        var movimentoEconomico = await dbContext.MovimentacoesFinanceiras
+            .SingleOrDefaultAsync(
+                x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica,
+                cancellationToken);
+
+        movimentoEconomico?.Cancelar(StatusMovimentacao.CanceladaId);
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await MapearDetalheAsync(conta, cancellationToken);
     }
@@ -383,6 +421,7 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
     }
 
     private async Task<ContaPagarValidationContext> ValidarCriacaoOuAtualizacaoAsync(
+        DateOnly dataEmissao,
         Guid recebedorId,
         Guid? responsavelCompraId,
         Guid formaPagamentoId,
@@ -418,10 +457,17 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("QuantidadeParcelas", "Quantidade de parcelas deve ser maior que zero.");
         }
 
-        if (cartaoId.HasValue &&
-            !await dbContext.Cartoes.AnyAsync(x => x.Id == cartaoId.Value, cancellationToken))
+        Cartao? cartao = null;
+        if (cartaoId.HasValue)
         {
-            throw ValidationExceptionFactory.Create("CartaoId", "Cartao nao encontrado.");
+            cartao = await dbContext.Cartoes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == cartaoId.Value, cancellationToken);
+
+            if (cartao is null)
+            {
+                throw ValidationExceptionFactory.Create("CartaoId", "Cartao nao encontrado.");
+            }
         }
 
         if (contaBancariaId.HasValue &&
@@ -462,6 +508,20 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
             {
                 throw ValidationExceptionFactory.Create("FormaPagamentoId", "Forma de pagamento de cartao nao pode baixar automaticamente.");
             }
+
+            var competencia = FaturaCartaoCompetencia.Calcular(
+                dataEmissao,
+                cartao!.DiaFechamentoFatura,
+                cartao.DiaVencimentoFatura);
+
+            if (await dbContext.FaturasCartao.AnyAsync(
+                    x => x.CartaoId == cartaoId.Value &&
+                         x.Competencia == competencia.Competencia &&
+                         x.Status == StatusFaturaCartao.Paga,
+                    cancellationToken))
+            {
+                throw ValidationExceptionFactory.Create("DataEmissao", "Ja existe fatura paga para a competencia desta compra em cartao.");
+            }
         }
         else if (cartaoId.HasValue)
         {
@@ -478,7 +538,9 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("DataLiquidacao", "Data de liquidacao so pode ser informada com baixa automatica.");
         }
 
-        return new ContaPagarValidationContext(formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao);
+        return new ContaPagarValidationContext(
+            formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao,
+            formaPagamento.EhCartao);
     }
 
     private static IReadOnlyCollection<RateioPlano> ConverterRateios(IReadOnlyCollection<RateioRequest> rateios)
@@ -516,6 +578,22 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
         return movimentos;
     }
 
+    private static IReadOnlyCollection<MovimentacaoFinanceira> CriarMovimentacoesEconomicasCompraCartao(
+        IReadOnlyCollection<ContaPagar> contas)
+    {
+        return contas.Select(CriarMovimentacaoEconomicaCompraCartao).ToArray();
+    }
+
+    private static MovimentacaoFinanceira CriarMovimentacaoEconomicaCompraCartao(ContaPagar conta)
+    {
+        return MovimentacaoFinanceira.CriarCompraCartaoEconomica(
+            conta.Id,
+            conta.DataEmissao,
+            conta.ValorLiquido,
+            StatusMovimentacao.EfetivadaId,
+            conta.Descricao);
+    }
+
     private static ApplicationValidationException ConverterParaValidacao(Exception exception)
     {
         return ValidationExceptionFactory.Create("Request", exception.Message);
@@ -531,5 +609,5 @@ public sealed class ContaPagarAppService(IAppDbContext dbContext)
             _ => throw new ArgumentOutOfRangeException(nameof(origem))
         };
     }
-    private sealed record ContaPagarValidationContext(bool LiquidarNaCriacao);
+    private sealed record ContaPagarValidationContext(bool LiquidarNaCriacao, bool CompraCartao);
 }

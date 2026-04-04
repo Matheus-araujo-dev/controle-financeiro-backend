@@ -12,6 +12,7 @@ internal static class FinancialFixtureSeed
 
         var formaManual = await CreateFormaPagamentoAsync(client, "Pix manual", "Pix", false, false);
         var formaAuto = await CreateFormaPagamentoAsync(client, "Debito automatico", "Debito", false, true);
+        var formaCartao = await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
 
         var contaBancariaId = await CreateContaBancariaAsync(client);
         var cartaoId = await CreateCartaoAsync(client, contaBancariaId);
@@ -25,6 +26,7 @@ internal static class FinancialFixtureSeed
             ResponsavelId: responsavel,
             FormaPagamentoManualId: formaManual,
             FormaPagamentoAutoId: formaAuto,
+            FormaPagamentoCartaoId: formaCartao,
             ContaBancariaId: contaBancariaId,
             CartaoId: cartaoId,
             ContaGerencialDespesaId: contaGerencialDespesaId,
@@ -126,6 +128,7 @@ internal static class FinancialFixtureSeed
         Guid ResponsavelId,
         Guid FormaPagamentoManualId,
         Guid FormaPagamentoAutoId,
+        Guid FormaPagamentoCartaoId,
         Guid ContaBancariaId,
         Guid CartaoId,
         Guid ContaGerencialDespesaId,

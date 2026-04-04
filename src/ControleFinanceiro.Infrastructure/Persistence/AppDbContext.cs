@@ -45,6 +45,8 @@ public sealed class AppDbContext(
 
     public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
 
+    public DbSet<FaturaCartao> FaturasCartao => Set<FaturaCartao>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
@@ -71,6 +73,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new ContaReceberConfiguration());
         modelBuilder.ApplyConfiguration(new RateioContaGerencialConfiguration());
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
+        modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 

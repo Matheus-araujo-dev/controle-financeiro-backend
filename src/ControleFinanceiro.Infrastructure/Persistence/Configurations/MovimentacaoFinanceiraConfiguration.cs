@@ -47,6 +47,11 @@ public sealed class MovimentacaoFinanceiraConfiguration : IEntityTypeConfigurati
             .HasForeignKey(x => x.ContaReceberId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne<FaturaCartao>()
+            .WithMany()
+            .HasForeignKey(x => x.FaturaCartaoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne<StatusMovimentacao>()
             .WithMany()
             .HasForeignKey(x => x.StatusMovimentacaoId)

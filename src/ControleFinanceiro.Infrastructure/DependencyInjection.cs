@@ -1,4 +1,6 @@
+using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Infrastructure.ImportacoesWhatsapp;
 using ControleFinanceiro.Infrastructure.Persistence;
 using ControleFinanceiro.Infrastructure.Identity;
 using ControleFinanceiro.SharedKernel.Abstractions;
@@ -26,6 +28,9 @@ public static class DependencyInjection
                 connectionString,
                 sqlOptions => sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
         services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IFileStorage, LocalImportFileStorage>();
+        services.AddScoped<IDocumentExtractor, SimulatedDocumentExtractor>();
+        services.AddScoped<IImportSuggestionService, HeuristicImportSuggestionService>();
 
         return services;
     }

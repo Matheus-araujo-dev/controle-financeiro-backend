@@ -10,6 +10,7 @@ using ControleFinanceiro.Application.Financeiro.ContasPagar;
 using ControleFinanceiro.Application.Financeiro.ContasReceber;
 using ControleFinanceiro.Application.Financeiro.Faturas;
 using ControleFinanceiro.Application.Financeiro.Movimentacoes;
+using ControleFinanceiro.Application.ImportacoesWhatsapp;
 
 namespace ControleFinanceiro.Application;
 
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<FaturaCartaoAppService>();
         services.AddScoped<MovimentacaoFinanceiraAppService>();
         services.AddScoped<DashboardAppService>();
+        services.AddScoped<ImportacoesWhatsappAppService>();
         return services;
     }
 }

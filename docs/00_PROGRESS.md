@@ -1,7 +1,7 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 6: dashboard e fluxo de caixa concluidos com resumo executivo, listas operacionais e projecao diaria em visao de caixa e visao economica.
+- Fase 7: importacoes WhatsApp e OCR concluidas com webhook, armazenamento do artefato, extracao simulada, sugestoes e revisao humana ponta a ponta.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
@@ -25,6 +25,12 @@
 - O resumo executivo passou a aceitar `DataReferencia` e `DiasProjetados` para manter o calculo testavel e deterministico, sem alterar os endpoints canonicos definidos para a fase.
 - Na visao de caixa, compras em cartao abertas entram na projecao pela data prevista da fatura; na visao economica, entram pela data da compra via movimentacao economica, evitando dupla contagem do pagamento da fatura.
 - Contas abertas vencidas antes da janela de projecao sao concentradas no primeiro dia do fluxo para expor risco imediato sem adulterar o saldo base bancario.
+- A fase 7 foi implementada com o agregado `ImportacaoWhatsapp` e a entidade filha `ItemImportadoWhatsapp`, mantendo status de importacao e status de item separados para suportar reprocessamento e revisao humana.
+- O pipeline da importacao foi mantido sincrono neste MVP inicial, mas desacoplado por `IFileStorage`, `IDocumentExtractor` e `IImportSuggestionService`, preparando a futura troca por fila/OCR real sem reescrever a API.
+- O armazenamento do artefato usa caminho local controlado em `App_Data/importacoes-whatsapp`, com validacao de `mime type` permitido e sem execucao de qualquer arquivo recebido.
+- A extracao e a geracao de sugestoes ficaram simuladas por heuristica local neste corte, suficientes para o fluxo ponta a ponta exigido pela fase sem inventar integracao real de OCR/IA fora da documentacao.
+- Confirmar ou rejeitar item atualiza apenas o estado de revisao da importacao nesta fase; nao ha efetivacao automatica de `ContaPagar`, `ContaReceber`, `Movimentacao` ou `CompraCartao`, em linha com a decisao canonica de revisao humana obrigatoria no MVP.
+- O reprocessamento substitui integralmente os itens sugeridos da importacao e reexecuta a extracao/sugestao com base no texto bruto e no artefato armazenado, preservando o mesmo registro raiz da importacao.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

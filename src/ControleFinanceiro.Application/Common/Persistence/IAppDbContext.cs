@@ -4,6 +4,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Common.Persistence;
@@ -35,6 +36,10 @@ public interface IAppDbContext
     DbSet<FaturaCartao> FaturasCartao { get; }
 
     DbSet<RegraRecorrencia> RegrasRecorrencia { get; }
+
+    DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp { get; }
+
+    DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

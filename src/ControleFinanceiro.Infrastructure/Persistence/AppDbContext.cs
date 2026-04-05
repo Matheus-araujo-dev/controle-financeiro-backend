@@ -6,6 +6,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using ControleFinanceiro.SharedKernel.Common;
 using ControleFinanceiro.Infrastructure.Persistence.Configurations;
@@ -49,6 +50,10 @@ public sealed class AppDbContext(
 
     public DbSet<RegraRecorrencia> RegrasRecorrencia => Set<RegraRecorrencia>();
 
+    public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
+
+    public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
@@ -77,6 +82,8 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
         modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());
+        modelBuilder.ApplyConfiguration(new ImportacaoWhatsappConfiguration());
+        modelBuilder.ApplyConfiguration(new ItemImportadoWhatsappConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 

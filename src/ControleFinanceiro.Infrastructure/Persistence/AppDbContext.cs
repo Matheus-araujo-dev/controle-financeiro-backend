@@ -47,6 +47,8 @@ public sealed class AppDbContext(
 
     public DbSet<FaturaCartao> FaturasCartao => Set<FaturaCartao>();
 
+    public DbSet<RegraRecorrencia> RegrasRecorrencia => Set<RegraRecorrencia>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
@@ -74,6 +76,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new RateioContaGerencialConfiguration());
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
+        modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 

@@ -40,7 +40,8 @@ public sealed record CriarContaPagarRequest(
     int QuantidadeParcelas,
     string Descricao,
     string? Observacao,
-    IReadOnlyCollection<RateioRequest> Rateios);
+    IReadOnlyCollection<RateioRequest> Rateios,
+    RecorrenciaConfigRequest? Recorrencia);
 
 public sealed record AtualizarContaPagarRequest(
     string? NumeroDocumento,
@@ -59,7 +60,8 @@ public sealed record AtualizarContaPagarRequest(
     int QuantidadeParcelas,
     string Descricao,
     string? Observacao,
-    IReadOnlyCollection<RateioRequest> Rateios);
+    IReadOnlyCollection<RateioRequest> Rateios,
+    RecorrenciaConfigRequest? Recorrencia);
 
 public sealed record LiquidarContaPagarRequest(DateOnly DataLiquidacao, Guid ContaBancariaId);
 
@@ -79,7 +81,8 @@ public sealed record ContaPagarResumoResponse(
     string StatusNome,
     int QuantidadeParcelas,
     int NumeroParcela,
-    Guid? GrupoParcelamentoId);
+    Guid? GrupoParcelamentoId,
+    bool EhRecorrente);
 
 public sealed record ContaPagarDetalheResponse(
     Guid Id,
@@ -111,7 +114,9 @@ public sealed record ContaPagarDetalheResponse(
     string? Observacao,
     string StatusCodigo,
     string StatusNome,
+    bool EhRecorrente,
     LancamentoOrigem Origem,
+    RecorrenciaResponse? Recorrencia,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

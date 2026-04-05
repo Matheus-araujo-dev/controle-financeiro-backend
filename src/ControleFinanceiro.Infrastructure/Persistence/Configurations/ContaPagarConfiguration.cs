@@ -70,5 +70,10 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
             .WithMany()
             .HasForeignKey(x => x.StatusContaId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<RegraRecorrencia>()
+            .WithMany()
+            .HasForeignKey(x => x.RegraRecorrenciaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

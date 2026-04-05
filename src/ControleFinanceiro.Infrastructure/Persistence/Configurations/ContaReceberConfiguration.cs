@@ -70,5 +70,10 @@ public sealed class ContaReceberConfiguration : IEntityTypeConfiguration<ContaRe
             .WithMany()
             .HasForeignKey(x => x.StatusContaId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<RegraRecorrencia>()
+            .WithMany()
+            .HasForeignKey(x => x.RegraRecorrenciaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -1,6 +1,7 @@
 using ControleFinanceiro.Application.Financeiro.ContasPagar;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
+using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 using Microsoft.AspNetCore.Mvc;
 
@@ -49,6 +50,55 @@ public sealed class ContasPagarController(ContaPagarAppService service) : ApiCon
         CancellationToken cancellationToken)
     {
         var response = await service.AtualizarAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/alterar-futuras")]
+    [ProducesResponseType(typeof(ContaPagarDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ContaPagarDetalheResponse>> AlterarFuturas(
+        Guid id,
+        [FromBody] AtualizarContaPagarRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.AlterarFuturasAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/gerar-ocorrencias")]
+    [ProducesResponseType(typeof(ContaPagarDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ContaPagarDetalheResponse>> GerarOcorrencias(
+        Guid id,
+        [FromBody] GerarOcorrenciasRecorrenciaRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.GerarOcorrenciasAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/pausar-recorrencia")]
+    [ProducesResponseType(typeof(ContaPagarDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ContaPagarDetalheResponse>> PausarRecorrencia(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.PausarRecorrenciaAsync(id, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/encerrar-recorrencia")]
+    [ProducesResponseType(typeof(ContaPagarDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ContaPagarDetalheResponse>> EncerrarRecorrencia(
+        Guid id,
+        [FromBody] EncerrarRecorrenciaRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.EncerrarRecorrenciaAsync(id, request, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 

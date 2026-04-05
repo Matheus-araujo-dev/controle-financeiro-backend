@@ -1,13 +1,17 @@
+using System.Text.Json;
 using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Application.Common.Pagination;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.Common.Validation;
+using ControleFinanceiro.Application.Financeiro.Recorrencias;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 using ControleFinanceiro.Contracts.Financeiro.ContasReceber;
 using ControleFinanceiro.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
+using TipoPeriodicidadeRecorrenciaContract = ControleFinanceiro.Contracts.Financeiro.Common.TipoPeriodicidadeRecorrencia;
+using TipoPeriodicidadeRecorrenciaDomain = ControleFinanceiro.Domain.Financeiro.TipoPeriodicidadeRecorrencia;
 
 namespace ControleFinanceiro.Application.Financeiro.ContasReceber;
 
@@ -39,7 +43,8 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
                 StatusNome = status.Nome,
                 conta.QuantidadeParcelas,
                 conta.NumeroParcela,
-                conta.GrupoParcelamentoId
+                conta.GrupoParcelamentoId,
+                conta.EhRecorrente
             };
 
         if (!string.IsNullOrWhiteSpace(query.Search))
@@ -110,7 +115,8 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
                 x.StatusNome,
                 x.QuantidadeParcelas,
                 x.NumeroParcela,
-                x.GrupoParcelamentoId))
+                x.GrupoParcelamentoId,
+                x.EhRecorrente))
             .ToArray();
 
         return PagedResult<ContaReceberResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -127,6 +133,8 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
 
     public async Task<ContaReceberDetalheResponse> CriarAsync(CriarContaReceberRequest request, CancellationToken cancellationToken)
     {
+        ValidarRecorrencia(request.Recorrencia, request.QuantidadeParcelas);
+
         var liquidarNaCriacao = await ValidarCriacaoOuAtualizacaoAsync(
             request.PagadorId,
             request.ResponsavelId,
@@ -137,6 +145,13 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             request.QuantidadeParcelas,
             request.Rateios,
             cancellationToken);
+
+        RegraRecorrencia? regra = null;
+        if (request.Recorrencia is not null)
+        {
+            regra = CriarRegraRecorrencia(request, request.Recorrencia);
+            dbContext.RegrasRecorrencia.Add(regra);
+        }
 
         var contas = ContaReceber.CriarParcelas(
             request.NumeroDocumento,
@@ -155,8 +170,8 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             request.Descricao,
             request.Observacao,
             StatusConta.PendenteId,
-            false,
-            null,
+            regra is not null,
+            regra?.Id,
             OrigemLancamento.Manual,
             ConverterRateios(request.Rateios));
 
@@ -190,6 +205,17 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("QuantidadeParcelas", "Nao e permitido alterar o parcelamento na edicao.");
         }
 
+        if (conta.RegraRecorrenciaId.HasValue)
+        {
+            var regra = await dbContext.RegrasRecorrencia
+                .SingleAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
+
+            if (!regra.PermiteEdicaoOcorrenciaIndividual)
+            {
+                throw ValidationExceptionFactory.Create("Recorrencia", "A regra atual nao permite edicao pontual da ocorrencia.");
+            }
+        }
+
         var liquidarNaCriacao = await ValidarCriacaoOuAtualizacaoAsync(
             request.PagadorId,
             request.ResponsavelId,
@@ -201,43 +227,166 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             request.Rateios,
             cancellationToken);
 
-        try
-        {
-            conta.Atualizar(
-                request.NumeroDocumento,
-                request.DataEmissao,
-                request.ResponsavelId,
-                request.PagadorId,
-                request.DataVencimento,
-                request.FormaPagamentoId,
-                request.CartaoId,
-                request.ContaBancariaId,
-                request.ValorOriginal,
-                request.ValorDesconto,
-                request.ValorJuros,
-                request.ValorMulta,
-                request.Descricao,
-                request.Observacao,
-                StatusConta.PendenteId,
-                ConverterRateios(request.Rateios));
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
-        {
-            throw ConverterParaValidacao(exception);
-        }
+        AtualizarContaExistente(conta, request);
 
-        var rateiosExistentes = await dbContext.RateiosContaGerencial
-            .Where(x => x.ContaReceberId == id)
-            .ToListAsync(cancellationToken);
-
-        dbContext.RateiosContaGerencial.RemoveRange(rateiosExistentes);
-        dbContext.RateiosContaGerencial.AddRange(conta.Rateios);
+        await SincronizarRateiosContaAsync(conta, cancellationToken);
 
         if (liquidarNaCriacao &&
             !await dbContext.MovimentacoesFinanceiras.AnyAsync(x => x.ContaReceberId == conta.Id, cancellationToken))
         {
             dbContext.MovimentacoesFinanceiras.AddRange(
                 AplicarLiquidacaoAutomatica([conta], request.DataLiquidacao, request.ContaBancariaId!.Value));
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await MapearDetalheAsync(conta, cancellationToken);
+    }
+
+    public async Task<ContaReceberDetalheResponse?> AlterarFuturasAsync(
+        Guid id,
+        AtualizarContaReceberRequest request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await dbContext.ContasReceber.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (conta is null)
+        {
+            return null;
+        }
+
+        var regra = await ObterRegraRecorrenciaObrigatoriaAsync(conta, cancellationToken);
+        ValidarRecorrencia(request.Recorrencia, request.QuantidadeParcelas);
+
+        var recorrencia = request.Recorrencia ?? new RecorrenciaConfigRequest(
+            MapearTipoPeriodicidadeContrato(regra.TipoPeriodicidade),
+            regra.DiaGeracaoMensal,
+            regra.DataInicio,
+            regra.DataFim,
+            regra.PermiteEdicaoOcorrenciaIndividual,
+            regra.Observacao);
+
+        await ValidarCriacaoOuAtualizacaoAsync(
+            request.PagadorId,
+            request.ResponsavelId,
+            request.FormaPagamentoId,
+            request.CartaoId,
+            request.ContaBancariaId,
+            request.DataLiquidacao,
+            request.QuantidadeParcelas,
+            request.Rateios,
+            cancellationToken);
+
+        regra.Atualizar(
+            MapearTipoPeriodicidadeDominio(recorrencia.TipoPeriodicidade),
+            recorrencia.DiaGeracaoMensal,
+            recorrencia.DataInicio,
+            recorrencia.DataFim,
+            recorrencia.PermiteEdicaoOcorrenciaIndividual,
+            recorrencia.Observacao,
+            SerializarTemplate(request));
+
+        var contasFuturas = await dbContext.ContasReceber
+            .Where(x =>
+                x.RegraRecorrenciaId == regra.Id &&
+                x.DataVencimento >= conta.DataVencimento &&
+                x.StatusContaId != StatusConta.LiquidadaId &&
+                x.StatusContaId != StatusConta.CanceladaId)
+            .OrderBy(x => x.DataVencimento)
+            .ToListAsync(cancellationToken);
+
+        foreach (var contaFutura in contasFuturas)
+        {
+            var mesOffset = RecorrenciaDateHelper.CalculateMonthOffset(conta.DataVencimento, contaFutura.DataVencimento);
+            var requestAjustado = AjustarRequestParaMes(request, mesOffset);
+
+            AtualizarContaExistente(contaFutura, requestAjustado);
+            await SincronizarRateiosContaAsync(contaFutura, cancellationToken);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await MapearDetalheAsync(conta, cancellationToken);
+    }
+
+    public async Task<ContaReceberDetalheResponse?> GerarOcorrenciasAsync(
+        Guid id,
+        GerarOcorrenciasRecorrenciaRequest request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await dbContext.ContasReceber.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (conta is null)
+        {
+            return null;
+        }
+
+        var regra = await ObterRegraRecorrenciaObrigatoriaAsync(conta, cancellationToken);
+
+        if (!regra.Ativa)
+        {
+            throw ValidationExceptionFactory.Create("Recorrencia", "A recorrencia esta pausada ou encerrada.");
+        }
+
+        var datasExistentes = await dbContext.ContasReceber
+            .Where(x => x.RegraRecorrenciaId == regra.Id)
+            .Select(x => x.DataVencimento)
+            .ToArrayAsync(cancellationToken);
+
+        var datasPendentes = regra.CalcularDatasPendentes(datasExistentes, request.AteData);
+        var template = DesserializarTemplate(regra.TemplateJson);
+
+        var novasContas = datasPendentes
+            .Select(dataVencimento => CriarOcorrenciaRecorrente(template, regra.Id, dataVencimento))
+            .ToArray();
+
+        dbContext.ContasReceber.AddRange(novasContas);
+        dbContext.RateiosContaGerencial.AddRange(novasContas.SelectMany(x => x.Rateios));
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await MapearDetalheAsync(conta, cancellationToken);
+    }
+
+    public async Task<ContaReceberDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var conta = await dbContext.ContasReceber.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (conta is null)
+        {
+            return null;
+        }
+
+        var regra = await ObterRegraRecorrenciaObrigatoriaAsync(conta, cancellationToken);
+        regra.Pausar();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await MapearDetalheAsync(conta, cancellationToken);
+    }
+
+    public async Task<ContaReceberDetalheResponse?> EncerrarRecorrenciaAsync(
+        Guid id,
+        EncerrarRecorrenciaRequest request,
+        CancellationToken cancellationToken)
+    {
+        var conta = await dbContext.ContasReceber.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (conta is null)
+        {
+            return null;
+        }
+
+        var regra = await ObterRegraRecorrenciaObrigatoriaAsync(conta, cancellationToken);
+        regra.Encerrar(request.DataFim);
+
+        var contasPosteriores = await dbContext.ContasReceber
+            .Where(x =>
+                x.RegraRecorrenciaId == regra.Id &&
+                x.DataVencimento > request.DataFim &&
+                x.StatusContaId != StatusConta.LiquidadaId &&
+                x.StatusContaId != StatusConta.CanceladaId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var contaPosterior in contasPosteriores)
+        {
+            contaPosterior.Cancelar(StatusConta.CanceladaId);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -316,6 +465,9 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             ? await dbContext.ContasBancarias.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.ContaBancariaId.Value, cancellationToken)
             : null;
         var status = await dbContext.StatusContas.AsNoTracking().SingleAsync(x => x.Id == conta.StatusContaId, cancellationToken);
+        var regra = conta.RegraRecorrenciaId.HasValue
+            ? await dbContext.RegrasRecorrencia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken)
+            : null;
 
         var rateios = await (
             from rateio in dbContext.RateiosContaGerencial.AsNoTracking()
@@ -361,7 +513,9 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             conta.Observacao,
             status.Codigo,
             status.Nome,
+            conta.EhRecorrente,
             MapearOrigem(conta.Origem),
+            MapearRecorrencia(regra),
             rateios,
             conta.CreatedAtUtc,
             conta.UpdatedAtUtc);
@@ -479,6 +633,100 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
         return ValidationExceptionFactory.Create("Request", exception.Message);
     }
 
+    private static TipoPeriodicidadeRecorrenciaDomain MapearTipoPeriodicidadeDominio(TipoPeriodicidadeRecorrenciaContract tipo)
+    {
+        return tipo switch
+        {
+            TipoPeriodicidadeRecorrenciaContract.Mensal => TipoPeriodicidadeRecorrenciaDomain.Mensal,
+            _ => throw new ArgumentOutOfRangeException(nameof(tipo))
+        };
+    }
+
+    private static TipoPeriodicidadeRecorrenciaContract MapearTipoPeriodicidadeContrato(TipoPeriodicidadeRecorrenciaDomain tipo)
+    {
+        return tipo switch
+        {
+            TipoPeriodicidadeRecorrenciaDomain.Mensal => TipoPeriodicidadeRecorrenciaContract.Mensal,
+            _ => throw new ArgumentOutOfRangeException(nameof(tipo))
+        };
+    }
+
+    private static void ValidarRecorrencia(RecorrenciaConfigRequest? recorrencia, int quantidadeParcelas)
+    {
+        if (recorrencia is not null && quantidadeParcelas != 1)
+        {
+            throw ValidationExceptionFactory.Create("QuantidadeParcelas", "Recorrencia inicial nao pode ser combinada com parcelamento.");
+        }
+    }
+
+    private RegraRecorrencia CriarRegraRecorrencia(CriarContaReceberRequest request, RecorrenciaConfigRequest recorrencia)
+    {
+        return RegraRecorrencia.Criar(
+            TipoLancamentoRecorrencia.ContaReceber,
+            MapearTipoPeriodicidadeDominio(recorrencia.TipoPeriodicidade),
+            recorrencia.DiaGeracaoMensal,
+            recorrencia.DataInicio,
+            recorrencia.DataFim,
+            recorrencia.PermiteEdicaoOcorrenciaIndividual,
+            recorrencia.Observacao,
+            SerializarTemplate(request));
+    }
+
+    private static string SerializarTemplate(CriarContaReceberRequest request)
+    {
+        return JsonSerializer.Serialize(new ContaReceberRecorrenciaTemplate(
+            request.NumeroDocumento,
+            request.DataEmissao,
+            request.ResponsavelId,
+            request.PagadorId,
+            request.DataVencimento,
+            request.FormaPagamentoId,
+            request.CartaoId,
+            request.ContaBancariaId,
+            request.ValorOriginal,
+            request.ValorDesconto,
+            request.ValorJuros,
+            request.ValorMulta,
+            request.Descricao,
+            request.Observacao,
+            request.Rateios.Select(x => new RateioRecorrenciaTemplate(x.ContaGerencialId, x.Valor)).ToArray()));
+    }
+
+    private static string SerializarTemplate(AtualizarContaReceberRequest request)
+    {
+        return JsonSerializer.Serialize(new ContaReceberRecorrenciaTemplate(
+            request.NumeroDocumento,
+            request.DataEmissao,
+            request.ResponsavelId,
+            request.PagadorId,
+            request.DataVencimento,
+            request.FormaPagamentoId,
+            request.CartaoId,
+            request.ContaBancariaId,
+            request.ValorOriginal,
+            request.ValorDesconto,
+            request.ValorJuros,
+            request.ValorMulta,
+            request.Descricao,
+            request.Observacao,
+            request.Rateios.Select(x => new RateioRecorrenciaTemplate(x.ContaGerencialId, x.Valor)).ToArray()));
+    }
+
+    private static ContaReceberRecorrenciaTemplate DesserializarTemplate(string templateJson)
+    {
+        return JsonSerializer.Deserialize<ContaReceberRecorrenciaTemplate>(templateJson)
+               ?? throw new InvalidOperationException("Template de recorrencia invalido.");
+    }
+
+    private static AtualizarContaReceberRequest AjustarRequestParaMes(AtualizarContaReceberRequest request, int monthOffset)
+    {
+        return request with
+        {
+            DataEmissao = RecorrenciaDateHelper.Shift(request.DataEmissao, monthOffset),
+            DataVencimento = RecorrenciaDateHelper.Shift(request.DataVencimento, monthOffset)
+        };
+    }
+
     private static LancamentoOrigem MapearOrigem(OrigemLancamento origem)
     {
         return origem switch
@@ -489,4 +737,121 @@ public sealed class ContaReceberAppService(IAppDbContext dbContext)
             _ => throw new ArgumentOutOfRangeException(nameof(origem))
         };
     }
+
+    private static ContaReceber CriarOcorrenciaRecorrente(
+        ContaReceberRecorrenciaTemplate template,
+        Guid regraRecorrenciaId,
+        DateOnly dataVencimento)
+    {
+        var monthOffset = RecorrenciaDateHelper.CalculateMonthOffset(template.DataVencimento, dataVencimento);
+
+        return ContaReceber.Criar(
+            template.NumeroDocumento,
+            RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
+            template.ResponsavelId,
+            template.PagadorId,
+            dataVencimento,
+            template.FormaPagamentoId,
+            template.CartaoId,
+            template.ContaBancariaId,
+            template.ValorOriginal,
+            template.ValorDesconto,
+            template.ValorJuros,
+            template.ValorMulta,
+            1,
+            1,
+            null,
+            template.Descricao,
+            template.Observacao,
+            StatusConta.PendenteId,
+            true,
+            regraRecorrenciaId,
+            OrigemLancamento.Recorrencia,
+            template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray());
+    }
+
+    private static void AtualizarContaExistente(ContaReceber conta, AtualizarContaReceberRequest request)
+    {
+        try
+        {
+            conta.Atualizar(
+                request.NumeroDocumento,
+                request.DataEmissao,
+                request.ResponsavelId,
+                request.PagadorId,
+                request.DataVencimento,
+                request.FormaPagamentoId,
+                request.CartaoId,
+                request.ContaBancariaId,
+                request.ValorOriginal,
+                request.ValorDesconto,
+                request.ValorJuros,
+                request.ValorMulta,
+                request.Descricao,
+                request.Observacao,
+                StatusConta.PendenteId,
+                ConverterRateios(request.Rateios));
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            throw ConverterParaValidacao(exception);
+        }
+    }
+
+    private async Task SincronizarRateiosContaAsync(ContaReceber conta, CancellationToken cancellationToken)
+    {
+        var rateiosExistentes = await dbContext.RateiosContaGerencial
+            .Where(x => x.ContaReceberId == conta.Id)
+            .ToListAsync(cancellationToken);
+
+        dbContext.RateiosContaGerencial.RemoveRange(rateiosExistentes);
+        dbContext.RateiosContaGerencial.AddRange(conta.Rateios);
+    }
+
+    private async Task<RegraRecorrencia> ObterRegraRecorrenciaObrigatoriaAsync(
+        ContaReceber conta,
+        CancellationToken cancellationToken)
+    {
+        if (!conta.RegraRecorrenciaId.HasValue)
+        {
+            throw ValidationExceptionFactory.Create("Recorrencia", "A conta informada nao possui regra de recorrencia.");
+        }
+
+        return await dbContext.RegrasRecorrencia
+            .SingleAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
+    }
+
+    private static RecorrenciaResponse? MapearRecorrencia(RegraRecorrencia? regra)
+    {
+        return regra is null
+            ? null
+            : new RecorrenciaResponse(
+                regra.Id,
+                MapearTipoPeriodicidadeContrato(regra.TipoPeriodicidade),
+                regra.DiaGeracaoMensal,
+                regra.DataInicio,
+                regra.DataFim,
+                regra.Ativa,
+                regra.PermiteEdicaoOcorrenciaIndividual,
+                regra.Observacao);
+    }
+
+    private sealed record ContaReceberRecorrenciaTemplate(
+        string? NumeroDocumento,
+        DateOnly DataEmissao,
+        Guid? ResponsavelId,
+        Guid PagadorId,
+        DateOnly DataVencimento,
+        Guid FormaPagamentoId,
+        Guid? CartaoId,
+        Guid? ContaBancariaId,
+        decimal ValorOriginal,
+        decimal ValorDesconto,
+        decimal ValorJuros,
+        decimal ValorMulta,
+        string Descricao,
+        string? Observacao,
+        IReadOnlyCollection<RateioRecorrenciaTemplate> Rateios);
+
+    private sealed record RateioRecorrenciaTemplate(Guid ContaGerencialId, decimal Valor);
 }

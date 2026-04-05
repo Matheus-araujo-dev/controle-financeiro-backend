@@ -34,5 +34,7 @@ public interface IAppDbContext
 
     DbSet<FaturaCartao> FaturasCartao { get; }
 
+    DbSet<RegraRecorrencia> RegrasRecorrencia { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

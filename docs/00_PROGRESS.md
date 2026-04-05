@@ -1,7 +1,7 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 4: cartoes e faturas concluida com compras em cartao, competencia de fatura, agrupamento de itens e pagamento de fatura.
+- Fase 5: recorrencia concluida com regra persistida, geracao de ocorrencias, pausa, encerramento, edicao pontual e alteracao futura.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
@@ -17,6 +17,10 @@
 - A fase 4 passou a tratar compra em cartao como despesa economica na data da compra, com movimentacao economica dedicada e sem saida bancaria real naquele momento.
 - `FaturaCartao` foi introduzida como agregacao persistida por `CartaoId + Competencia`, com sincronizacao pragmatica a partir das compras em cartao e pagamento gerando uma unica movimentacao real de saida.
 - O calculo de competencia ficou centralizado em `FaturaCartaoCompetencia`, com testes automatizados cobrindo fechamento/vencimento inclusive quando o dia de vencimento cai no mes seguinte.
+- A fase 5 materializou `RegraRecorrencia` como entidade persistida e vinculada a `ContaPagar` e `ContaReceber`, sem criar um modulo de rotas separado do nucleo financeiro.
+- A geracao de ocorrencias recorrentes ficou explicita por acao de negocio (`gerar-ocorrencias`) e produz previsoes pendentes, sem antecipar liquidacao automatica nem movimentacao financeira real nas novas ocorrencias.
+- `Recorrencia` e `parcelamento` ficaram mutuamente exclusivos neste corte inicial para evitar mistura de duas regras de geracao distintas antes da fase de dashboard e fluxo de caixa.
+- A alteracao futura parte da ocorrencia selecionada e propaga o novo template apenas para ocorrencias posteriores ainda editaveis, preservando o historico ja realizado.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

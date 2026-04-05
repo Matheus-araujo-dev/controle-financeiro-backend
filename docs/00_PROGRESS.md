@@ -1,7 +1,7 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 8: conciliacao inicial e robustez concluidas com listagem de itens de extrato, sugestoes de vinculo, conciliacao manual assistida, auditoria minima e tratamento controlado de falhas de integracao.
+- Fase 9: fechamento do MVP concluido com README atualizado, documentacao local minima, validacao final e consolidacao dos artefatos de quality gate.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
@@ -36,6 +36,8 @@
 - As sugestoes de conciliacao sao heuristicas e assistidas, baseadas em valor, data, observacao e tipo de movimentacao sugerido; a confirmacao continua sendo exclusivamente manual nesta fase.
 - A conciliacao manual exige item de extrato confirmado, movimentacao bancaria realizada e nao conciliada, gravando auditoria por atualizacao tanto no item importado quanto na movimentacao financeira.
 - Falhas inesperadas no extrator ou na heuristica passaram a ser degradadas para `ERRO_EXTRACAO` com logging explicito, evitando resposta 500 no fluxo de importacao e preparando a observabilidade base exigida nesta fase.
+- A fase 9 nao introduziu modulo de negocio novo; o foco foi consolidar o MVP com README, documentacao local e validacao final coerentes com o estado real do repositorio.
+- O pipeline e a documentacao de qualidade passaram a refletir explicitamente o caminho de coverage usado no backend e a dependencia dos secrets de Sonar para enforcement remoto do gate.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

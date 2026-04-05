@@ -1,15 +1,28 @@
 # Backend - Controle Financeiro
 
-Backend do sistema de controle financeiro, alinhado ate a `Fase 2` do workspace.
+Backend do sistema de controle financeiro, consolidado no fechamento do MVP e alinhado ate a `Fase 9` do workspace.
+
+## Status do MVP
+
+Entregas concluídas no backend:
+
+- fundacao tecnica com `Api`, `Application`, `Domain`, `Infrastructure`, `Contracts` e `SharedKernel`
+- cadastros de apoio: pessoas, formas de pagamento, contas bancarias, cartoes e contas gerenciais
+- nucleo financeiro: contas a pagar, contas a receber, rateio, liquidacao, cancelamento e movimentacoes
+- cartoes e faturas com visao economica versus caixa
+- recorrencia com gerar ocorrencias, pausar, encerrar e alterar futuras
+- dashboard executivo e fluxo de caixa
+- importacoes WhatsApp/OCR com revisao humana
+- conciliacao manual assistida entre extrato importado e movimentacao bancaria
 
 ## Stack
 
 - .NET 9
 - ASP.NET Core Web API
 - EF Core + SQL Server
-- Swagger
+- Swagger/OpenAPI
 - xUnit + FluentAssertions
-- Coverlet + Sonar
+- Coverlet + SonarQube/SonarCloud
 
 ## Estrutura
 
@@ -26,9 +39,30 @@ tests/
   ControleFinanceiro.Application.Tests
   ControleFinanceiro.Domain.Tests
   ControleFinanceiro.Infrastructure.Tests
+docs/
+  00_PROGRESS.md
+  00_BOOTSTRAP_BACKEND.md
+  01_ESTRATEGIA_DE_TESTES_BACKEND.md
+  02_MVP_FECHAMENTO.md
 ```
 
-## Comandos
+## Modulos entregues
+
+- `Bootstrap` e `Security` para smoke, health e auth base em desenvolvimento
+- `Pessoas`
+- `FormasPagamento`
+- `ContasBancarias`
+- `Cartoes`
+- `ContasGerenciais`
+- `ContasPagar`
+- `ContasReceber`
+- `Movimentacoes`
+- `Faturas`
+- `Dashboard`
+- `ImportacoesWhatsApp`
+- `Conciliacao`
+
+## Como rodar
 
 ```powershell
 dotnet restore
@@ -38,43 +72,37 @@ dotnet ef database update --project src\ControleFinanceiro.Infrastructure --star
 dotnet run --project src\ControleFinanceiro.Api
 ```
 
-Swagger: `http://localhost:5000/swagger`
+Endpoints locais:
 
-Health: `http://localhost:5000/health`
+- Swagger: `http://localhost:5000/swagger`
+- Health: `http://localhost:5000/health`
 
-Endpoints estruturais:
-
-- `GET /api/v1/bootstrap/status`
-- `GET /api/v1/bootstrap/modules`
-- `POST /api/v1/bootstrap/echo`
-- `GET /api/v1/security/me`
-
-Cadastros de apoio:
-
-- `GET|POST|PUT /api/v1/pessoas`
-- `PATCH /api/v1/pessoas/{id}/ativar`
-- `PATCH /api/v1/pessoas/{id}/inativar`
-- `GET|POST|PUT /api/v1/formas-pagamento`
-- `GET|POST|PUT /api/v1/contas-bancarias`
-- `GET|POST|PUT /api/v1/cartoes`
-- `GET|POST|PUT /api/v1/contas-gerenciais`
-
-## Qualidade
-
-- cobertura OpenCover gerada em `tests/*/coverage.opencover.xml`
-- workflow próprio em `.github/workflows/ci.yml`
-- Sonar preparado via `SONAR_TOKEN` e `SONAR_HOST_URL`
-
-## Escopo desta entrega
-
-- camadas base completas
-- auth preparada com modo `Development` via header `X-Debug-User`
-- tratamento de erro padronizado
-- filtros e paginacao estruturais
-- auditoria base e migration inicial
-- endpoints tecnicos para smoke e integracao inicial
-
-## Configuração local
+## Configuracao local
 
 - ajustar `ConnectionStrings:SqlServer` em `src/ControleFinanceiro.Api/appsettings.json` ou `appsettings.Local.json`
-- a migration inicial do bootstrap já está versionada no repositório
+- a autenticacao de desenvolvimento usa header `X-Debug-User`
+- as migrations ja estao versionadas no repositorio
+
+## Qualidade e quality gate
+
+- cobertura OpenCover gerada em `tests/*/TestResults/coverage/coverage.opencover.xml`
+- workflow proprio em [`.github/workflows/ci.yml`](D:\Projetos\controle-financeiro\backend\.github\workflows\ci.yml)
+- Sonar preparado em [`sonar-project.properties`](D:\Projetos\controle-financeiro\backend\sonar-project.properties)
+- o workflow aguarda o quality gate com `sonar.qualitygate.wait=true` quando `SONAR_TOKEN` e `SONAR_HOST_URL` estiverem configurados
+
+## Validacao local recomendada
+
+```powershell
+dotnet build --configuration Release -m:1 --no-restore
+dotnet test --configuration Release -m:1 --no-build --no-restore /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+```
+
+## Documentacao local
+
+- progresso e decisoes: [`docs/00_PROGRESS.md`](D:\Projetos\controle-financeiro\backend\docs\00_PROGRESS.md)
+- fechamento do MVP: [`docs/02_MVP_FECHAMENTO.md`](D:\Projetos\controle-financeiro\backend\docs\02_MVP_FECHAMENTO.md)
+
+## Pendencias nao criticas
+
+- configurar secrets reais de SonarQube/SonarCloud no CI para transformar o quality gate remoto em bloqueio efetivo
+- ampliar cobertura seletiva de `Application` e `Infrastructure` conforme a base evoluir alem do MVP

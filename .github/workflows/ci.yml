@@ -36,7 +36,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test with coverage
-        run: dotnet test --configuration Release --no-build
+        run: dotnet test --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Install SonarScanner
         if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
@@ -56,7 +56,7 @@ jobs:
             /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
             /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
             /d:sonar.qualitygate.wait=true \
-            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage/coverage.opencover.xml" \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage/coverage.opencover.xml,**/coverage.opencover.xml" \
             ${EXTRA_ARGS}
 
       - name: Sonar Build

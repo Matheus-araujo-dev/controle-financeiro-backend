@@ -1,7 +1,7 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 5: recorrencia concluida com regra persistida, geracao de ocorrencias, pausa, encerramento, edicao pontual e alteracao futura.
+- Fase 6: dashboard e fluxo de caixa concluidos com resumo executivo, listas operacionais e projecao diaria em visao de caixa e visao economica.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
@@ -21,6 +21,10 @@
 - A geracao de ocorrencias recorrentes ficou explicita por acao de negocio (`gerar-ocorrencias`) e produz previsoes pendentes, sem antecipar liquidacao automatica nem movimentacao financeira real nas novas ocorrencias.
 - `Recorrencia` e `parcelamento` ficaram mutuamente exclusivos neste corte inicial para evitar mistura de duas regras de geracao distintas antes da fase de dashboard e fluxo de caixa.
 - A alteracao futura parte da ocorrencia selecionada e propaga o novo template apenas para ocorrencias posteriores ainda editaveis, preservando o historico ja realizado.
+- A fase 6 foi implementada como modulo de leitura (`DashboardAppService` + `DashboardController`), sem introduzir novas entidades ou migrations fora do escopo canonico.
+- O resumo executivo passou a aceitar `DataReferencia` e `DiasProjetados` para manter o calculo testavel e deterministico, sem alterar os endpoints canonicos definidos para a fase.
+- Na visao de caixa, compras em cartao abertas entram na projecao pela data prevista da fatura; na visao economica, entram pela data da compra via movimentacao economica, evitando dupla contagem do pagamento da fatura.
+- Contas abertas vencidas antes da janela de projecao sao concentradas no primeiro dia do fluxo para expor risco imediato sem adulterar o saldo base bancario.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

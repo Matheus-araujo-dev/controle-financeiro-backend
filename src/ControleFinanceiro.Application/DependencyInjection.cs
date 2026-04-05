@@ -5,6 +5,7 @@ using ControleFinanceiro.Application.Cadastros.ContasBancarias;
 using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Application.Cadastros.FormasPagamento;
 using ControleFinanceiro.Application.Cadastros.Pessoas;
+using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.Financeiro.ContasPagar;
 using ControleFinanceiro.Application.Financeiro.ContasReceber;
 using ControleFinanceiro.Application.Financeiro.Faturas;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ContaReceberAppService>();
         services.AddScoped<FaturaCartaoAppService>();
         services.AddScoped<MovimentacaoFinanceiraAppService>();
+        services.AddScoped<DashboardAppService>();
         return services;
     }
 }

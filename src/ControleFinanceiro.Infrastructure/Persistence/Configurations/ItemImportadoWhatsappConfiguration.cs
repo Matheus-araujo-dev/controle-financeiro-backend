@@ -1,3 +1,4 @@
+using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -29,5 +30,11 @@ public sealed class ItemImportadoWhatsappConfiguration : IEntityTypeConfiguratio
             .HasMaxLength(1000);
 
         builder.HasIndex(x => x.ImportacaoWhatsappId);
+        builder.HasIndex(x => x.MovimentacaoFinanceiraId);
+
+        builder.HasOne<MovimentacaoFinanceira>()
+            .WithMany()
+            .HasForeignKey(x => x.MovimentacaoFinanceiraId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

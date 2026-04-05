@@ -12,7 +12,18 @@ namespace ControleFinanceiro.Api.Tests.Infrastructure;
 
 public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private readonly Action<IServiceCollection>? _configureAdditionalServices;
     private SqliteConnection? _connection;
+
+    public CustomWebApplicationFactory()
+        : this(null)
+    {
+    }
+
+    internal CustomWebApplicationFactory(Action<IServiceCollection>? configureAdditionalServices = null)
+    {
+        _configureAdditionalServices = configureAdditionalServices;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -44,6 +55,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(options => options.UseSqlite(_connection));
             services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
+            _configureAdditionalServices?.Invoke(services);
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();

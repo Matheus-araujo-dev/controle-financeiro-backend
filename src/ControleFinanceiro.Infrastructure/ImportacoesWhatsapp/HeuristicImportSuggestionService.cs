@@ -35,6 +35,15 @@ public sealed partial class HeuristicImportSuggestionService : IImportSuggestion
             descricao = normalizedText.Length > 120 ? normalizedText[..120] : normalizedText,
             valor = ExtrairValor(normalizedText),
             dataIdentificada = ExtrairData(normalizedText),
+            tipoMovimentacaoSugerido = normalizedTextLower.Contains("receb")
+                || normalizedTextLower.Contains("deposito")
+                || normalizedTextLower.Contains("credito")
+                ? "Entrada"
+                : normalizedTextLower.Contains("pag")
+                    || normalizedTextLower.Contains("debito")
+                    || normalizedTextLower.Contains("compra")
+                    ? "Saida"
+                    : null,
             remetente = request.Remetente,
             tipoOrigem = request.TipoOrigem.ToString(),
             nomeArquivo = request.NomeArquivo,

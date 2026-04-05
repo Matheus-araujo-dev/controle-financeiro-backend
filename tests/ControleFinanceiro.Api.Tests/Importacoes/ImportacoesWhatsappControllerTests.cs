@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Api.Tests.Infrastructure;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ControleFinanceiro.Api.Tests.Importacoes;
 
@@ -123,6 +126,32 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task PostWebhook_QuandoExtratorLancarExcecao_DevePersistirErroExtracaoSemEstourar500()
+    {
+        await using var failingFactory = new CustomWebApplicationFactory(services =>
+        {
+            services.RemoveAll<IDocumentExtractor>();
+            services.AddScoped<IDocumentExtractor, ThrowingDocumentExtractor>();
+        });
+        using var client = failingFactory.CreateClient();
+
+        var webhookResponse = await client.PostAsJsonAsync("/api/v1/importacoes-whatsapp/webhook", new
+        {
+            tipoOrigem = "Texto",
+            remetente = "5511944440000",
+            textoBruto = "Extrato pix recebido cliente 80,00 2026-04-08"
+        });
+
+        webhookResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var detalhe = await webhookResponse.Content.ReadFromJsonAsync<ImportacaoWhatsappDetalheResponse>();
+        detalhe.Should().NotBeNull();
+        detalhe!.StatusCodigo.Should().Be("ERRO_EXTRACAO");
+        detalhe.MensagemErro.Should().Be("Falha ao integrar com o extrator ou a heuristica da importacao.");
+        detalhe.Itens.Should().BeEmpty();
+    }
+
     private sealed record PagedResponse<T>(IReadOnlyCollection<T> Items, int Page, int PageSize, int TotalItems, int TotalPages);
 
     private sealed record ImportacaoWhatsappResumoResponse(
@@ -171,4 +200,12 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         string? Observacao,
         DateTime? ConfirmadoEmUtc,
         DateTime? RejeitadoEmUtc);
+
+    private sealed class ThrowingDocumentExtractor : IDocumentExtractor
+    {
+        public Task<DocumentExtractionResult> ExtractAsync(DocumentExtractionRequest request, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Extrator indisponivel.");
+        }
+    }
 }

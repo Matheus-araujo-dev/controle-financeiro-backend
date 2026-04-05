@@ -140,6 +140,28 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
         StatusMovimentacaoId = statusMovimentacaoId;
     }
 
+    public void Conciliar(DateOnly dataConciliacao, Guid statusMovimentacaoConciliadaId, string? observacao)
+    {
+        if (ContaBancariaId is null)
+        {
+            throw new InvalidOperationException("Apenas movimentacoes bancarias podem ser conciliadas.");
+        }
+
+        if (StatusMovimentacaoId == StatusMovimentacao.CanceladaId)
+        {
+            throw new InvalidOperationException("Movimentacao cancelada nao pode ser conciliada.");
+        }
+
+        if (StatusMovimentacaoId == StatusMovimentacao.ConciliadaId || DataConciliacao.HasValue)
+        {
+            throw new InvalidOperationException("Movimentacao ja esta conciliada.");
+        }
+
+        DataConciliacao = dataConciliacao;
+        StatusMovimentacaoId = statusMovimentacaoConciliadaId;
+        Observacao = string.IsNullOrWhiteSpace(observacao) ? Observacao : observacao.Trim();
+    }
+
     private static MovimentacaoFinanceira Criar(
         DateOnly dataMovimentacao,
         TipoMovimentacao tipo,

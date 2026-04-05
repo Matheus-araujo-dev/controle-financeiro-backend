@@ -6,6 +6,7 @@ using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.ImportacoesWhatsapp;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace ControleFinanceiro.Application.ImportacoesWhatsapp;
 
@@ -13,7 +14,8 @@ public sealed class ImportacoesWhatsappAppService(
     IAppDbContext dbContext,
     IFileStorage fileStorage,
     IDocumentExtractor documentExtractor,
-    IImportSuggestionService importSuggestionService)
+    IImportSuggestionService importSuggestionService,
+    ILogger<ImportacoesWhatsappAppService> logger)
 {
     private static readonly string[] MimeTypesSuportados =
     [
@@ -199,41 +201,55 @@ public sealed class ImportacoesWhatsappAppService(
     private async Task ProcessarImportacaoAsync(ImportacaoWhatsapp importacao, CancellationToken cancellationToken)
     {
         importacao.MarcarEmProcessamento();
-
-        var extractionResult = await documentExtractor.ExtractAsync(
-            new DocumentExtractionRequest(
-                importacao.TextoBruto,
-                importacao.NomeArquivo,
-                importacao.MimeType,
-                importacao.CaminhoArquivo),
-            cancellationToken);
-
-        if (!extractionResult.Success || string.IsNullOrWhiteSpace(extractionResult.TextoExtraido))
+        try
         {
-            importacao.RegistrarErroExtracao(extractionResult.MensagemErro ?? "Nao foi possivel extrair conteudo da importacao.");
-            return;
+            var extractionResult = await documentExtractor.ExtractAsync(
+                new DocumentExtractionRequest(
+                    importacao.TextoBruto,
+                    importacao.NomeArquivo,
+                    importacao.MimeType,
+                    importacao.CaminhoArquivo),
+                cancellationToken);
+
+            if (!extractionResult.Success || string.IsNullOrWhiteSpace(extractionResult.TextoExtraido))
+            {
+                importacao.RegistrarErroExtracao(extractionResult.MensagemErro ?? "Nao foi possivel extrair conteudo da importacao.");
+                logger.LogWarning(
+                    "Falha de extracao na importacao WhatsApp {ImportacaoId}: {MensagemErro}",
+                    importacao.Id,
+                    importacao.MensagemErro);
+                return;
+            }
+
+            importacao.RegistrarExtracaoComSucesso(extractionResult.Confianca);
+
+            var itens = await importSuggestionService.GenerateAsync(
+                new ImportSuggestionRequest(
+                    importacao.TipoOrigem,
+                    importacao.Remetente,
+                    extractionResult.TextoExtraido,
+                    importacao.NomeArquivo,
+                    importacao.MimeType),
+                cancellationToken);
+
+            var itensGerados = itens
+                .Select(item => ItemImportadoWhatsapp.Criar(
+                    importacao.Id,
+                    item.TipoSugestao,
+                    item.PayloadSugeridoJson))
+                .ToArray();
+
+            importacao.SubstituirItens(itensGerados);
+            dbContext.ItensImportadosWhatsapp.AddRange(itensGerados);
         }
-
-        importacao.RegistrarExtracaoComSucesso(extractionResult.Confianca);
-
-        var itens = await importSuggestionService.GenerateAsync(
-            new ImportSuggestionRequest(
-                importacao.TipoOrigem,
-                importacao.Remetente,
-                extractionResult.TextoExtraido,
-                importacao.NomeArquivo,
-                importacao.MimeType),
-            cancellationToken);
-
-        var itensGerados = itens
-            .Select(item => ItemImportadoWhatsapp.Criar(
-                importacao.Id,
-                item.TipoSugestao,
-                item.PayloadSugeridoJson))
-            .ToArray();
-
-        importacao.SubstituirItens(itensGerados);
-        dbContext.ItensImportadosWhatsapp.AddRange(itensGerados);
+        catch (Exception exception)
+        {
+            importacao.RegistrarErroExtracao("Falha ao integrar com o extrator ou a heuristica da importacao.");
+            logger.LogError(
+                exception,
+                "Erro ao processar importacao WhatsApp {ImportacaoId}",
+                importacao.Id);
+        }
     }
 
     private static void ValidarWebhook(ReceberImportacaoWhatsappWebhookRequest request)

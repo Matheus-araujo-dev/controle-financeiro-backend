@@ -1,7 +1,7 @@
 # Progress Log - Backend
 
 ## Ultima fase concluida
-- Fase 7: importacoes WhatsApp e OCR concluidas com webhook, armazenamento do artefato, extracao simulada, sugestoes e revisao humana ponta a ponta.
+- Fase 8: conciliacao inicial e robustez concluidas com listagem de itens de extrato, sugestoes de vinculo, conciliacao manual assistida, auditoria minima e tratamento controlado de falhas de integracao.
 
 ## Decisoes locais
 - .NET 9 foi adotado porque ja esta disponivel no ambiente e a documentacao permite .NET 9 ou LTS vigente.
@@ -31,6 +31,11 @@
 - A extracao e a geracao de sugestoes ficaram simuladas por heuristica local neste corte, suficientes para o fluxo ponta a ponta exigido pela fase sem inventar integracao real de OCR/IA fora da documentacao.
 - Confirmar ou rejeitar item atualiza apenas o estado de revisao da importacao nesta fase; nao ha efetivacao automatica de `ContaPagar`, `ContaReceber`, `Movimentacao` ou `CompraCartao`, em linha com a decisao canonica de revisao humana obrigatoria no MVP.
 - O reprocessamento substitui integralmente os itens sugeridos da importacao e reexecuta a extracao/sugestao com base no texto bruto e no artefato armazenado, preservando o mesmo registro raiz da importacao.
+- A fase 8 reutilizou `ItemImportadoWhatsapp` do tipo `ItemExtrato` como origem do extrato importado, sem criar uma entidade nova de conciliacao fora do modelo canonico mais recente.
+- O vinculo manual passou a ser persistido por `MovimentacaoFinanceiraId` opcional em `ItemImportadoWhatsapp`, enquanto `MovimentacaoFinanceira` ganhou operacao explicita de conciliacao e aproveitou `DataConciliacao`/`StatusMovimentacao` ja previstos no dominio.
+- As sugestoes de conciliacao sao heuristicas e assistidas, baseadas em valor, data, observacao e tipo de movimentacao sugerido; a confirmacao continua sendo exclusivamente manual nesta fase.
+- A conciliacao manual exige item de extrato confirmado, movimentacao bancaria realizada e nao conciliada, gravando auditoria por atualizacao tanto no item importado quanto na movimentacao financeira.
+- Falhas inesperadas no extrator ou na heuristica passaram a ser degradadas para `ERRO_EXTRACAO` com logging explicito, evitando resposta 500 no fluxo de importacao e preparando a observabilidade base exigida nesta fase.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

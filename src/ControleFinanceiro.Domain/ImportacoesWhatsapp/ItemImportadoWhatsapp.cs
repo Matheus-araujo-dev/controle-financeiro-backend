@@ -14,6 +14,8 @@ public sealed class ItemImportadoWhatsapp : AuditableEntity
 
     public string PayloadSugeridoJson { get; private set; } = string.Empty;
 
+    public Guid? MovimentacaoFinanceiraId { get; private set; }
+
     public StatusItemImportadoWhatsapp Status { get; private set; }
 
     public string? Observacao { get; private set; }
@@ -70,5 +72,31 @@ public sealed class ItemImportadoWhatsapp : AuditableEntity
         Observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
         RejeitadoEmUtc = DateTime.UtcNow;
         ConfirmadoEmUtc = null;
+    }
+
+    public void VincularMovimentacao(Guid movimentacaoFinanceiraId, string? observacao)
+    {
+        if (TipoSugestao != TipoSugestaoImportacaoWhatsapp.ItemExtrato)
+        {
+            throw new InvalidOperationException("Somente itens de extrato podem ser vinculados na conciliacao.");
+        }
+
+        if (Status != StatusItemImportadoWhatsapp.Confirmado)
+        {
+            throw new InvalidOperationException("Somente itens confirmados podem ser conciliados.");
+        }
+
+        if (movimentacaoFinanceiraId == Guid.Empty)
+        {
+            throw new ArgumentException("Movimentacao financeira e obrigatoria.", nameof(movimentacaoFinanceiraId));
+        }
+
+        if (MovimentacaoFinanceiraId.HasValue)
+        {
+            throw new InvalidOperationException("Item de extrato ja possui movimentacao conciliada.");
+        }
+
+        MovimentacaoFinanceiraId = movimentacaoFinanceiraId;
+        Observacao = string.IsNullOrWhiteSpace(observacao) ? Observacao : observacao.Trim();
     }
 }

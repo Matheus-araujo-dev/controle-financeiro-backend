@@ -243,3 +243,26 @@ public sealed record DashboardCentralPrevisaoItemResponse(
     Guid? ContaGerencialId,
     string? ContaGerencialCodigo,
     string? ContaGerencialDescricao);
+
+public sealed record DashboardResponsavelQueryRequest
+{
+    public string? MesReferencia { get; init; }
+    public DateOnly? DataInicial { get; init; }
+    public int Dias { get; init; } = 30;
+}
+
+public sealed record DashboardResponsavelItemResponse(
+    Guid? ResponsavelId,
+    string ResponsavelNome,
+    decimal TotalDespesas,
+    decimal TotalDespesasCartao,
+    decimal TotalReceitas,
+    decimal SaldoLiquido,
+    int QuantidadeLancamentos);
+
+public sealed record DashboardResponsavelResumoResponse(
+    DateOnly DataInicial,
+    int Dias,
+    decimal TotalDespesas,
+    decimal TotalReceitas,
+    IReadOnlyList<DashboardResponsavelItemResponse> Itens);

@@ -56,6 +56,15 @@ public sealed class DashboardController(DashboardAppService service) : ApiContro
         return Ok(await service.ObterContaGerencialLancamentosAsync(query, cancellationToken));
     }
 
+    [HttpGet("responsaveis/resumo")]
+    [ProducesResponseType(typeof(DashboardResponsavelResumoResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<DashboardResponsavelResumoResponse>> ObterResumoPorResponsavel(
+        [FromQuery] DashboardResponsavelQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await service.ObterResumoPorResponsavelAsync(query, cancellationToken));
+    }
+
     [HttpGet("central-previsao/resumo")]
     [ProducesResponseType(typeof(DashboardCentralPrevisaoResumoResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<DashboardCentralPrevisaoResumoResponse>> ObterResumoCentralPrevisao(

@@ -16,3 +16,7 @@ coverage.opencover.xml
 src/ControleFinanceiro.Api/appsettings.Local.json
 src/ControleFinanceiro.Api/appsettings.Development.json
 gitleaks.toml
+
+src/ControleFinanceiro.Api/App_Data/
+src/ControleFinanceiro.Api/logs/
+*.log

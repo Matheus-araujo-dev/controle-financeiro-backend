@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Cadastros.Cartoes;
 
-public sealed class Cartao : AuditableEntity
+public sealed class Cartao : TenantEntity
 {
     private Cartao()
     {
@@ -60,17 +60,17 @@ public sealed class Cartao : AuditableEntity
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
-            throw new ArgumentException("Nome e obrigatorio.", nameof(nome));
+            throw new ArgumentException("Nome é obrigatório.", nameof(nome));
         }
 
         if (string.IsNullOrWhiteSpace(bandeira))
         {
-            throw new ArgumentException("Bandeira e obrigatoria.", nameof(bandeira));
+            throw new ArgumentException("Bandeira é obrigatória.", nameof(bandeira));
         }
 
         if (string.IsNullOrWhiteSpace(numeroFinal) || numeroFinal.Length != 4 || numeroFinal.Any(ch => !char.IsDigit(ch)))
         {
-            throw new ArgumentException("Numero final deve possuir exatamente 4 digitos.", nameof(numeroFinal));
+            throw new ArgumentException("Número final deve possuir exatamente 4 dígitos.", nameof(numeroFinal));
         }
 
         if (diaFechamentoFatura < 1 || diaFechamentoFatura > 31)

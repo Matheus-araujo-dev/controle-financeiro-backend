@@ -15,7 +15,7 @@ public sealed class LocalImportFileStorage(IWebHostEnvironment environment) : IF
         }
         catch (FormatException exception)
         {
-            throw new ArgumentException("Arquivo base64 invalido.", nameof(request.ArquivoBase64), exception);
+            throw new ArgumentException("Arquivo base64 inválido.", nameof(request.ArquivoBase64), exception);
         }
 
         var sanitizedName = SanitizeFileName(request.NomeArquivo);
@@ -23,7 +23,7 @@ public sealed class LocalImportFileStorage(IWebHostEnvironment environment) : IF
         var absolutePath = Path.Combine(environment.ContentRootPath, relativePath);
 
         var directory = Path.GetDirectoryName(absolutePath)
-            ?? throw new InvalidOperationException("Nao foi possivel determinar o diretorio de armazenamento.");
+            ?? throw new InvalidOperationException("Não foi possível determinar o diretório de armazenamento.");
 
         Directory.CreateDirectory(directory);
         await File.WriteAllBytesAsync(absolutePath, content, cancellationToken);

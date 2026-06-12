@@ -24,6 +24,7 @@ public sealed record ContaPagarListQueryRequest : ListQueryRequest
 }
 
 public sealed record CriarContaPagarRequest(
+    Guid? OrigemCompraPlanejadaId,
     string? NumeroDocumento,
     DateOnly DataEmissao,
     Guid? ResponsavelCompraId,
@@ -44,6 +45,7 @@ public sealed record CriarContaPagarRequest(
     RecorrenciaConfigRequest? Recorrencia);
 
 public sealed record AtualizarContaPagarRequest(
+    Guid Id,
     string? NumeroDocumento,
     DateOnly DataEmissao,
     Guid? ResponsavelCompraId,
@@ -84,6 +86,21 @@ public sealed record ContaPagarResumoResponse(
     Guid? GrupoParcelamentoId,
     bool EhRecorrente);
 
+public sealed record ContaPagarListSummaryResponse(
+    int TotalRegistros,
+    decimal ValorTotal,
+    decimal TotalPendente,
+    decimal TotalVencendoHoje,
+    decimal TotalLiquidado);
+
+public sealed record ContaPagarListResponse(
+    IReadOnlyCollection<ContaPagarResumoResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    ContaPagarListSummaryResponse Summary);
+
 public sealed record ContaPagarDetalheResponse(
     Guid Id,
     string? NumeroDocumento,
@@ -110,6 +127,7 @@ public sealed record ContaPagarDetalheResponse(
     int QuantidadeParcelas,
     int NumeroParcela,
     Guid? GrupoParcelamentoId,
+    Guid? OrigemCompraPlanejadaId,
     string Descricao,
     string? Observacao,
     string StatusCodigo,
@@ -117,6 +135,9 @@ public sealed record ContaPagarDetalheResponse(
     bool EhRecorrente,
     LancamentoOrigem Origem,
     RecorrenciaResponse? Recorrencia,
+    string? CompetenciaFaturaCartao,
+    DateOnly? DataFechamentoFaturaCartao,
+    DateOnly? DataVencimentoFaturaCartao,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

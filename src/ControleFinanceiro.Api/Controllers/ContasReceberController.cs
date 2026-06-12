@@ -3,17 +3,21 @@ using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasReceber;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
+[EnableRateLimiting("Relaxed")]
 [Route("api/v1/contas-receber")]
 public sealed class ContasReceberController(ContaReceberAppService service) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<ContaReceberResumoResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<ContaReceberResumoResponse>>> Listar(
+    [ProducesResponseType(typeof(ContaReceberListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ContaReceberListResponse>> Listar(
         [FromQuery] ContaReceberListQueryRequest query,
         CancellationToken cancellationToken)
     {
@@ -112,6 +116,16 @@ public sealed class ContasReceberController(ContaReceberAppService service) : Ap
         CancellationToken cancellationToken)
     {
         var response = await service.LiquidarAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/estornar")]
+    [ProducesResponseType(typeof(ContaReceberDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ContaReceberDetalheResponse>> Estornar(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.EstornarAsync(id, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 

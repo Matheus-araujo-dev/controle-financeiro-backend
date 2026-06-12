@@ -24,6 +24,7 @@ public sealed class ContasBancariasControllerTests(CustomWebApplicationFactory f
             tipoConta = "Corrente",
             saldoInicial = 1500.75m,
             dataSaldoInicial = "2026-04-01",
+            limiteCartoesCompartilhado = 5000m,
             ativo = true
         });
 
@@ -34,6 +35,7 @@ public sealed class ContasBancariasControllerTests(CustomWebApplicationFactory f
         detail.Should().NotBeNull();
         detail!.Banco.Should().Be("Banco Exemplo");
         detail.SaldoInicial.Should().Be(1500.75m);
+        detail.LimiteCartoesCompartilhado.Should().Be(5000m);
     }
 
     private sealed record ContaBancariaResponse(
@@ -45,5 +47,8 @@ public sealed class ContasBancariasControllerTests(CustomWebApplicationFactory f
         string? TipoConta,
         decimal SaldoInicial,
         string DataSaldoInicial,
+        decimal? LimiteCartoesCompartilhado,
+        decimal LimiteCartoesComprometido,
+        decimal? LimiteCartoesDisponivel,
         bool Ativo);
 }

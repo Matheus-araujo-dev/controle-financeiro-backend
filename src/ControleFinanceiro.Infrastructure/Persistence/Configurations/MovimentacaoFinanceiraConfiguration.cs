@@ -32,6 +32,9 @@ public sealed class MovimentacaoFinanceiraConfiguration : IEntityTypeConfigurati
 
         builder.HasIndex(x => x.DataMovimentacao);
 
+        builder.HasIndex("StatusMovimentacaoId", "DataMovimentacao");
+        builder.HasIndex("ContaBancariaId", "DataMovimentacao");
+
         builder.HasOne<ContaBancaria>()
             .WithMany()
             .HasForeignKey(x => x.ContaBancariaId)

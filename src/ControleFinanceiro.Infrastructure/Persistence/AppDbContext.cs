@@ -6,7 +6,9 @@ using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.Domain.Identidade;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
+using ControleFinanceiro.Domain.PlanejamentoCompras;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using ControleFinanceiro.SharedKernel.Common;
 using ControleFinanceiro.Infrastructure.Persistence.Configurations;
@@ -21,10 +23,29 @@ public sealed class AppDbContext(
 {
     private readonly IClock _clock = clock ?? new DefaultClock();
     private readonly ICurrentUser _currentUser = currentUser ?? new AnonymousCurrentUser();
+    private Guid? _familiaCorrente = currentUser?.FamiliaId;
+
+    /// <summary>
+    /// Tenant efetivo da instância. Quando nulo (workers, webhook anônimo, testes de infra),
+    /// os filtros de consulta por família ficam desativados e nada é estampado na inserção.
+    /// </summary>
+    public Guid? FamiliaCorrente => _familiaCorrente;
+
+    public void DefinirFamiliaCorrente(Guid familiaId)
+    {
+        if (familiaId == Guid.Empty)
+        {
+            throw new ArgumentException("Família é obrigatória.", nameof(familiaId));
+        }
+
+        _familiaCorrente = familiaId;
+    }
 
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
+
+    public DbSet<PessoaChavePix> PessoasChavesPix => Set<PessoaChavePix>();
 
     public DbSet<FormaPagamento> FormasPagamento => Set<FormaPagamento>();
 
@@ -54,6 +75,18 @@ public sealed class AppDbContext(
 
     public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();
 
+    public DbSet<PlanejamentoCompra> ComprasPlanejadas => Set<PlanejamentoCompra>();
+
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
+
+    public DbSet<Familia> Familias => Set<Familia>();
+
+    public DbSet<MembroFamilia> MembrosFamilia => Set<MembroFamilia>();
+
+    public DbSet<ConviteFamilia> ConvitesFamilia => Set<ConviteFamilia>();
+
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
@@ -70,6 +103,7 @@ public sealed class AppDbContext(
     {
         modelBuilder.ApplyConfiguration(new AuditTrailEntryConfiguration());
         modelBuilder.ApplyConfiguration(new PessoaConfiguration());
+        modelBuilder.ApplyConfiguration(new PessoaChavePixConfiguration());
         modelBuilder.ApplyConfiguration(new FormaPagamentoConfiguration());
         modelBuilder.ApplyConfiguration(new ContaBancariaConfiguration());
         modelBuilder.ApplyConfiguration(new CartaoConfiguration());
@@ -84,7 +118,41 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ImportacaoWhatsappConfiguration());
         modelBuilder.ApplyConfiguration(new ItemImportadoWhatsappConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanejamentoCompraConfiguration());
+        modelBuilder.ApplyConfiguration(new UsuarioConfiguration());
+        modelBuilder.ApplyConfiguration(new FamiliaConfiguration());
+        modelBuilder.ApplyConfiguration(new MembroFamiliaConfiguration());
+        modelBuilder.ApplyConfiguration(new ConviteFamiliaConfiguration());
+        modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        AplicarConvencoesDeTenant(modelBuilder);
         base.OnModelCreating(modelBuilder);
+    }
+
+    private void AplicarConvencoesDeTenant(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(ITenantEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                continue;
+            }
+
+            var aplicarFiltro = typeof(AppDbContext)
+                .GetMethod(nameof(AplicarFiltroDeTenant), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .MakeGenericMethod(entityType.ClrType);
+
+            aplicarFiltro.Invoke(this, [modelBuilder]);
+
+            modelBuilder.Entity(entityType.ClrType)
+                .HasIndex(nameof(ITenantEntity.FamiliaId));
+        }
+    }
+
+    private void AplicarFiltroDeTenant<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ITenantEntity
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity => _familiaCorrente == null || (Guid?)entity.FamiliaId == _familiaCorrente);
     }
 
     private void PrepareAuditableEntities()
@@ -95,24 +163,29 @@ public sealed class AppDbContext(
         var auditableEntries = ChangeTracker
             .Entries<AuditableEntity>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
-            .ToArray();
+            .ToList();
+
+        if (auditableEntries.Count == 0) return;
 
         foreach (var entry in auditableEntries)
         {
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.StampCreation(utcNow, userId);
+
+                if (entry.Entity is ITenantEntity tenantEntity
+                    && tenantEntity.FamiliaId == Guid.Empty
+                    && _familiaCorrente.HasValue)
+                {
+                    tenantEntity.AtribuirFamilia(_familiaCorrente.Value);
+                }
             }
 
             if (entry.State == EntityState.Modified)
             {
                 entry.Entity.StampUpdate(utcNow, userId);
+                AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
             }
-        }
-
-        foreach (var entry in auditableEntries)
-        {
-            AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
         }
     }
 
@@ -153,5 +226,9 @@ public sealed class AppDbContext(
         public bool IsAuthenticated => false;
 
         public string? UserId => null;
+
+        public Guid? FamiliaId => null;
+
+        public string? Papel => null;
     }
 }

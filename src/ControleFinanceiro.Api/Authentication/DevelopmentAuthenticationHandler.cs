@@ -27,7 +27,9 @@ public sealed class DevelopmentAuthenticationHandler(
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, headerValue.ToString()),
-            new Claim(ClaimTypes.Name, headerValue.ToString())
+            new Claim(ClaimTypes.Name, headerValue.ToString()),
+            new Claim("familiaId", authOptions.Value.DevelopmentFamiliaId.ToString()),
+            new Claim("papel", "Administrador")
         };
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);

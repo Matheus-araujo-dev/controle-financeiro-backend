@@ -8,6 +8,14 @@ public enum PessoaTipo
     Juridica = 2
 }
 
+public enum PessoaChavePixTipo
+{
+    CpfCnpj = 1,
+    Email = 2,
+    Telefone = 3,
+    Aleatoria = 4
+}
+
 public sealed record PessoaListQueryRequest : ListQueryRequest
 {
     public PessoaTipo? TipoPessoa { get; init; }
@@ -21,7 +29,8 @@ public sealed record CriarPessoaRequest(
     string? CpfCnpj,
     string? Email,
     string? Telefone,
-    string? Observacao);
+    string? Observacao,
+    IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix);
 
 public sealed record AtualizarPessoaRequest(
     string Nome,
@@ -29,7 +38,16 @@ public sealed record AtualizarPessoaRequest(
     string? CpfCnpj,
     string? Email,
     string? Telefone,
-    string? Observacao);
+    string? Observacao,
+    IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix);
+
+public sealed record PessoaChavePixRequest(
+    PessoaChavePixTipo Tipo,
+    string Chave);
+
+public sealed record PessoaChavePixResponse(
+    PessoaChavePixTipo Tipo,
+    string Chave);
 
 public sealed record PessoaResumoResponse(
     Guid Id,
@@ -48,6 +66,7 @@ public sealed record PessoaDetalheResponse(
     string? Email,
     string? Telefone,
     string? Observacao,
+    IReadOnlyCollection<PessoaChavePixResponse> ChavesPix,
     bool Ativo,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

@@ -1,5 +1,6 @@
 using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Contracts.Errors;
+using System.Text.RegularExpressions;
 
 namespace ControleFinanceiro.Api.Middleware;
 
@@ -7,11 +8,24 @@ public sealed class ExceptionHandlingMiddleware(
     RequestDelegate next,
     ILogger<ExceptionHandlingMiddleware> logger)
 {
+    private static readonly Regex SensitiveDataPattern = new(
+        @"(cpf|cnpj|senha|password|token|secret|key|chavepix|-chave|credito|limite)[""']?\s*[:=]\s*[""']?([a-zA-Z0-9@#$%^&*]+)[""']?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
             await next(context);
+        }
+        catch (AuthenticationFailedException exception)
+        {
+            await WriteErrorAsync(
+                context,
+                StatusCodes.Status401Unauthorized,
+                "AUTH_FAILED",
+                exception.Message,
+                new Dictionary<string, string[]>());
         }
         catch (ApplicationValidationException exception)
         {
@@ -24,7 +38,8 @@ public sealed class ExceptionHandlingMiddleware(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Unexpected request failure for {Path}", context.Request.Path);
+            var sanitizedPath = SanitizeLog(context.Request.Path.ToString());
+            logger.LogError(exception, "Unexpected request failure for {Path}", sanitizedPath);
 
             await WriteErrorAsync(
                 context,
@@ -33,6 +48,14 @@ public sealed class ExceptionHandlingMiddleware(
                 "An unexpected error occurred.",
                 new Dictionary<string, string[]>());
         }
+    }
+
+    private static string SanitizeLog(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return input;
+        
+        return SensitiveDataPattern.Replace(input, "$1=[REDACTED]");
     }
 
     private static Task WriteErrorAsync(

@@ -2,17 +2,19 @@ using ControleFinanceiro.Application.Financeiro.Faturas;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.Financeiro.Faturas;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/faturas")]
 public sealed class FaturasController(FaturaCartaoAppService service) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<FaturaResumoResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<FaturaResumoResponse>>> Listar(
+    [ProducesResponseType(typeof(FaturaListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<FaturaListResponse>> Listar(
         [FromQuery] FaturaListQueryRequest query,
         CancellationToken cancellationToken)
     {
@@ -38,6 +40,16 @@ public sealed class FaturasController(FaturaCartaoAppService service) : ApiContr
         CancellationToken cancellationToken)
     {
         var response = await service.PagarAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/estornar")]
+    [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<FaturaDetalheResponse>> Estornar(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.EstornarAsync(id, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 }

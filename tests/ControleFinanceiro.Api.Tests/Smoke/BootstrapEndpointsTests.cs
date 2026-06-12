@@ -2,6 +2,7 @@ using System.Net;
 using ControleFinanceiro.Api.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using System.Text.Json.Nodes;
 
 namespace ControleFinanceiro.Api.Tests.Smoke;
 
@@ -30,5 +31,21 @@ public sealed class BootstrapEndpointsTests(CustomWebApplicationFactory factory)
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         payload.Should().Contain("Swagger UI");
+    }
+
+    [Fact]
+    public async Task GetSwaggerDocument_ShouldExposeSupportedAuthenticationSchemes()
+    {
+        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        var payload = await response.Content.ReadAsStringAsync();
+        var document = JsonNode.Parse(payload);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.Should().NotBeNull();
+        document!["components"]?["securitySchemes"]?["Bearer"]?["type"]?.GetValue<string>().Should().Be("http");
+        document["components"]?["securitySchemes"]?["Bearer"]?["scheme"]?.GetValue<string>().Should().Be("bearer");
+        document["components"]?["securitySchemes"]?["DebugUser"]?["type"]?.GetValue<string>().Should().Be("apiKey");
+        document["components"]?["securitySchemes"]?["DebugUser"]?["name"]?.GetValue<string>().Should().Be("X-Debug-User");
+        document["paths"]?["/api/v1/security/me"]?["get"]?["security"]?.AsArray().Count.Should().Be(2);
     }
 }

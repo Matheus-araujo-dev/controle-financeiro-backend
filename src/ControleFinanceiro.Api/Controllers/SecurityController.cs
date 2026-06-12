@@ -3,11 +3,14 @@ using ControleFinanceiro.Contracts.Security;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
+[EnableRateLimiting("Strict")]
 [Route("api/v1/security")]
 public sealed class SecurityController(
     ICurrentUser currentUser,

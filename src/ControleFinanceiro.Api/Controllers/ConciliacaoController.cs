@@ -2,11 +2,13 @@ using ControleFinanceiro.Application.Conciliacao;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Conciliacao;
 using ControleFinanceiro.Contracts.Errors;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/conciliacao")]
 public sealed class ConciliacaoController(ConciliacaoAppService service) : ApiControllerBase
 {

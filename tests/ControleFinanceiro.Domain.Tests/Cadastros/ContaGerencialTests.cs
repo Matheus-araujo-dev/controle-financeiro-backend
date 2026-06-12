@@ -8,7 +8,7 @@ public sealed class ContaGerencialTests
     [Fact]
     public void AtualizarContaPai_QuandoContaPaiForAPropriaConta_DeveFalhar()
     {
-        var conta = ContaGerencial.Criar("ADM", "Administrativo", TipoContaGerencial.Despesa, null, true);
+        var conta = ContaGerencial.Criar("ADM", "Administrativo", TipoContaGerencial.Despesa, null, null, true, false);
 
         var action = () => conta.AtualizarContaPai(conta.Id);
 
@@ -19,8 +19,17 @@ public sealed class ContaGerencialTests
     [Fact]
     public void Criar_DevePermitirContaPaiNula()
     {
-        var conta = ContaGerencial.Criar(null, "Receitas", TipoContaGerencial.Receita, null, true);
+        var conta = ContaGerencial.Criar(null, "Receitas", TipoContaGerencial.Receita, null, null, true, false);
 
         conta.ContaPaiId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Criar_QuandoMarcarPadraoEmContaDespesa_DeveFalhar()
+    {
+        var action = () => ContaGerencial.Criar("DESP", "Despesa", TipoContaGerencial.Despesa, null, null, true, true);
+
+        action.Should().Throw<ArgumentException>()
+            .WithParameterName("ehPadraoRecebimentoFaturaCartao");
     }
 }

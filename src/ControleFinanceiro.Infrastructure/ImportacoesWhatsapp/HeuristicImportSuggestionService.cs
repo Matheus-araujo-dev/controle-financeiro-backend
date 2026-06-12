@@ -17,6 +17,12 @@ public sealed partial class HeuristicImportSuggestionService : IImportSuggestion
         cancellationToken.ThrowIfCancellationRequested();
 
         var normalizedText = request.TextoExtraido.Trim();
+        var invoiceItems = TryBuildCardInvoiceItems(request, normalizedText);
+        if (invoiceItems.Count > 0)
+        {
+            return Task.FromResult<IReadOnlyCollection<ImportSuggestionItem>>(invoiceItems);
+        }
+
         var normalizedTextLower = normalizedText.ToLowerInvariant();
 
         var tipoSugestao =
@@ -43,12 +49,7 @@ public sealed partial class HeuristicImportSuggestionService : IImportSuggestion
                     || normalizedTextLower.Contains("debito")
                     || normalizedTextLower.Contains("compra")
                     ? "Saida"
-                    : null,
-            remetente = request.Remetente,
-            tipoOrigem = request.TipoOrigem.ToString(),
-            nomeArquivo = request.NomeArquivo,
-            mimeType = request.MimeType,
-            textoExtraido = normalizedText
+                    : null
         };
 
         IReadOnlyCollection<ImportSuggestionItem> items =
@@ -61,8 +62,92 @@ public sealed partial class HeuristicImportSuggestionService : IImportSuggestion
         return Task.FromResult(items);
     }
 
-    private static decimal? ExtrairValor(string text)
+    private static IReadOnlyCollection<ImportSuggestionItem> TryBuildCardInvoiceItems(
+        ImportSuggestionRequest request,
+        string normalizedText)
     {
+        if (!normalizedText.Contains("DOCUMENTO|FATURA_CARTAO", StringComparison.Ordinal))
+        {
+            return Array.Empty<ImportSuggestionItem>();
+        }
+
+        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var items = new List<ImportSuggestionItem>();
+
+        foreach (var rawLine in normalizedText.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!rawLine.StartsWith("ITEM|", StringComparison.Ordinal))
+            {
+                var metadataSeparator = rawLine.IndexOf('|');
+                if (metadataSeparator > 0)
+                {
+                    metadata[rawLine[..metadataSeparator]] = rawLine[(metadataSeparator + 1)..];
+                }
+
+                continue;
+            }
+
+            var segments = rawLine.Split('|', StringSplitOptions.TrimEntries);
+            if (segments.Length < 4)
+            {
+                continue;
+            }
+
+            var amount = ExtrairValor(segments[3]);
+            var extras = ParseItemExtras(segments.Skip(4));
+            var payload = new
+            {
+                descricao = segments[2],
+                valor = amount,
+                dataIdentificada = segments[1],
+                tipoMovimentacaoSugerido = amount < 0 ? "Entrada" : "Saida",
+                tipoDocumento = metadata.GetValueOrDefault("DOCUMENTO"),
+                emissor = metadata.GetValueOrDefault("EMISSOR"),
+                titular = metadata.GetValueOrDefault("TITULAR"),
+                cartaoFinal = extras.GetValueOrDefault("CARTAO_FINAL") ?? metadata.GetValueOrDefault("CARTAO_FINAL"),
+                portador = extras.GetValueOrDefault("PORTADOR"),
+                parcela = extras.GetValueOrDefault("PARCELA"),
+                dataVencimento = metadata.GetValueOrDefault("VENCIMENTO"),
+                periodoInicio = metadata.GetValueOrDefault("PERIODO_INICIO"),
+                periodoFim = metadata.GetValueOrDefault("PERIODO_FIM"),
+                ehEstorno = string.Equals(extras.GetValueOrDefault("ESTORNO"), "true", StringComparison.OrdinalIgnoreCase),
+                moedaOrigem = extras.GetValueOrDefault("MOEDA_ORIGEM"),
+                valorMoedaOrigem = ExtrairValor(extras.GetValueOrDefault("VALOR_MOEDA_ORIGEM")),
+                cotacao = ExtrairValor(extras.GetValueOrDefault("COTACAO"))
+            };
+
+            items.Add(new ImportSuggestionItem(
+                TipoSugestaoImportacaoWhatsapp.CompraCartao,
+                JsonSerializer.Serialize(payload, JsonOptions)));
+        }
+
+        return items;
+    }
+
+    private static Dictionary<string, string> ParseItemExtras(IEnumerable<string> segments)
+    {
+        var extras = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var segment in segments)
+        {
+            var separatorIndex = segment.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            extras[segment[..separatorIndex]] = segment[(separatorIndex + 1)..];
+        }
+
+        return extras;
+    }
+
+    private static decimal? ExtrairValor(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
         var match = ValorRegex().Match(text);
         if (!match.Success)
         {
@@ -81,7 +166,7 @@ public sealed partial class HeuristicImportSuggestionService : IImportSuggestion
         return match.Success ? match.Value : null;
     }
 
-    [GeneratedRegex(@"\b\d{1,3}(?:\.\d{3})*,\d{2}\b|\b\d+\.\d{2}\b")]
+    [GeneratedRegex(@"(?<!\d)-?(?:\d[\d\.]*,\d{2}|\d+\.\d{2})(?!\d)")]
     private static partial Regex ValorRegex();
 
     [GeneratedRegex(@"\b\d{4}-\d{2}-\d{2}\b")]

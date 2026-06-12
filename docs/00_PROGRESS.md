@@ -29,6 +29,8 @@
 - O pipeline da importacao foi mantido sincrono neste MVP inicial, mas desacoplado por `IFileStorage`, `IDocumentExtractor` e `IImportSuggestionService`, preparando a futura troca por fila/OCR real sem reescrever a API.
 - O armazenamento do artefato usa caminho local controlado em `App_Data/importacoes-whatsapp`, com validacao de `mime type` permitido e sem execucao de qualquer arquivo recebido.
 - A extracao e a geracao de sugestoes ficaram simuladas por heuristica local neste corte, suficientes para o fluxo ponta a ponta exigido pela fase sem inventar integracao real de OCR/IA fora da documentacao.
+- O extrator padrao deixou de ser apenas simulado para PDFs: arquivos com texto embutido agora passam por leitura deterministica, com normalizacao dedicada para os layouts de fatura Bradesco e Nubank validados localmente.
+- A heuristica de importacao passou a reconhecer o texto normalizado de `FATURA_CARTAO` e gerar um item revisavel por transacao, preservando metadata como emissor, portador, cartao final, parcela, moeda e estorno sem efetivacao automatica.
 - Confirmar ou rejeitar item atualiza apenas o estado de revisao da importacao nesta fase; nao ha efetivacao automatica de `ContaPagar`, `ContaReceber`, `Movimentacao` ou `CompraCartao`, em linha com a decisao canonica de revisao humana obrigatoria no MVP.
 - O reprocessamento substitui integralmente os itens sugeridos da importacao e reexecuta a extracao/sugestao com base no texto bruto e no artefato armazenado, preservando o mesmo registro raiz da importacao.
 - A fase 8 reutilizou `ItemImportadoWhatsapp` do tipo `ItemExtrato` como origem do extrato importado, sem criar uma entidade nova de conciliacao fora do modelo canonico mais recente.
@@ -38,6 +40,72 @@
 - Falhas inesperadas no extrator ou na heuristica passaram a ser degradadas para `ERRO_EXTRACAO` com logging explicito, evitando resposta 500 no fluxo de importacao e preparando a observabilidade base exigida nesta fase.
 - A fase 9 nao introduziu modulo de negocio novo; o foco foi consolidar o MVP com README, documentacao local e validacao final coerentes com o estado real do repositorio.
 - O pipeline e a documentacao de qualidade passaram a refletir explicitamente o caminho de coverage usado no backend e a dependencia dos secrets de Sonar para enforcement remoto do gate.
+- Como extensao pos-MVP aprovada localmente, `ContaBancaria` passou a suportar `LimiteCartoesCompartilhado`, com `Cartao` expondo limite efetivo, comprometido e disponivel calculados a partir das compras em cartao ainda abertas.
+- O limite compartilhado nao substitui fisicamente o `LimiteCredito` existente no cadastro do cartao; ele prevalece apenas como limite efetivo quando a conta bancaria vinculada estiver configurada para compartilhamento.
+- O modulo `ComprasPlanejadas` entrou como CRUD proprio, com entidade dedicada, tabela `compras_planejadas`, vinculo obrigatorio com `ContaGerencial` e `Pessoa` responsavel, sem gerar `ContaPagar` automaticamente neste corte.
+- A migration `20260405221837_PostMvpLimiteCompartilhadoEComprasPlanejadas` consolida o novo campo em `contas_bancarias` e a nova tabela do planejador de compras.
+- `ContaGerencial` passou a expor `AceitaLancamentos` como informacao derivada de leitura, permitindo diferenciar conta estrutural de conta lancavel sem alterar a modelagem fisica.
+- `ContaPagar`, `ContaReceber` e `ComprasPlanejadas` agora validam explicitamente que a conta gerencial usada nao seja conta pai com filhos, bloqueando lancamentos em contas estruturais.
+- O dashboard ganhou leitura gerencial por conta com dois endpoints novos, consolidando `RateiosContaGerencial` por `DataEmissao` e mantendo essa visao separada do fluxo de caixa ja existente.
+- O drill-down gerencial foi adicionado em `dashboard/contas-gerenciais/lancamentos`, retornando a composicao de contas a pagar e a receber que formam o total da conta no periodo selecionado.
+- `CompraPlanejada` passou a persistir `Link` opcional com validacao de URL absoluta, mantendo o payload HTTP e os DTOs resumido/detalhado alinhados ao frontend.
+- `ContaPagar` e `CompraPlanejada` passaram a exigir `ContaGerencial` lancavel do tipo `Despesa`, enquanto `ContaReceber` exige `ContaGerencial` lancavel do tipo `Receita`.
+- A migration `20260406174804_PostMvpCompraPlanejadaLink` adiciona a coluna `Link` em `compras_planejadas` sem alterar o restante da modelagem financeira.
+- As sugestoes de importacao deixaram de duplicar `textoExtraido` dentro do payload de cada item, reduzindo ruido de revisao e armazenamento redundante nos casos de fatura com muitos itens.
+- `ContaGerencial` passou a aceitar o papel `EhPadraoRecebimentoFaturaCartao`, com validacao de unicidade e restricao ao tipo `Receita`.
+- A migration `20260406200908_PostMvpImportacoesClassificadas` adiciona classificacao persistida por item importado e cria `Recebimento de divida` quando ainda nao existir nenhuma conta padrao para esse fluxo.
+- A confirmacao de `CompraCartao` na importacao agora pode gravar `ContaGerencial`, `Responsavel` e gerar uma `ContaReceber` pendente para reembolso de terceiro, usando a conta gerencial padrao de recebimento de fatura.
+- `ItemImportadoWhatsapp` passou a manter `ChaveAprendizado`, permitindo prever conta gerencial, responsavel e geracao de conta a receber com base no historico confirmado de itens semelhantes.
+- A migration `20260406205018_PostMvpImportacaoAprendizadoRecorrencia` adiciona `DescricaoAjustada` e `MarcarComoRecorrente` em `ItemImportadoWhatsapp`, preparando o aprendizado de nome amigavel e previsao futura por recorrencia.
+- A revisao de `CompraCartao` agora pode renomear o lancamento sem alterar o payload bruto extraido; quando houver `ContaReceber` gerada no fluxo, a descricao amigavel passa a ser usada no titulo do recebimento.
+- A predicao historica de itens importados foi ampliada para sugerir tambem nome amigavel e recorrencia mensal, alem de conta gerencial, responsavel e geracao de conta a receber.
+- `CompraCartao` passou a exigir `ContaGerencial` e `Responsavel` na confirmacao, impedindo aprovacao sem classificacao minima suficiente para o dashboard gerencial.
+- A importacao de WhatsApp passou a ter aprovacao explicita no nivel agregado, usando `POST /api/v1/importacoes-whatsapp/{id}/confirmar` para travar a revisao e `POST /api/v1/importacoes-whatsapp/{id}/reabrir` para liberar nova edicao.
+- Enquanto a importacao estiver em `PENDENTE_REVISAO`, itens confirmados ou rejeitados podem ser revisados novamente; ao reabrir uma importacao aprovada, os itens retornam a `SUGERIDO` preservando os dados classificados para novo ajuste.
+- O fluxo de caixa futuro passou a considerar apenas compras importadas de cartao vindas de importacoes aprovadas, junto com recorrencias pendentes, com protecao contra duplicidade de parcelas ja previstas.
+- A conciliacao assistida deixou de consumir `ItemImportadoWhatsapp` neste fluxo; itens importados sao encerrados na aprovacao da importacao.
+- O dashboard passou a aceitar `MesReferencia` no formato `yyyy-MM`, usando o mes civil completo como janela para resumo, fluxo de caixa, consolidacao gerencial, serie gerencial e drill-down.
+- Quando `MesReferencia` e informado, o backend passa a projetar o mes futuro inteiro com base em recorrencias, compras em cartao recorrentes aprovadas e parcelas futuras ainda nao materializadas, sem duplicar a serie quando a parcela real seguinte ja existe.
+- A central de previsao foi introduzida no backend como leitura unificada, com endpoints de resumo e itens por dia, origem e status, sem criar entidade persistida separada so para previsoes.
+- A central de previsao marca explicitamente cada item como `Realizado`, `Previsto` ou `Substituido`, substituindo previsoes por ocorrencias reais equivalentes para evitar dupla contagem no dashboard.
+- `CompraPlanejada` passou a poder ser convertida em `ContaPagar` pelo fluxo existente de criacao de conta, preservando vinculo reverso entre os registros e impedindo reconversao da mesma compra.
+- A migration `20260408040021_PostMvpCentralPrevisaoECompraPlanejadaContaPagar` adiciona o vinculo de origem em `contas_pagar` e o rastreio de conversao em `compras_planejadas`.
+- A central de previsao do dashboard deixou de incluir `CompraPlanejada` enquanto o registro estiver apenas no planejador; o vinculo de origem em `ContaPagar` ficou apenas para rastreabilidade, sem virar origem propria da previsao.
+- `GET /api/v1/recorrencias` passou a retornar tambem a conta de origem da regra, com `descricao`, `valorLiquido`, `pessoaNome` e `responsavelNome`, permitindo uma tela de recorrencias mais operacional sem nova entidade persistida.
+- A central de previsao passou a considerar `Realizado` apenas quando a conta materializada ja estiver liquidada/recebida; recorrencias, parcelas e contas futuras ainda pendentes agora aparecem como `Substituido`, eliminando a inflacao indevida do realizado no dashboard.
+- No dashboard por `MesReferencia`, recorrencias passaram a entrar apenas em meses futuros; no mes atual ou em meses passados, o fluxo ignora projecoes de recorrencia e a central de previsao oculta itens de `Recorrencia` e `ContaFuturaGerada`.
+
+- As listagens operacionais de contas, movimentacoes, compras planejadas e recorrencias passaram a retornar `summary` filtrado no mesmo payload, permitindo totalizadores corretos antes da paginacao.
+- `Pessoa` passou a aceitar varias `ChavesPix`, com tipo e valor normalizado, permitindo manter mais de uma chave Pix por cadastro sem abrir modulo separado.
+- O contrato de pessoas foi ampliado com `ChavesPix` em create, update e detail, e a persistencia ganhou a tabela `pessoas_chaves_pix` com unicidade por pessoa, tipo e chave.
+- A migration `20260409043419_AddPessoaChavesPix` adiciona o suporte estrutural de multiplas chaves Pix por pessoa.
+- O parser deterministico do PDF Bradesco foi corrigido para nao tratar marcadores de parcela (`2/12`, `5/7`, `10/12`) como se fossem valor monetario quando vierem em token separado da descricao.
+- A normalizacao de itens de fatura do Bradesco passou a preservar a parcela no proprio texto do item revisavel e o gerador de sugestoes passou a reconhecer corretamente valores acima de mil reais sem truncar os digitos iniciais.
+- A importacao `extratoCartao (19).pdf` foi reprocessada apos a correcao e passou a bater integralmente com a validacao manual da planilha do Bradesco, sem faltas nem sobras de lancamentos.
+- O parser da Nubank passou a rejeitar datas e cabecalhos como se fossem valor monetario, impedindo que blocos como `EMISSAO E ENVIO 06 ABR 2026` virem compras falsas na revisao.
+- A importacao `Nubank_2026-04-13.pdf` foi reprocessada apos o ajuste e deixou de gerar o falso lancamento `EMISSAO E ENVIO`.
+- `ContaGerencial` passou a aceitar `ResponsavelPadraoId` opcional, com validacao de existencia no cadastro de pessoas e retorno do nome no resumo/detalhe para apoiar fluxos operacionais.
+- `CompraPlanejada` passou a expor a acao `Realizar`, que converte a intencao em fluxo financeiro efetivo conforme a forma de pagamento escolhida.
+- Quando a forma de pagamento faz baixa automatica e nao e cartao, a realizacao gera `ContaPagar` ja liquidada e `MovimentacaoFinanceira` na data da compra.
+- Quando a forma de pagamento nao faz baixa automatica, a realizacao gera `ContaPagar` pendente com vencimento informado pelo operador.
+- Quando a forma de pagamento e cartao, a realizacao gera parcelas de `ContaPagar` por competencia de fatura, usando fechamento e vencimento do cartao para distribuir as parcelas pelos meses corretos.
+- O parcelamento de cartao deixou de reutilizar a mesma `DataEmissao` em todas as parcelas; agora cada parcela usa a competencia propria para evitar concentracao indevida na mesma fatura.
+- A revisao de importacao passou a calcular predicao de classificacao em duas camadas: historico confirmado continua com prioridade maxima, e compras de cartao sem historico agora recebem sugestao heuristica para categorias obvias como supermercado, farmacia/drogaria, transporte por app e lanches/delivery.
+- A heuristica de classificacao reaproveita o `ResponsavelPadraoId` da `ContaGerencial`, permitindo pre-preencher responsavel junto com a conta sugerida sem acoplar IA generativa ao fluxo transacional.
+- O Swagger/OpenAPI passou a documentar explicitamente os dois modos de autenticacao suportados pelo backend: `Bearer` para `JwtBearer/Auth0` e `DebugUser` para o header local `X-Debug-User`.
+- Operacoes protegidas por `[Authorize]` agora aparecem no documento OpenAPI com requisito de seguranca explicito, deixando a documentacao mais usavel em homologacao local e no futuro ciclo de Auth0.
+- O bootstrap de `Application` deixou de depender de uma lista manual de `AppService`; os servicos publicos terminados em `AppService` agora sao registrados automaticamente por convencao, reduzindo risco de esquecer wiring ao abrir novos modulos.
+- A validacao desse bootstrap passou a ter teste dedicado em `ControleFinanceiro.Application.Tests`, garantindo que todos os `AppService` publicos continuem registrados como `Scoped` e que o contrato explicito de `IBootstrapCatalogService` siga preservado.
+- Imports de cartao ja aprovados agora podem concluir a materializacao financeira depois, por `completar-fechamento-fatura`, sem precisar reabrir a importacao.
+- Esse fechamento tardio sincroniza `Faturas`, cria ou atualiza a `ContaPagar` visivel da fatura com o valor total e agrega o rateio a partir dos itens confirmados da revisao.
+- O fluxo permanece idempotente: se a importacao ja tiver sido materializada financeiramente, a nova chamada nao duplica contas, faturas nem parcelas futuras.
+- Compras realizadas em cartao deixaram de gerar `MovimentacaoFinanceira` economica visivel; elas passam a existir apenas em `Faturas` e nos itens internos de cartao, e a tela de `Movimentacoes` passou a ignorar registros `CANCELADA` por padrao.
+- Itens de estorno aprovados na revisao da fatura passaram a ser materializados como compras internas de cartao com valor negativo, abatendo o total e o rateio agregado da fatura em vez de bloquear o fechamento.
+- `ContaPagar` operacional continua positiva, mas a composicao interna da fatura agora aceita saldo negativo por item para representar creditos reais de cartao, como estorno e cancelamento parcial.
+- O fechamento de importacao de cartao passou a recalcular a competencia atual da fatura priorizando `DataVencimento`, impedindo que parcelas antigas da importacao do Bradesco abram `Faturas` em meses passados quando o fechamento correto e o mes atual da competencia.
+- A materializacao de compras de cartao recorrentes foi corrigida no fluxo ativo de fechamento para gerar somente a fatura atual e as competencias futuras, sem espalhar previsoes para meses anteriores.
+- `GET /api/v1/faturas` ganhou filtros adicionais por `DataFechamentoInicial` e `DataFechamentoFinal`, alem de ordenacao segura por `CartaoNome`, permitindo a tela de faturas filtrar e ordenar por cartao sem erro.
+- O `summary` da listagem de faturas passou a retornar agregacao por cartao e por competencia do mes, viabilizando totalizadores operacionais no frontend.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

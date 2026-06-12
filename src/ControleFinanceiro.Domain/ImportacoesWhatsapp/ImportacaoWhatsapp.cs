@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.ImportacoesWhatsapp;
 
-public sealed class ImportacaoWhatsapp : AuditableEntity
+public sealed class ImportacaoWhatsapp : TenantEntity
 {
     private readonly List<ItemImportadoWhatsapp> _itens = [];
 
@@ -48,7 +48,7 @@ public sealed class ImportacaoWhatsapp : AuditableEntity
     {
         if (string.IsNullOrWhiteSpace(remetente))
         {
-            throw new ArgumentException("Remetente e obrigatorio.", nameof(remetente));
+            throw new ArgumentException("Remetente é obrigatório.", nameof(remetente));
         }
 
         return new ImportacaoWhatsapp
@@ -68,7 +68,7 @@ public sealed class ImportacaoWhatsapp : AuditableEntity
     {
         if (string.IsNullOrWhiteSpace(caminhoArquivo))
         {
-            throw new ArgumentException("Caminho do arquivo e obrigatorio.", nameof(caminhoArquivo));
+            throw new ArgumentException("Caminho do arquivo é obrigatório.", nameof(caminhoArquivo));
         }
 
         CaminhoArquivo = caminhoArquivo.Trim();
@@ -94,7 +94,7 @@ public sealed class ImportacaoWhatsapp : AuditableEntity
     {
         Status = StatusImportacaoWhatsapp.ErroExtracao;
         MensagemErro = string.IsNullOrWhiteSpace(mensagemErro)
-            ? "Falha ao processar a importacao."
+            ? "Falha ao processar a importação."
             : mensagemErro.Trim();
         ProcessadoEmUtc = DateTime.UtcNow;
         ConfirmadoEmUtc = null;
@@ -105,7 +105,7 @@ public sealed class ImportacaoWhatsapp : AuditableEntity
     {
         if (itens.Any(item => item.ImportacaoWhatsappId != Id))
         {
-            throw new ArgumentException("Todos os itens devem pertencer a importacao informada.", nameof(itens));
+            throw new ArgumentException("Todos os itens devem pertencer à importação informada.", nameof(itens));
         }
 
         _itens.Clear();
@@ -125,24 +125,48 @@ public sealed class ImportacaoWhatsapp : AuditableEntity
             return;
         }
 
+        if (Status == StatusImportacaoWhatsapp.Confirmado &&
+            _itens.All(item => item.Status != StatusItemImportadoWhatsapp.Sugerido))
+        {
+            return;
+        }
+
+        Status = StatusImportacaoWhatsapp.PendenteRevisao;
+        ConfirmadoEmUtc = null;
+        RejeitadoEmUtc = null;
+    }
+
+    public void AprovarRevisao()
+    {
+        if (_itens.Count == 0)
+        {
+            throw new InvalidOperationException("Importação sem itens não pode ser aprovada.");
+        }
+
         if (_itens.Any(item => item.Status == StatusItemImportadoWhatsapp.Sugerido))
         {
-            Status = StatusImportacaoWhatsapp.PendenteRevisao;
-            ConfirmadoEmUtc = null;
-            RejeitadoEmUtc = null;
-            return;
+            throw new InvalidOperationException("Revise todos os itens antes de aprovar a importação.");
         }
 
-        if (_itens.Any(item => item.Status == StatusItemImportadoWhatsapp.Confirmado))
+        Status = StatusImportacaoWhatsapp.Confirmado;
+        ConfirmadoEmUtc ??= DateTime.UtcNow;
+        RejeitadoEmUtc = null;
+    }
+
+    public void ReabrirRevisao()
+    {
+        if (Status != StatusImportacaoWhatsapp.Confirmado)
         {
-            Status = StatusImportacaoWhatsapp.Confirmado;
-            ConfirmadoEmUtc ??= DateTime.UtcNow;
-            RejeitadoEmUtc = null;
-            return;
+            throw new InvalidOperationException("Somente importações aprovadas podem ser reabertas.");
         }
 
-        Status = StatusImportacaoWhatsapp.Rejeitado;
-        RejeitadoEmUtc ??= DateTime.UtcNow;
+        foreach (var item in _itens)
+        {
+            item.HabilitarEdicaoAposReabertura();
+        }
+
+        Status = StatusImportacaoWhatsapp.PendenteRevisao;
         ConfirmadoEmUtc = null;
+        RejeitadoEmUtc = null;
     }
 }

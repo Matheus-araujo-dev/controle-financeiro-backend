@@ -2,11 +2,13 @@ using ControleFinanceiro.Application.Cadastros.Pessoas;
 using ControleFinanceiro.Contracts.Cadastros.Pessoas;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/pessoas")]
 public sealed class PessoasController(PessoaAppService service) : ApiControllerBase
 {

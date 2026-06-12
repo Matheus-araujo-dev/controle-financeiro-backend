@@ -3,6 +3,7 @@ using ControleFinanceiro.Contracts.Bootstrap;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.SharedKernel.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ControleFinanceiro.Api.Configuration;
@@ -10,6 +11,7 @@ using ControleFinanceiro.Api.Configuration;
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/v1/bootstrap")]
 public sealed class BootstrapController(
     IBootstrapCatalogService bootstrapCatalogService,

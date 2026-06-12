@@ -1,19 +1,101 @@
 using ControleFinanceiro.Api.Configuration;
 using ControleFinanceiro.Api.Extensions;
 using ControleFinanceiro.Api.Middleware;
+using ControleFinanceiro.Api.Swagger;
 using ControleFinanceiro.Application;
+using ControleFinanceiro.Application.Common.FeatureFlags;
 using ControleFinanceiro.Infrastructure;
+using ControleFinanceiro.Infrastructure.Persistence;
+using ControleFinanceiro.SharedKernel.Logging;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Compact;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddEnvironmentVariables();
+
+if (args.Length > 0)
+{
+    builder.Configuration.AddCommandLine(args);
+}
+
+var connectionString = builder.Configuration.GetConnectionString("SqlServer");
+if (connectionString?.Contains("${DB_PASSWORD}") == true)
+{
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") 
+        ?? throw new InvalidOperationException("A variável de ambiente DB_PASSWORD deve estar configurada para expandir ${DB_PASSWORD} na connection string.");
+    builder.Configuration["ConnectionStrings:SqlServer"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
+}
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "ControleFinanceiro.Api")
+    .Enrich.With<SensitiveDataEnricher>()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        new CompactJsonFormatter(),
+        path: "logs/app-.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30,
+        fileSizeLimitBytes: 10 * 1024 * 1024,
+        rollOnFileSizeLimit: true)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.Configure<WhatsappWebhookOptions>(builder.Configuration.GetSection(WhatsappWebhookOptions.SectionName));
+builder.Services.AddFeatureFlags(builder.Configuration);
+builder.Services.AddObservability(builder.Configuration);
+builder.Services.AddMemoryCache();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiFoundation(builder.Configuration);
 builder.Services.AddAuthorization();
-builder.Services.AddHealthChecks();
+builder.Services.AddRateLimiter(options =>
+{
+    var rateLimitPolicies = RateLimitPolicies.Policies;
+
+    options.AddPolicy(RateLimitPolicies.StrictPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(GetPartitionKey(context), _ => rateLimitPolicies[RateLimitPolicies.StrictPolicy]));
+
+    options.AddPolicy(RateLimitPolicies.StandardPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(GetPartitionKey(context), _ => rateLimitPolicies[RateLimitPolicies.StandardPolicy]));
+
+    options.AddPolicy(RateLimitPolicies.RelaxedPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(GetPartitionKey(context), _ => rateLimitPolicies[RateLimitPolicies.RelaxedPolicy]));
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
+static string GetPartitionKey(HttpContext httpContext)
+{
+    var userId = httpContext.User.Identity?.IsAuthenticated == true
+        ? httpContext.User.FindFirst("sub")?.Value ?? httpContext.User.FindFirst("userId")?.Value
+        : null;
+
+    return !string.IsNullOrEmpty(userId)
+        ? $"user:{userId}"
+        : httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString();
+}
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database", tags: ["db", "sqlserver"])
+    .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: ["self", "live"])
+    .AddCheck("cache", () => HealthCheckResult.Healthy("Memory cache is available"), tags: ["cache", "infra"])
+    .AddCheck("logging", () => HealthCheckResult.Healthy("Logging is available"), tags: ["logging", "infra"]);
+builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -28,22 +110,110 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "Bootstrap inicial do backend do controle financeiro."
     });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Name = "Authorization",
+        Description = "Use um token Bearer quando a API estiver configurada em modo JwtBearer/Auth0."
+    });
+
+    if (builder.Environment.IsDevelopment())
+    {
+        options.AddSecurityDefinition("DebugUser", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.ApiKey,
+            In = ParameterLocation.Header,
+            Name = builder.Configuration[$"{AuthOptions.SectionName}:{nameof(AuthOptions.DevelopmentUserHeader)}"]
+                ?? new AuthOptions().DevelopmentUserHeader,
+            Description = "Use o header de desenvolvimento para autenticar localmente quando a API estiver em modo Development."
+        });
+    }
+
+    options.OperationFilter<AuthorizeOperationFilter>();
 });
 
 var app = builder.Build();
 
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(correlationId))
+    {
+        correlationId = Guid.NewGuid().ToString();
+    }
 
-if (app.Environment.IsDevelopment())
+    context.Items["CorrelationId"] = correlationId;
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Correlation-ID"] = correlationId;
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
+
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+        diagnosticContext.Set("CorrelationId", httpContext.Items["CorrelationId"]?.ToString() ?? string.Empty);
+    };
+});
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseCors(CorsOptions.PolicyName);
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'");
+    await next();
+});
+
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseHttpsRedirection();
+    app.UseHsts();
+    app.Use(async (context, next) =>
+    {
+        context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+        await next();
+    });
+}
 
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseRateLimiter();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db")
+});
+app.MapHealthChecks("/health/infra", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("infra")
+});
 app.MapControllers();
 
 app.Run();

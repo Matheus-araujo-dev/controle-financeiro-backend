@@ -3,6 +3,8 @@ using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.Domain.ImportacoesWhatsapp;
+using ControleFinanceiro.Domain.PlanejamentoCompras;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,6 +28,9 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.Property(x => x.Observacao)
             .HasMaxLength(1000);
 
+        builder.Property(x => x.ChaveSerieImportacaoCartao)
+            .HasMaxLength(180);
+
         builder.Property(x => x.Origem)
             .HasConversion<string>()
             .HasMaxLength(30)
@@ -40,6 +45,14 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.Ignore(x => x.Rateios);
 
         builder.HasIndex(x => x.DataVencimento);
+
+        builder.HasIndex("StatusContaId", "DataVencimento");
+        builder.HasIndex("RecebedorId", "StatusContaId");
+        builder.HasIndex(x => x.OrigemImportacaoWhatsappId);
+        builder.HasIndex(x => new { x.CartaoId, x.ChaveSerieImportacaoCartao, x.NumeroParcela, x.QuantidadeParcelas })
+            .HasFilter("[CartaoId] IS NOT NULL AND [ChaveSerieImportacaoCartao] IS NOT NULL");
+        builder.HasIndex(x => x.Descricao);
+        builder.HasIndex(x => x.NumeroDocumento);
 
         builder.HasOne<Pessoa>()
             .WithMany()
@@ -74,6 +87,21 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.HasOne<RegraRecorrencia>()
             .WithMany()
             .HasForeignKey(x => x.RegraRecorrenciaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<PlanejamentoCompra>()
+            .WithMany()
+            .HasForeignKey(x => x.OrigemCompraPlanejadaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<ImportacaoWhatsapp>()
+            .WithMany()
+            .HasForeignKey(x => x.OrigemImportacaoWhatsappId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<FaturaCartao>()
+            .WithMany()
+            .HasForeignKey(x => x.FaturaCartaoId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

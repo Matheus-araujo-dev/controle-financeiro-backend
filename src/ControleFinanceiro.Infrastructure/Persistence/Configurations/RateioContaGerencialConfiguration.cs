@@ -39,5 +39,9 @@ public sealed class RateioContaGerencialConfiguration : IEntityTypeConfiguration
             .WithMany()
             .HasForeignKey(x => x.ContaGerencialId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => x.ContaPagarId);
+        builder.HasIndex(x => x.ContaReceberId);
+        builder.HasIndex(x => x.ContaGerencialId);
     }
 }

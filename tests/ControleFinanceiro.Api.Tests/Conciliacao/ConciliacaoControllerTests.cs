@@ -13,59 +13,24 @@ public sealed class ConciliacaoControllerTests(CustomWebApplicationFactory facto
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
-    public async Task GetEPostConfirmarVinculo_DeveProporCandidatoEConciliarMovimentacaoComAuditoria()
+    public async Task GetConciliacao_DeveRetornarVazioPorqueItensImportadosNaoExigemMaisConciliacao()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
 
         var fixture = await Financeiro.FinancialFixtureSeed.CreateAsync(client);
-        var movimentacaoId = await CriarContaReceberLiquidadaAsync(client, fixture);
-        var itemExtratoId = await CriarEConfirmarItemExtratoAsync(client);
+        _ = await CriarContaReceberLiquidadaAsync(client, fixture);
+        _ = await CriarEConfirmarItemExtratoAsync(client);
 
         var conciliacao = await client.GetFromJsonAsync<PagedResponse<ConciliacaoItemResponse>>("/api/v1/conciliacao");
 
         conciliacao.Should().NotBeNull();
-        conciliacao!.Items.Should().ContainSingle();
-
-        var item = conciliacao.Items.Single();
-        item.ItemImportadoWhatsappId.Should().Be(itemExtratoId);
-        item.StatusConciliacaoCodigo.Should().Be("PENDENTE");
-        item.Candidatas.Should().Contain(candidate =>
-            candidate.MovimentacaoFinanceiraId == movimentacaoId &&
-            candidate.Valor == 80m);
-
-        var confirmarResponse = await client.PostAsJsonAsync($"/api/v1/conciliacao/{itemExtratoId}/confirmar-vinculo", new
-        {
-            movimentacaoFinanceiraId = movimentacaoId,
-            observacao = "Conciliacao manual do extrato"
-        });
-
-        confirmarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var itemConciliado = await confirmarResponse.Content.ReadFromJsonAsync<ConciliacaoItemResponse>();
-        itemConciliado.Should().NotBeNull();
-        itemConciliado!.StatusConciliacaoCodigo.Should().Be("CONCILIADO");
-        itemConciliado.MovimentacaoConciliadaId.Should().Be(movimentacaoId);
-
-        var movimentacao = await client.GetFromJsonAsync<MovimentacaoDetalheResponse>($"/api/v1/movimentacoes/{movimentacaoId}");
-        movimentacao.Should().NotBeNull();
-        movimentacao!.StatusCodigo.Should().Be("CONCILIADA");
-        movimentacao.DataConciliacao.Should().NotBeNull();
-
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var auditEntries = await dbContext.AuditTrailEntries
-            .Where(entry =>
-                entry.EntityName == "MovimentacaoFinanceira" ||
-                entry.EntityName == "ItemImportadoWhatsapp")
-            .ToListAsync();
-
-        auditEntries.Should().Contain(entry => entry.EntityName == "MovimentacaoFinanceira" && entry.Action == "Updated");
-        auditEntries.Should().Contain(entry => entry.EntityName == "ItemImportadoWhatsapp" && entry.Action == "Updated");
+        conciliacao!.Items.Should().BeEmpty();
+        conciliacao.TotalItems.Should().Be(0);
     }
 
     [Fact]
-    public async Task PostConfirmarVinculo_QuandoItemNaoForExtratoConfirmado_DeveRetornarBadRequest()
+    public async Task PostConfirmarVinculo_DeveRetornarBadRequestPorqueFluxoFoiDescontinuadoParaImportacoes()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();

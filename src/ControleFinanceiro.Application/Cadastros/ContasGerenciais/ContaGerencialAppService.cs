@@ -18,10 +18,10 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = query.Search.Trim().ToLower();
+            var termo = $"%{query.Search.Trim()}%";
             consulta = consulta.Where(x =>
-                x.Descricao.ToLower().Contains(termo) ||
-                (x.Codigo != null && x.Codigo.ToLower().Contains(termo)));
+                EF.Functions.Like(x.Descricao, termo) ||
+                (x.Codigo != null && EF.Functions.Like(x.Codigo, termo)));
         }
 
         if (query.Tipo.HasValue)
@@ -39,20 +39,54 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.Descricao)
-            : consulta.OrderBy(x => x.Descricao);
+        if (query.AceitaLancamentos.HasValue)
+        {
+            consulta = query.AceitaLancamentos.Value
+                ? consulta.Where(x => !dbContext.ContasGerenciais.Any(child => child.ContaPaiId == x.Id))
+                : consulta.Where(x => dbContext.ContasGerenciais.Any(child => child.ContaPaiId == x.Id));
+        }
+
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "codigo" => query.SortDirection == SortDirection.Desc
+                ? consulta
+                    .OrderByDescending(x => x.Codigo == null)
+                    .ThenByDescending(x => x.Codigo)
+                    .ThenByDescending(x => x.Descricao)
+                : consulta
+                    .OrderBy(x => x.Codigo == null)
+                    .ThenBy(x => x.Codigo)
+                    .ThenBy(x => x.Descricao),
+            _ => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Descricao)
+                : consulta.OrderBy(x => x.Descricao)
+        };
 
         var totalItems = await consulta.CountAsync(cancellationToken);
         var entidades = await consulta.ApplyPagination(query).ToListAsync(cancellationToken);
+        var entidadesIds = entidades.Select(x => x.Id).ToArray();
         var contasPai = entidades
             .Where(x => x.ContaPaiId.HasValue)
             .Select(x => x.ContaPaiId!.Value)
             .Distinct()
             .ToArray();
+        var contasComFilhos = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.ContaPaiId.HasValue && entidadesIds.Contains(x.ContaPaiId.Value))
+            .Select(x => x.ContaPaiId!.Value)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
         var descricoesPai = await dbContext.ContasGerenciais.AsNoTracking()
             .Where(x => contasPai.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Descricao, cancellationToken);
+        var responsaveisPadraoIds = entidades
+            .Where(x => x.ResponsavelPadraoId.HasValue)
+            .Select(x => x.ResponsavelPadraoId!.Value)
+            .Distinct()
+            .ToArray();
+        var responsaveisPadrao = await dbContext.Pessoas.AsNoTracking()
+            .Where(x => responsaveisPadraoIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Nome, cancellationToken);
+        var contasComFilhosSet = contasComFilhos.ToHashSet();
         var items = entidades
             .Select(x => new ContaGerencialResumoResponse(
                 x.Id,
@@ -63,7 +97,13 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
                 x.ContaPaiId.HasValue && descricoesPai.TryGetValue(x.ContaPaiId.Value, out var descricaoPai)
                     ? descricaoPai
                     : null,
-                x.Ativo))
+                x.ResponsavelPadraoId,
+                x.ResponsavelPadraoId.HasValue && responsaveisPadrao.TryGetValue(x.ResponsavelPadraoId.Value, out var responsavelPadraoNome)
+                    ? responsavelPadraoNome
+                    : null,
+                x.Ativo,
+                !contasComFilhosSet.Contains(x.Id),
+                x.EhPadraoRecebimentoFaturaCartao))
             .ToArray();
 
         return PagedResult<ContaGerencialResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -86,6 +126,14 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
                 .Select(parent => parent.Descricao)
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
+        var responsavelPadraoNome = conta.ResponsavelPadraoId.HasValue
+            ? await dbContext.Pessoas.AsNoTracking()
+                .Where(pessoa => pessoa.Id == conta.ResponsavelPadraoId.Value)
+                .Select(pessoa => pessoa.Nome)
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+        var aceitaLancamentos = !await dbContext.ContasGerenciais.AsNoTracking()
+            .AnyAsync(x => x.ContaPaiId == conta.Id, cancellationToken);
 
         return new ContaGerencialDetalheResponse(
             conta.Id,
@@ -94,7 +142,11 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             MapearTipo(conta.Tipo),
             conta.ContaPaiId,
             contaPaiDescricao,
+            conta.ResponsavelPadraoId,
+            responsavelPadraoNome,
             conta.Ativo,
+            aceitaLancamentos,
+            conta.EhPadraoRecebimentoFaturaCartao,
             conta.CreatedAtUtc,
             conta.UpdatedAtUtc);
     }
@@ -104,6 +156,9 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         CancellationToken cancellationToken)
     {
         await ValidarHierarquiaAsync(null, request.ContaPaiId, cancellationToken);
+        var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
+        await ValidarPadraoRecebimentoFaturaAsync(null, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
+        await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
 
         ContaGerencial conta;
 
@@ -112,9 +167,11 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             conta = ContaGerencial.Criar(
                 request.Codigo,
                 request.Descricao,
-                MapearTipo(request.Tipo),
+                MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
-                request.Ativo);
+                request.ResponsavelPadraoId,
+                request.Ativo,
+                request.EhPadraoRecebimentoFaturaCartao);
         }
         catch (ArgumentException exception)
         {
@@ -125,7 +182,7 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await ObterPorIdAsync(conta.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Conta gerencial criada nao foi encontrada.");
+            ?? throw new InvalidOperationException("Conta gerencial criada não foi encontrada.");
     }
 
     public async Task<ContaGerencialDetalheResponse?> AtualizarAsync(
@@ -141,15 +198,20 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         }
 
         await ValidarHierarquiaAsync(id, request.ContaPaiId, cancellationToken);
+        var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
+        await ValidarPadraoRecebimentoFaturaAsync(id, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
+        await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
 
         try
         {
             conta.Atualizar(
                 request.Codigo,
                 request.Descricao,
-                MapearTipo(request.Tipo),
+                MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
-                request.Ativo);
+                request.ResponsavelPadraoId,
+                request.Ativo,
+                request.EhPadraoRecebimentoFaturaCartao);
         }
         catch (ArgumentException exception)
         {
@@ -170,14 +232,14 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (contaId.HasValue && contaId.Value == contaPaiId.Value)
         {
-            throw ValidationExceptionFactory.Create("ContaPaiId", "Conta pai nao pode ser a propria conta.");
+            throw ValidationExceptionFactory.Create("ContaPaiId", "Conta pai não pode ser a própria conta.");
         }
 
         var existeContaPai = await dbContext.ContasGerenciais.AnyAsync(x => x.Id == contaPaiId.Value, cancellationToken);
 
         if (!existeContaPai)
         {
-            throw ValidationExceptionFactory.Create("ContaPaiId", "Conta pai nao encontrada.");
+            throw ValidationExceptionFactory.Create("ContaPaiId", "Conta pai não encontrada.");
         }
 
         var proximaContaPai = await dbContext.ContasGerenciais
@@ -199,12 +261,80 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         }
     }
 
+    private async Task<ContaGerencialTipo> ResolverTipoEfetivoAsync(
+        ContaGerencialTipo tipoInformado,
+        Guid? contaPaiId,
+        CancellationToken cancellationToken)
+    {
+        if (!contaPaiId.HasValue)
+        {
+            return tipoInformado;
+        }
+
+        var tipoContaPai = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.Id == contaPaiId.Value)
+            .Select(x => x.Tipo)
+            .SingleAsync(cancellationToken);
+
+        return MapearTipo(tipoContaPai);
+    }
+
+    private async Task ValidarPadraoRecebimentoFaturaAsync(
+        Guid? contaId,
+        ContaGerencialTipo tipo,
+        bool ehPadraoRecebimentoFaturaCartao,
+        CancellationToken cancellationToken)
+    {
+        if (!ehPadraoRecebimentoFaturaCartao)
+        {
+            return;
+        }
+
+        if (tipo != ContaGerencialTipo.Receita)
+        {
+            throw ValidationExceptionFactory.Create(
+                "EhPadraoRecebimentoFaturaCartao",
+                "Somente contas gerenciais de receita podem ser marcadas como padrão de recebimento de fatura.");
+        }
+
+        var existeOutraContaPadrao = await dbContext.ContasGerenciais
+            .AnyAsync(
+                x => x.EhPadraoRecebimentoFaturaCartao &&
+                     (!contaId.HasValue || x.Id != contaId.Value),
+                cancellationToken);
+
+        if (existeOutraContaPadrao)
+        {
+            throw ValidationExceptionFactory.Create(
+                "EhPadraoRecebimentoFaturaCartao",
+                "Já existe uma conta gerencial padrão para recebimento de fatura.");
+        }
+    }
+
+    private async Task ValidarResponsavelPadraoAsync(Guid? responsavelPadraoId, CancellationToken cancellationToken)
+    {
+        if (!responsavelPadraoId.HasValue)
+        {
+            return;
+        }
+
+        var existeResponsavelPadrao = await dbContext.Pessoas
+            .AnyAsync(x => x.Id == responsavelPadraoId.Value, cancellationToken);
+
+        if (!existeResponsavelPadrao)
+        {
+            throw ValidationExceptionFactory.Create("ResponsavelPadraoId", "Responsável padrão não encontrado.");
+        }
+    }
+
     private static Exception ConverterParaValidacao(ArgumentException exception)
     {
         var campo = exception.ParamName switch
         {
             "descricao" => "Descricao",
             "contaPaiId" => "ContaPaiId",
+            "ehPadraoRecebimentoFaturaCartao" => "EhPadraoRecebimentoFaturaCartao",
+            "responsavelPadraoId" => "ResponsavelPadraoId",
             _ => "Request"
         };
 

@@ -1,0 +1,2 @@
+{"@t":"2026-06-12T05:42:18.0621913Z","@mt":"Trabalhador de Recorrência Mensal iniciado.","SourceContext":"ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker","Application":"ControleFinanceiro.Api"}
+{"@t":"2026-06-12T05:42:18.1801486Z","@mt":"Iniciando geração automática de recorrências para o mês {Mes}/{Ano}.","Mes":6,"Ano":2026,"SourceContext":"ControleFinanceiro.Application.Financeiro.Recorrencias.RecorrenciaAppService","Application":"ControleFinanceiro.Api"}

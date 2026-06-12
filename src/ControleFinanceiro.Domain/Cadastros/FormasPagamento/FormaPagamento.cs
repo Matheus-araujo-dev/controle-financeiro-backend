@@ -13,7 +13,7 @@ public enum TipoFormaPagamento
     Outro = 7
 }
 
-public sealed class FormaPagamento : AuditableEntity
+public sealed class FormaPagamento : TenantEntity
 {
     private FormaPagamento()
     {
@@ -50,7 +50,7 @@ public sealed class FormaPagamento : AuditableEntity
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
-            throw new ArgumentException("Nome e obrigatorio.", nameof(nome));
+            throw new ArgumentException("Nome é obrigatório.", nameof(nome));
         }
 
         Nome = nome.Trim();

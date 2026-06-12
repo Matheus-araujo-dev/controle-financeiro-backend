@@ -19,7 +19,19 @@ public sealed record ReceberImportacaoWhatsappWebhookRequest(
     string? MimeType,
     string? ArquivoBase64);
 
-public sealed record RevisarItemImportadoWhatsappRequest(string? Observacao);
+public sealed record RevisarItemImportadoWhatsappRequest(
+    string? Observacao,
+    string? DescricaoAjustada,
+    Guid? ContaGerencialId,
+    Guid? ResponsavelId,
+    DateOnly? DataVencimentoContaReceber,
+    bool GerarContaReceber,
+    bool MarcarComoRecorrente);
+
+public sealed record AprovarImportacaoWhatsappRequest(
+    Guid? RecebedorFaturaId,
+    Guid? ResponsavelPagamentoFaturaId,
+    IReadOnlyCollection<Guid>? CartaoIds);
 
 public sealed record ImportacaoWhatsappListQueryRequest : ListQueryRequest
 {
@@ -50,9 +62,31 @@ public sealed record ItemImportadoWhatsappResponse(
     string PayloadSugeridoJson,
     string StatusCodigo,
     string StatusNome,
+    string? DescricaoAjustada,
+    bool MarcarComoRecorrente,
+    Guid? ContaGerencialId,
+    string? ContaGerencialDescricao,
+    Guid? ResponsavelId,
+    string? ResponsavelNome,
+    Guid? ContaReceberId,
+    Guid? MovimentacaoFinanceiraId,
+    string? StatusPrevisaoCodigo,
+    string? StatusPrevisaoNome,
     string? Observacao,
     DateTime? ConfirmadoEmUtc,
-    DateTime? RejeitadoEmUtc);
+    DateTime? RejeitadoEmUtc,
+    PredicaoClassificacaoImportacaoWhatsappResponse? Predicao);
+
+public sealed record PredicaoClassificacaoImportacaoWhatsappResponse(
+    Guid? ContaGerencialId,
+    string? ContaGerencialDescricao,
+    Guid? ResponsavelId,
+    string? ResponsavelNome,
+    string? DescricaoAjustada,
+    bool GerarContaReceber,
+    bool MarcarComoRecorrente,
+    int QuantidadeOcorrencias,
+    decimal ConfiancaHistorico);
 
 public sealed record ImportacaoWhatsappDetalheResponse(
     Guid Id,
@@ -71,4 +105,5 @@ public sealed record ImportacaoWhatsappDetalheResponse(
     DateTime? ProcessadoEmUtc,
     DateTime? ConfirmadoEmUtc,
     DateTime? RejeitadoEmUtc,
+    bool PossuiGeracaoFinanceira,
     IReadOnlyCollection<ItemImportadoWhatsappResponse> Itens);

@@ -15,6 +15,8 @@ public sealed record ContaGerencialListQueryRequest : ListQueryRequest
     public Guid? ContaPaiId { get; init; }
 
     public bool? Ativo { get; init; }
+
+    public bool? AceitaLancamentos { get; init; }
 }
 
 public sealed record CriarContaGerencialRequest(
@@ -22,14 +24,18 @@ public sealed record CriarContaGerencialRequest(
     string Descricao,
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
-    bool Ativo);
+    Guid? ResponsavelPadraoId,
+    bool Ativo,
+    bool EhPadraoRecebimentoFaturaCartao);
 
 public sealed record AtualizarContaGerencialRequest(
     string? Codigo,
     string Descricao,
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
-    bool Ativo);
+    Guid? ResponsavelPadraoId,
+    bool Ativo,
+    bool EhPadraoRecebimentoFaturaCartao);
 
 public sealed record ContaGerencialResumoResponse(
     Guid Id,
@@ -38,7 +44,11 @@ public sealed record ContaGerencialResumoResponse(
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
     string? ContaPaiDescricao,
-    bool Ativo);
+    Guid? ResponsavelPadraoId,
+    string? ResponsavelPadraoNome,
+    bool Ativo,
+    bool AceitaLancamentos,
+    bool EhPadraoRecebimentoFaturaCartao);
 
 public sealed record ContaGerencialDetalheResponse(
     Guid Id,
@@ -47,6 +57,10 @@ public sealed record ContaGerencialDetalheResponse(
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
     string? ContaPaiDescricao,
+    Guid? ResponsavelPadraoId,
+    string? ResponsavelPadraoNome,
     bool Ativo,
+    bool AceitaLancamentos,
+    bool EhPadraoRecebimentoFaturaCartao,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

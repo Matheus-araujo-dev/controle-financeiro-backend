@@ -13,16 +13,29 @@ public sealed class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : 
     {
         get
         {
-            var user = httpContextAccessor.HttpContext?.User;
+            var user = AuthenticatedUser();
 
-            if (user?.Identity?.IsAuthenticated != true)
-            {
-                return null;
-            }
-
-            return user.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? user.FindFirstValue(ClaimTypes.Name)
-                ?? user.Identity?.Name;
+            return user?.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user?.FindFirstValue("sub")
+                ?? user?.FindFirstValue(ClaimTypes.Name)
+                ?? user?.Identity?.Name;
         }
+    }
+
+    public Guid? FamiliaId
+    {
+        get
+        {
+            var claim = AuthenticatedUser()?.FindFirstValue(JwtTokenService.FamiliaClaim);
+            return Guid.TryParse(claim, out var familiaId) ? familiaId : null;
+        }
+    }
+
+    public string? Papel => AuthenticatedUser()?.FindFirstValue(JwtTokenService.PapelClaim);
+
+    private ClaimsPrincipal? AuthenticatedUser()
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+        return user?.Identity?.IsAuthenticated == true ? user : null;
     }
 }

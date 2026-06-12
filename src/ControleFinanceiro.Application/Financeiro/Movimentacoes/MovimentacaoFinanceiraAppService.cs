@@ -1,3 +1,5 @@
+using ControleFinanceiro.Application.Common.Cache;
+using ControleFinanceiro.Application.Common.Extensions;
 using ControleFinanceiro.Application.Common.Pagination;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Contracts.Common;
@@ -7,9 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Financeiro.Movimentacoes;
 
-public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
+public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, ILookupCacheService lookupCache)
 {
-    public async Task<PagedResult<MovimentacaoResumoResponse>> ListarAsync(
+    private readonly ILookupCacheService _lookupCache = lookupCache;
+
+    public async Task<MovimentacaoListResponse> ListarAsync(
         MovimentacaoListQueryRequest query,
         CancellationToken cancellationToken)
     {
@@ -18,6 +22,14 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
             join status in dbContext.StatusMovimentacoes.AsNoTracking() on movimento.StatusMovimentacaoId equals status.Id
             join contaBancaria in dbContext.ContasBancarias.AsNoTracking() on movimento.ContaBancariaId equals contaBancaria.Id into contasJoin
             from contaBancaria in contasJoin.DefaultIfEmpty()
+            join contaPagar in dbContext.ContasPagar.AsNoTracking() on movimento.ContaPagarId equals contaPagar.Id into contasPagarJoin
+            from contaPagar in contasPagarJoin.DefaultIfEmpty()
+            join contaReceber in dbContext.ContasReceber.AsNoTracking() on movimento.ContaReceberId equals contaReceber.Id into contasReceberJoin
+            from contaReceber in contasReceberJoin.DefaultIfEmpty()
+            join responsavelPagar in dbContext.Pessoas.AsNoTracking() on contaPagar.ResponsavelCompraId equals responsavelPagar.Id into respPagarJoin
+            from responsavelPagar in respPagarJoin.DefaultIfEmpty()
+            join responsavelReceber in dbContext.Pessoas.AsNoTracking() on contaReceber.ResponsavelId equals responsavelReceber.Id into respReceberJoin
+            from responsavelReceber in respReceberJoin.DefaultIfEmpty()
             select new
             {
                 movimento.Id,
@@ -32,21 +44,42 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
                 movimento.ContaPagarId,
                 movimento.ContaReceberId,
                 movimento.FaturaCartaoId,
+                ContaPagarResponsavelId = contaPagar != null ? contaPagar.ResponsavelCompraId : null,
+                ContaReceberResponsavelId = contaReceber != null ? contaReceber.ResponsavelId : null,
+                ResponsavelNome = responsavelPagar != null ? responsavelPagar.Nome : (responsavelReceber != null ? responsavelReceber.Nome : null),
                 movimento.Observacao,
                 movimento.DataConciliacao,
                 movimento.CreatedAtUtc,
                 movimento.UpdatedAtUtc
             };
 
+        consulta = consulta.Where(x => x.StatusCodigo != "CANCELADA");
+
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = query.Search.Trim().ToLower();
-            consulta = consulta.Where(x => (x.Observacao ?? string.Empty).ToLower().Contains(termo));
+            var termo = $"%{query.Search.Trim()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Observacao ?? "", termo));
         }
 
-        if (query.ContaBancariaId.HasValue)
+        var contaBancariaIds = NormalizarGuidList(query.ContaBancariaIds);
+
+        if (contaBancariaIds.Length > 0)
+        {
+            consulta = consulta.Where(x => x.ContaBancariaId.HasValue)
+                .WhereIn(x => x.ContaBancariaId!.Value, contaBancariaIds);
+        }
+        else if (query.ContaBancariaId.HasValue)
         {
             consulta = consulta.Where(x => x.ContaBancariaId == query.ContaBancariaId.Value);
+        }
+
+        var responsavelIds = NormalizarGuidList(query.ResponsavelIds);
+
+        if (responsavelIds.Length > 0)
+        {
+            consulta = consulta.Where(x =>
+                (x.ContaPagarResponsavelId.HasValue && responsavelIds.Contains(x.ContaPagarResponsavelId.Value)) ||
+                (x.ContaReceberResponsavelId.HasValue && responsavelIds.Contains(x.ContaReceberResponsavelId.Value)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.StatusCodigo))
@@ -82,6 +115,18 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
             : consulta.OrderBy(x => x.DataMovimentacao).ThenBy(x => x.Id);
 
         var totalItems = await consulta.CountAsync(cancellationToken);
+        var summaryProjection = await consulta
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                TotalEntradas = group
+                    .Where(x => x.Tipo == TipoMovimentacao.Entrada)
+                    .Sum(x => x.Valor),
+                TotalSaidas = group
+                    .Where(x => x.Tipo == TipoMovimentacao.Saida)
+                    .Sum(x => x.Valor)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
         var items = (await consulta
                 .ApplyPagination(query)
                 .ToArrayAsync(cancellationToken))
@@ -98,10 +143,25 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
                 x.ContaPagarId,
                 x.ContaReceberId,
                 x.FaturaCartaoId,
-                x.Observacao))
+                x.Observacao,
+                x.ResponsavelNome))
             .ToArray();
 
-        return PagedResult<MovimentacaoResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
+        var paged = PagedResult<MovimentacaoResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
+        var totalEntradas = decimal.Round(summaryProjection?.TotalEntradas ?? 0m, 2, MidpointRounding.AwayFromZero);
+        var totalSaidas = decimal.Round(summaryProjection?.TotalSaidas ?? 0m, 2, MidpointRounding.AwayFromZero);
+
+        return new MovimentacaoListResponse(
+            paged.Items,
+            paged.Page,
+            paged.PageSize,
+            paged.TotalItems,
+            paged.TotalPages,
+            new MovimentacaoListSummaryResponse(
+                totalItems,
+                totalEntradas,
+                totalSaidas,
+                decimal.Round(totalEntradas - totalSaidas, 2, MidpointRounding.AwayFromZero)));
     }
 
     public async Task<MovimentacaoDetalheResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken)
@@ -194,6 +254,21 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext)
             NaturezaMovimentacao.Economica => NaturezaMovimentacaoResponse.Economica,
             _ => throw new ArgumentOutOfRangeException(nameof(natureza))
         };
+    }
+
+    private static Guid[] NormalizarGuidList(string? values)
+    {
+        if (string.IsNullOrWhiteSpace(values))
+        {
+            return [];
+        }
+
+        return values
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => Guid.TryParse(value, out var parsed) ? parsed : Guid.Empty)
+            .Where(value => value != Guid.Empty)
+            .Distinct()
+            .ToArray();
     }
 
 }

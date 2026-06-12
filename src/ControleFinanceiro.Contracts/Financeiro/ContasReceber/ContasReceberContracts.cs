@@ -38,6 +38,7 @@ public sealed record CriarContaReceberRequest(
     RecorrenciaConfigRequest? Recorrencia);
 
 public sealed record AtualizarContaReceberRequest(
+    Guid Id,
     string? NumeroDocumento,
     DateOnly DataEmissao,
     Guid? ResponsavelId,
@@ -77,6 +78,21 @@ public sealed record ContaReceberResumoResponse(
     int NumeroParcela,
     Guid? GrupoParcelamentoId,
     bool EhRecorrente);
+
+public sealed record ContaReceberListSummaryResponse(
+    int TotalRegistros,
+    decimal ValorTotal,
+    decimal TotalPendente,
+    decimal TotalVencendoHoje,
+    decimal TotalLiquidado);
+
+public sealed record ContaReceberListResponse(
+    IReadOnlyCollection<ContaReceberResumoResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    ContaReceberListSummaryResponse Summary);
 
 public sealed record ContaReceberDetalheResponse(
     Guid Id,

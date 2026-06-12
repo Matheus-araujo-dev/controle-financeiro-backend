@@ -11,15 +11,15 @@ public sealed class BootstrapCatalogService : IBootstrapCatalogService
         new("dashboard", "Dashboard", "/dashboard", 6),
         new("pessoas", "Pessoas", "/pessoas", 2),
         new("formas-pagamento", "Formas de pagamento", "/formas-pagamento", 2),
-        new("contas-bancarias", "Contas bancarias", "/contas-bancarias", 2),
-        new("cartoes", "Cartoes", "/cartoes", 2),
+        new("contas-bancarias", "Contas bancárias", "/contas-bancarias", 2),
+        new("cartoes", "Cartões", "/cartoes", 2),
         new("contas-gerenciais", "Contas gerenciais", "/contas-gerenciais", 2),
         new("contas-pagar", "Contas a pagar", "/contas-pagar", 3),
         new("contas-receber", "Contas a receber", "/contas-receber", 3),
-        new("movimentacoes", "Movimentacoes", "/movimentacoes", 3),
+        new("movimentacoes", "Movimentações", "/movimentacoes", 3),
         new("faturas", "Faturas", "/faturas", 4),
-        new("importacoes-whatsapp", "Importacoes WhatsApp", "/importacoes-whatsapp", 7),
-        new("conciliacao", "Conciliacao", "/conciliacao", 8)
+        new("importacoes-whatsapp", "Importações WhatsApp", "/importacoes-whatsapp", 7),
+        new("conciliacao", "Conciliação", "/conciliacao", 8)
     ];
 
     public PagedResult<BootstrapModuleItemResponse> ListModules(ListQueryRequest query)

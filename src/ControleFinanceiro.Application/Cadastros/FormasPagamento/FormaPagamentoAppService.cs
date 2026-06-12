@@ -1,3 +1,4 @@
+using ControleFinanceiro.Application.Common.Cache;
 using ControleFinanceiro.Application.Common.Pagination;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.Common.Validation;
@@ -8,18 +9,41 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Cadastros.FormasPagamento;
 
-public sealed class FormaPagamentoAppService(IAppDbContext dbContext)
+public sealed class FormaPagamentoAppService
 {
+    private readonly IAppDbContext _dbContext;
+    private readonly ILookupCacheService _lookupCache;
+
+    public FormaPagamentoAppService(IAppDbContext dbContext, ILookupCacheService lookupCache)
+    {
+        _dbContext = dbContext;
+        _lookupCache = lookupCache;
+    }
+
+    public async Task<IReadOnlyCollection<FormaPagamentoResumoResponse>> ListarCacheAsync(CancellationToken cancellationToken)
+    {
+        var items = await _lookupCache.GetAllFormaPagamentoAsync(cancellationToken);
+        return items
+            .Select(x => new FormaPagamentoResumoResponse(
+                x.Id,
+                x.Nome,
+                MapearTipo(x.Tipo),
+                x.EhCartao,
+                x.BaixarAutomaticamente,
+                x.Ativo))
+            .ToList();
+    }
+
     public async Task<PagedResult<FormaPagamentoResumoResponse>> ListarAsync(
         FormaPagamentoListQueryRequest query,
         CancellationToken cancellationToken)
     {
-        var consulta = dbContext.FormasPagamento.AsNoTracking();
+        var consulta = _dbContext.FormasPagamento.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = query.Search.Trim().ToLower();
-            consulta = consulta.Where(x => x.Nome.ToLower().Contains(termo));
+            var termo = $"%{query.Search.Trim()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Nome, termo));
         }
 
         if (query.Tipo.HasValue)
@@ -63,7 +87,7 @@ public sealed class FormaPagamentoAppService(IAppDbContext dbContext)
 
     public async Task<FormaPagamentoDetalheResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken)
     {
-        var formaPagamento = await dbContext.FormasPagamento.AsNoTracking()
+        var formaPagamento = await _dbContext.FormasPagamento.AsNoTracking()
             .Where(x => x.Id == id)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -100,11 +124,13 @@ public sealed class FormaPagamentoAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("Nome", exception.Message);
         }
 
-        dbContext.FormasPagamento.Add(formaPagamento);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FormasPagamento.Add(formaPagamento);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _lookupCache.RefreshFormaPagamentoAsync(cancellationToken);
 
         return await ObterPorIdAsync(formaPagamento.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Forma de pagamento criada nao foi encontrada.");
+            ?? throw new InvalidOperationException("Forma de pagamento criada não foi encontrada.");
     }
 
     public async Task<FormaPagamentoDetalheResponse?> AtualizarAsync(
@@ -112,7 +138,7 @@ public sealed class FormaPagamentoAppService(IAppDbContext dbContext)
         AtualizarFormaPagamentoRequest request,
         CancellationToken cancellationToken)
     {
-        var formaPagamento = await dbContext.FormasPagamento.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var formaPagamento = await _dbContext.FormasPagamento.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (formaPagamento is null)
         {
@@ -133,7 +159,9 @@ public sealed class FormaPagamentoAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("Nome", exception.Message);
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _lookupCache.RefreshFormaPagamentoAsync(cancellationToken);
 
         return await ObterPorIdAsync(id, cancellationToken);
     }

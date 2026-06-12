@@ -2,11 +2,13 @@ using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Contracts.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/contas-gerenciais")]
 public sealed class ContasGerenciaisController(ContaGerencialAppService service) : ApiControllerBase
 {

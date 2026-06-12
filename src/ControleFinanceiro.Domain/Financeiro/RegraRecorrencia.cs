@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
 
-public sealed class RegraRecorrencia : AuditableEntity
+public sealed class RegraRecorrencia : TenantEntity
 {
     private RegraRecorrencia()
     {
@@ -12,7 +12,9 @@ public sealed class RegraRecorrencia : AuditableEntity
 
     public TipoPeriodicidadeRecorrencia TipoPeriodicidade { get; private set; }
 
-    public int DiaGeracaoMensal { get; private set; }
+    public TipoDiaRecorrencia TipoDia { get; private set; }
+
+    public int DiaOrdemMensal { get; private set; }
 
     public DateOnly DataInicio { get; private set; }
 
@@ -29,7 +31,8 @@ public sealed class RegraRecorrencia : AuditableEntity
     public static RegraRecorrencia Criar(
         TipoLancamentoRecorrencia tipoLancamento,
         TipoPeriodicidadeRecorrencia tipoPeriodicidade,
-        int diaGeracaoMensal,
+        TipoDiaRecorrencia tipoDia,
+        int diaOrdemMensal,
         DateOnly dataInicio,
         DateOnly? dataFim,
         bool permiteEdicaoOcorrenciaIndividual,
@@ -40,7 +43,8 @@ public sealed class RegraRecorrencia : AuditableEntity
         regra.DefinirCampos(
             tipoLancamento,
             tipoPeriodicidade,
-            diaGeracaoMensal,
+            tipoDia,
+            diaOrdemMensal,
             dataInicio,
             dataFim,
             ativa: true,
@@ -52,7 +56,8 @@ public sealed class RegraRecorrencia : AuditableEntity
 
     public void Atualizar(
         TipoPeriodicidadeRecorrencia tipoPeriodicidade,
-        int diaGeracaoMensal,
+        TipoDiaRecorrencia tipoDia,
+        int diaOrdemMensal,
         DateOnly dataInicio,
         DateOnly? dataFim,
         bool permiteEdicaoOcorrenciaIndividual,
@@ -62,7 +67,8 @@ public sealed class RegraRecorrencia : AuditableEntity
         DefinirCampos(
             TipoLancamento,
             tipoPeriodicidade,
-            diaGeracaoMensal,
+            tipoDia,
+            diaOrdemMensal,
             dataInicio,
             dataFim,
             Ativa,
@@ -78,10 +84,7 @@ public sealed class RegraRecorrencia : AuditableEntity
 
     public void Retomar()
     {
-        if (DataFim.HasValue && DataFim.Value < DataInicio)
-        {
-            throw new InvalidOperationException("Nao e permitido retomar uma recorrencia inconsistente.");
-        }
+        if (Ativa) return;
 
         Ativa = true;
     }
@@ -90,7 +93,7 @@ public sealed class RegraRecorrencia : AuditableEntity
     {
         if (dataFim < DataInicio)
         {
-            throw new ArgumentException("Data fim deve ser maior ou igual a data de inicio.", nameof(dataFim));
+            throw new ArgumentException("Data fim deve ser maior ou igual à data de início.", nameof(dataFim));
         }
 
         DataFim = dataFim;
@@ -112,16 +115,21 @@ public sealed class RegraRecorrencia : AuditableEntity
 
         var datas = new List<DateOnly>();
         var datasExistentesSet = datasExistentes.ToHashSet();
-        var dataAtual = DataInicio;
+        
+        // Começamos do mês da DataInicio
+        var dataReferencia = new DateOnly(DataInicio.Year, DataInicio.Month, 1);
+        var dataLimiteReferencia = new DateOnly(dataLimite.Year, dataLimite.Month, 1);
 
-        while (dataAtual <= dataLimite)
+        while (dataReferencia <= dataLimiteReferencia)
         {
-            if (!datasExistentesSet.Contains(dataAtual))
+            var dataOcorrencia = CalcularDataParaMes(dataReferencia.Year, dataReferencia.Month);
+            
+            if (dataOcorrencia >= DataInicio && dataOcorrencia <= dataLimite && !datasExistentesSet.Contains(dataOcorrencia))
             {
-                datas.Add(dataAtual);
+                datas.Add(dataOcorrencia);
             }
 
-            dataAtual = Avancar(dataAtual);
+            dataReferencia = dataReferencia.AddMonths(1);
         }
 
         return datas;
@@ -130,7 +138,8 @@ public sealed class RegraRecorrencia : AuditableEntity
     private void DefinirCampos(
         TipoLancamentoRecorrencia tipoLancamento,
         TipoPeriodicidadeRecorrencia tipoPeriodicidade,
-        int diaGeracaoMensal,
+        TipoDiaRecorrencia tipoDia,
+        int diaOrdemMensal,
         DateOnly dataInicio,
         DateOnly? dataFim,
         bool ativa,
@@ -140,28 +149,29 @@ public sealed class RegraRecorrencia : AuditableEntity
     {
         if (tipoPeriodicidade != TipoPeriodicidadeRecorrencia.Mensal)
         {
-            throw new ArgumentOutOfRangeException(nameof(tipoPeriodicidade), "Periodicidade nao suportada.");
+            throw new ArgumentOutOfRangeException(nameof(tipoPeriodicidade), "Periodicidade não suportada.");
         }
 
-        if (diaGeracaoMensal is < 1 or > 31)
+        if (diaOrdemMensal is < 1 or > 31)
         {
-            throw new ArgumentException("Dia de geracao mensal invalido.", nameof(diaGeracaoMensal));
+            throw new ArgumentException("Dia de ordem mensal inválido.", nameof(diaOrdemMensal));
         }
 
         if (dataFim.HasValue && dataFim.Value < dataInicio)
         {
-            throw new ArgumentException("Data fim deve ser maior ou igual a data de inicio.", nameof(dataFim));
+            throw new ArgumentException("Data fim deve ser maior ou igual à data de início.", nameof(dataFim));
         }
 
         if (string.IsNullOrWhiteSpace(templateJson))
         {
-            throw new ArgumentException("Template da recorrencia e obrigatorio.", nameof(templateJson));
+            throw new ArgumentException("Template da recorrência é obrigatório.", nameof(templateJson));
         }
 
         TipoLancamento = tipoLancamento;
         TipoPeriodicidade = tipoPeriodicidade;
-        DiaGeracaoMensal = diaGeracaoMensal;
-        DataInicio = AjustarParaDia(dataInicio.Year, dataInicio.Month, diaGeracaoMensal);
+        TipoDia = tipoDia;
+        DiaOrdemMensal = diaOrdemMensal;
+        DataInicio = dataInicio;
         DataFim = dataFim;
         Ativa = ativa;
         PermiteEdicaoOcorrenciaIndividual = permiteEdicaoOcorrenciaIndividual;
@@ -169,15 +179,17 @@ public sealed class RegraRecorrencia : AuditableEntity
         TemplateJson = templateJson;
     }
 
-    private DateOnly Avancar(DateOnly dataAtual)
+    public DateOnly CalcularDataParaMes(int ano, int mes)
     {
-        var proximoMes = dataAtual.AddMonths(1);
-        return AjustarParaDia(proximoMes.Year, proximoMes.Month, DiaGeracaoMensal);
+        return TipoDia == TipoDiaRecorrencia.DiaUtil
+            ? CalendarioBrasil.ObterDiaUtil(ano, mes, DiaOrdemMensal)
+            : AjustarParaDiaFixo(ano, mes, DiaOrdemMensal);
     }
 
-    private static DateOnly AjustarParaDia(int year, int month, int dia)
+    private static DateOnly AjustarParaDiaFixo(int year, int month, int dia)
     {
         var ultimoDia = DateTime.DaysInMonth(year, month);
         return new DateOnly(year, month, Math.Min(dia, ultimoDia));
     }
+
 }

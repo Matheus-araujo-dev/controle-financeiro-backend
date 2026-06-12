@@ -3,17 +3,21 @@ using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
+[EnableRateLimiting("Relaxed")]
 [Route("api/v1/contas-pagar")]
 public sealed class ContasPagarController(ContaPagarAppService service) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<ContaPagarResumoResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<ContaPagarResumoResponse>>> Listar(
+    [ProducesResponseType(typeof(ContaPagarListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ContaPagarListResponse>> Listar(
         [FromQuery] ContaPagarListQueryRequest query,
         CancellationToken cancellationToken)
     {
@@ -112,6 +116,16 @@ public sealed class ContasPagarController(ContaPagarAppService service) : ApiCon
         CancellationToken cancellationToken)
     {
         var response = await service.LiquidarAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/estornar")]
+    [ProducesResponseType(typeof(ContaPagarDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ContaPagarDetalheResponse>> Estornar(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.EstornarAsync(id, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 

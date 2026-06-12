@@ -23,7 +23,8 @@ public sealed class ImportacaoWhatsappTests
             ItemImportadoWhatsapp.Criar(
                 importacao.Id,
                 TipoSugestaoImportacaoWhatsapp.ContaPagar,
-                """{"descricao":"Boleto","valor":120.50}""")
+                """{"descricao":"Boleto","valor":120.50}""",
+                "BOLETO")
         ]);
 
         importacao.Status.Should().Be(StatusImportacaoWhatsapp.PendenteRevisao);
@@ -33,13 +34,30 @@ public sealed class ImportacaoWhatsappTests
     }
 
     [Fact]
-    public void AtualizarStatusRevisao_DeveMarcarImportacaoComoConfirmadaQuandoNaoHouverPendencias()
+    public void AtualizarStatusRevisao_DeveManterImportacaoPendenteAteAprovacaoExplicita()
     {
         var importacao = CriarImportacaoComItem();
         var item = importacao.Itens.Single();
 
-        item.Confirmar("Confirmado pelo operador");
+        item.Confirmar("Confirmado pelo operador", "URBANUS BURGUER", null, null, null, true);
         importacao.AtualizarStatusRevisao();
+
+        importacao.Status.Should().Be(StatusImportacaoWhatsapp.PendenteRevisao);
+        importacao.ConfirmadoEmUtc.Should().BeNull();
+        importacao.RejeitadoEmUtc.Should().BeNull();
+        item.DescricaoAjustada.Should().Be("URBANUS BURGUER");
+        item.MarcarComoRecorrente.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AprovarRevisao_DeveMarcarImportacaoComoConfirmadaQuandoNaoHouverPendencias()
+    {
+        var importacao = CriarImportacaoComItem();
+        var item = importacao.Itens.Single();
+
+        item.Confirmar("Confirmado pelo operador", null, null, null, null, false);
+        importacao.AtualizarStatusRevisao();
+        importacao.AprovarRevisao();
 
         importacao.Status.Should().Be(StatusImportacaoWhatsapp.Confirmado);
         importacao.ConfirmadoEmUtc.Should().NotBeNull();
@@ -47,17 +65,35 @@ public sealed class ImportacaoWhatsappTests
     }
 
     [Fact]
-    public void AtualizarStatusRevisao_DeveMarcarImportacaoComoRejeitadaQuandoTodosOsItensForemRejeitados()
+    public void AtualizarConfirmacao_DevePermitirEditarItemJaConfirmado()
     {
         var importacao = CriarImportacaoComItem();
         var item = importacao.Itens.Single();
 
-        item.Rejeitar("Nao corresponde ao comprovante recebido");
-        importacao.AtualizarStatusRevisao();
+        item.Confirmar("Primeira revisao", null, null, null, null, false);
+        item.AtualizarConfirmacao("Revisao ajustada", null, null, null, null, false);
 
-        importacao.Status.Should().Be(StatusImportacaoWhatsapp.Rejeitado);
-        importacao.RejeitadoEmUtc.Should().NotBeNull();
+        item.Observacao.Should().Be("Revisao ajustada");
+        item.ConfirmadoEmUtc.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ReabrirRevisao_DeveDestravarImportacaoEManterStatusEDadosDoItemConfirmado()
+    {
+        var importacao = CriarImportacaoComItem();
+        var item = importacao.Itens.Single();
+
+        item.Confirmar("Primeira revisao", "Nome amigavel", null, null, null, true);
+        importacao.AtualizarStatusRevisao();
+        importacao.AprovarRevisao();
+
+        importacao.ReabrirRevisao();
+
+        importacao.Status.Should().Be(StatusImportacaoWhatsapp.PendenteRevisao);
         importacao.ConfirmadoEmUtc.Should().BeNull();
+        item.Status.Should().Be(StatusItemImportadoWhatsapp.Confirmado);
+        item.DescricaoAjustada.Should().Be("Nome amigavel");
+        item.MarcarComoRecorrente.Should().BeTrue();
     }
 
     private static ImportacaoWhatsapp CriarImportacaoComItem()
@@ -77,7 +113,8 @@ public sealed class ImportacaoWhatsappTests
             ItemImportadoWhatsapp.Criar(
                 importacao.Id,
                 TipoSugestaoImportacaoWhatsapp.ContaReceber,
-                """{"descricao":"Pix","valor":80.00}""")
+                """{"descricao":"Pix","valor":80.00}""",
+                "PIX")
         ]);
 
         return importacao;

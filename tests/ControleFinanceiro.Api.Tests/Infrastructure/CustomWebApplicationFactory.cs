@@ -12,6 +12,7 @@ namespace ControleFinanceiro.Api.Tests.Infrastructure;
 
 public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private const string DevelopmentUserHeader = "X-Debug-User";
     private readonly Action<IServiceCollection>? _configureAdditionalServices;
     private SqliteConnection? _connection;
 
@@ -27,7 +28,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment("Testing");
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();
@@ -85,5 +86,13 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         await dbContext.Database.EnsureDeletedAsync();
         await dbContext.Database.EnsureCreatedAsync();
+    }
+
+    public new HttpClient CreateClient()
+    {
+        var client = base.CreateClient();
+        client.DefaultRequestHeaders.Remove(DevelopmentUserHeader);
+        client.DefaultRequestHeaders.Add(DevelopmentUserHeader, "test-user");
+        return client;
     }
 }

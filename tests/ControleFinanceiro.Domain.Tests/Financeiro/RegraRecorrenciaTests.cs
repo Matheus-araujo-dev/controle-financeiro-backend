@@ -11,7 +11,8 @@ public sealed class RegraRecorrenciaTests
         var regra = RegraRecorrencia.Criar(
             tipoLancamento: TipoLancamentoRecorrencia.ContaPagar,
             tipoPeriodicidade: TipoPeriodicidadeRecorrencia.Mensal,
-            diaGeracaoMensal: 20,
+            tipoDia: TipoDiaRecorrencia.DiaFixo,
+            diaOrdemMensal: 20,
             dataInicio: new DateOnly(2026, 4, 20),
             dataFim: null,
             permiteEdicaoOcorrenciaIndividual: true,
@@ -37,7 +38,8 @@ public sealed class RegraRecorrenciaTests
         var regra = RegraRecorrencia.Criar(
             tipoLancamento: TipoLancamentoRecorrencia.ContaReceber,
             tipoPeriodicidade: TipoPeriodicidadeRecorrencia.Mensal,
-            diaGeracaoMensal: 5,
+            tipoDia: TipoDiaRecorrencia.DiaFixo,
+            diaOrdemMensal: 5,
             dataInicio: new DateOnly(2026, 4, 5),
             dataFim: null,
             permiteEdicaoOcorrenciaIndividual: false,

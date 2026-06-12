@@ -19,6 +19,10 @@ public sealed record MovimentacaoListQueryRequest : ListQueryRequest
 {
     public Guid? ContaBancariaId { get; init; }
 
+    public string? ContaBancariaIds { get; init; }
+
+    public string? ResponsavelIds { get; init; }
+
     public string? StatusCodigo { get; init; }
 
     public TipoMovimentacaoResponse? Tipo { get; init; }
@@ -29,7 +33,6 @@ public sealed record MovimentacaoListQueryRequest : ListQueryRequest
 
     public DateOnly? DataFinal { get; init; }
 }
-
 public sealed record MovimentacaoResumoResponse(
     Guid Id,
     DateOnly DataMovimentacao,
@@ -43,7 +46,22 @@ public sealed record MovimentacaoResumoResponse(
     Guid? ContaPagarId,
     Guid? ContaReceberId,
     Guid? FaturaCartaoId,
-    string? Observacao);
+    string? Observacao,
+    string? ResponsavelNome);
+
+public sealed record MovimentacaoListSummaryResponse(
+    int TotalRegistros,
+    decimal TotalEntradas,
+    decimal TotalSaidas,
+    decimal SaldoLiquido);
+
+public sealed record MovimentacaoListResponse(
+    IReadOnlyCollection<MovimentacaoResumoResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    MovimentacaoListSummaryResponse Summary);
 
 public sealed record MovimentacaoDetalheResponse(
     Guid Id,

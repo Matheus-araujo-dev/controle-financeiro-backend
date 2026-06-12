@@ -14,3 +14,5 @@ build.log
 *.db-wal
 coverage.opencover.xml
 src/ControleFinanceiro.Api/appsettings.Local.json
+src/ControleFinanceiro.Api/appsettings.Development.json
+gitleaks.toml

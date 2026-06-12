@@ -2,17 +2,19 @@ using ControleFinanceiro.Application.Financeiro.Movimentacoes;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.Financeiro.Movimentacoes;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/movimentacoes")]
 public sealed class MovimentacoesController(MovimentacaoFinanceiraAppService service) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<MovimentacaoResumoResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<MovimentacaoResumoResponse>>> Listar(
+    [ProducesResponseType(typeof(MovimentacaoListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<MovimentacaoListResponse>> Listar(
         [FromQuery] MovimentacaoListQueryRequest query,
         CancellationToken cancellationToken)
     {

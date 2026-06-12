@@ -10,6 +10,200 @@ public sealed class ContasReceberControllerTests(CustomWebApplicationFactory fac
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
+    public async Task Post_QuandoRateioUsarContaGerencialPai_DeveRetornarBadRequest()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var contaPaiId = await CriarContaGerencialAsync(client, "REC.PAI", "Receitas estruturais", "Receita", null);
+        _ = await CriarContaGerencialAsync(client, "REC.FILHA", "Receita filha", "Receita", contaPaiId);
+
+        var response = await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-04",
+            pagadorId = fixture.PagadorId,
+            dataVencimento = "2026-04-25",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 200m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Receita com conta pai",
+            rateios = new[]
+            {
+                new { contaGerencialId = contaPaiId, valor = 200m }
+            }
+        });
+
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        error.Should().NotBeNull();
+        error!.Errors.Should().ContainKey("Rateios");
+    }
+
+    [Fact]
+    public async Task Post_QuandoRateioUsarContaGerencialDeDespesa_DeveRetornarBadRequest()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-04",
+            pagadorId = fixture.PagadorId,
+            dataVencimento = "2026-04-25",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 200m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Receita com conta de despesa",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 200m }
+            }
+        });
+
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        error.Should().NotBeNull();
+        error!.Errors.Should().ContainKey("Rateios");
+    }
+
+    [Fact]
+    public async Task Get_ComFiltroDeStatusDeveRetornarSummaryFiltrado()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        var liquidadaResponse = await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-04",
+            pagadorId = fixture.PagadorId,
+            dataVencimento = "2026-04-07",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 81m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Receita liquidada",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 81m }
+            }
+        });
+
+        var liquidada = await liquidadaResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+
+        await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-04",
+            pagadorId = fixture.PagadorId,
+            dataVencimento = hoje.ToString("yyyy-MM-dd"),
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 200m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Receita pendente",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 200m }
+            }
+        });
+
+        var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-receber/{liquidada!.Id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId
+        });
+
+        var listResponse = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-receber?statusCodigo=LIQUIDADA");
+
+        liquidarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listResponse.Should().NotBeNull();
+        listResponse!.Items.Should().ContainSingle(item => item.Descricao == "Receita liquidada");
+        listResponse.Summary.TotalRegistros.Should().Be(1);
+        listResponse.Summary.ValorTotal.Should().Be(81m);
+        listResponse.Summary.TotalPendente.Should().Be(200m);
+        listResponse.Summary.TotalVencendoHoje.Should().Be(200m);
+        listResponse.Summary.TotalLiquidado.Should().Be(81m);
+    }
+
+    [Fact]
+    public async Task Get_ComMultiplosStatusDeveRetornarSummaryFiltrado()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var liquidadaResponse = await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-04",
+            pagadorId = fixture.PagadorId,
+            dataVencimento = "2026-04-07",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 81m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Receita liquidada",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 81m }
+            }
+        });
+
+        var liquidada = await liquidadaResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+
+        await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-04",
+            pagadorId = fixture.PagadorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 200m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Receita pendente",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 200m }
+            }
+        });
+
+        await client.PostAsJsonAsync($"/api/v1/contas-receber/{liquidada!.Id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId
+        });
+
+        var listResponse =
+            await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-receber?statusCodigo=PENDENTE,LIQUIDADA");
+
+        listResponse.Should().NotBeNull();
+        listResponse!.Items.Should().HaveCount(2);
+        listResponse.Summary.TotalRegistros.Should().Be(2);
+        listResponse.Summary.ValorTotal.Should().Be(281m);
+    }
+
+    [Fact]
     public async Task PostLiquidar_DeveGerarMovimentacaoDeEntrada()
     {
         await _factory.ResetDatabaseAsync();
@@ -81,9 +275,10 @@ public sealed class ContasReceberControllerTests(CustomWebApplicationFactory fac
             recorrencia = new
             {
                 tipoPeriodicidade = "Mensal",
-                diaGeracaoMensal = 25,
-                dataInicio = "2026-04-25",
-                dataFim = (string?)null,
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 25,
+                dataInicio = (string?)null,
+                dataFim = "2026-08-01",
                 permiteEdicaoOcorrenciaIndividual = true
             }
         });
@@ -95,20 +290,82 @@ public sealed class ContasReceberControllerTests(CustomWebApplicationFactory fac
             ateData = "2026-06-30"
         });
 
-        var listResponse = await client.GetFromJsonAsync<PagedResponse<ContaResumoResponse>>("/api/v1/contas-receber?search=Mensalidade");
+        var listResponse = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-receber?search=Mensalidade");
 
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        created.Should().NotBeNull();
+        created!.Recorrencia.Should().NotBeNull();
+        created.Recorrencia!.DataInicio.Should().Be(new DateOnly(2026, 5, 25));
+        created.Recorrencia.DataFim.Should().Be(new DateOnly(2026, 8, 25));
         gerarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         listResponse.Should().NotBeNull();
         listResponse!.Items.Should().HaveCount(3);
         listResponse.Items.Should().OnlyContain(item => item.EhRecorrente);
     }
 
+    private static async Task<Guid> CriarContaGerencialAsync(
+        HttpClient client,
+        string codigo,
+        string descricao,
+        string tipo,
+        Guid? contaPaiId)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
+        {
+            codigo,
+            descricao,
+            tipo,
+            contaPaiId,
+            ativo = true
+        });
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<IdResponse>();
+        return payload!.Id;
+    }
+
     private sealed record PagedResponse<T>(IReadOnlyCollection<T> Items, int Page, int PageSize, int TotalItems, int TotalPages);
 
-    private sealed record ContaDetalheResponse(Guid Id, string Descricao, decimal ValorLiquido, int QuantidadeParcelas, int NumeroParcela);
+    private sealed record ContaListSummaryResponse(
+        int TotalRegistros,
+        decimal ValorTotal,
+        decimal TotalPendente,
+        decimal TotalVencendoHoje,
+        decimal TotalLiquidado);
+
+    private sealed record ContaListResponse(
+        IReadOnlyCollection<ContaResumoResponse> Items,
+        int Page,
+        int PageSize,
+        int TotalItems,
+        int TotalPages,
+        ContaListSummaryResponse Summary);
+
+    private sealed record ApiErrorResponse(string Code, string Message, IReadOnlyDictionary<string, string[]> Errors, string TraceId);
+
+    private sealed record IdResponse(Guid Id);
+
+    private sealed record ContaDetalheResponse(
+        Guid Id,
+        string Descricao,
+        decimal ValorLiquido,
+        int QuantidadeParcelas,
+        int NumeroParcela,
+        bool EhRecorrente,
+        RecorrenciaResponse? Recorrencia);
 
     private sealed record ContaResumoResponse(Guid Id, string Descricao, decimal ValorLiquido, bool EhRecorrente);
+
+    private sealed record RecorrenciaResponse(
+        Guid Id,
+        string TipoPeriodicidade,
+        string TipoDia,
+        int DiaOrdemMensal,
+        DateOnly DataInicio,
+        DateOnly? DataFim,
+        bool Ativa,
+        bool PermiteEdicaoOcorrenciaIndividual,
+        string? Observacao);
 
     private sealed record MovimentacaoResumoResponse(
         Guid Id,

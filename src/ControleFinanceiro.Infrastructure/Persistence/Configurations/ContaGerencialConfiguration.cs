@@ -1,4 +1,5 @@
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
+using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -24,9 +25,19 @@ public sealed class ContaGerencialConfiguration : IEntityTypeConfiguration<Conta
             .HasMaxLength(30)
             .IsRequired();
 
+        builder.Property(x => x.EhPadraoRecebimentoFaturaCartao)
+            .IsRequired();
+
+        builder.HasIndex(x => x.ResponsavelPadraoId);
+
         builder.HasOne<ContaGerencial>()
             .WithMany()
             .HasForeignKey(x => x.ContaPaiId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Pessoa>()
+            .WithMany()
+            .HasForeignKey(x => x.ResponsavelPadraoId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

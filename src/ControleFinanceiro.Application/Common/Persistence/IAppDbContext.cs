@@ -5,41 +5,23 @@ using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
+using ControleFinanceiro.Domain.PlanejamentoCompras;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Common.Persistence;
 
-public interface IAppDbContext
+public interface IAppDbContext :
+    ICadastrosDbContext,
+    IFinanceiroDbContext,
+    IPlanejamentoDbContext,
+    IImportacoesDbContext,
+    IStatusDbContext,
+    IIdentidadeDbContext,
+    IUnitOfWork
 {
-    DbSet<Pessoa> Pessoas { get; }
-
-    DbSet<FormaPagamento> FormasPagamento { get; }
-
-    DbSet<ContaBancaria> ContasBancarias { get; }
-
-    DbSet<Cartao> Cartoes { get; }
-
-    DbSet<ContaGerencial> ContasGerenciais { get; }
-
-    DbSet<StatusConta> StatusContas { get; }
-
-    DbSet<StatusMovimentacao> StatusMovimentacoes { get; }
-
-    DbSet<ContaPagar> ContasPagar { get; }
-
-    DbSet<ContaReceber> ContasReceber { get; }
-
-    DbSet<RateioContaGerencial> RateiosContaGerencial { get; }
-
-    DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras { get; }
-
-    DbSet<FaturaCartao> FaturasCartao { get; }
-
-    DbSet<RegraRecorrencia> RegrasRecorrencia { get; }
-
-    DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp { get; }
-
-    DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp { get; }
-
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Define a família (tenant) corrente fora de um request autenticado
+    /// (workers em background e webhooks anônimos).
+    /// </summary>
+    void DefinirFamiliaCorrente(Guid familiaId);
 }

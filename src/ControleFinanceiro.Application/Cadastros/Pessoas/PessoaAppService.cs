@@ -17,11 +17,11 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = query.Search.Trim().ToLower();
+            var termo = $"%{query.Search.Trim()}%";
             consulta = consulta.Where(x =>
-                x.Nome.ToLower().Contains(termo) ||
-                (x.CpfCnpj != null && x.CpfCnpj.ToLower().Contains(termo)) ||
-                (x.Email != null && x.Email.ToLower().Contains(termo)));
+                EF.Functions.Like(x.Nome, termo) ||
+                (x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj, termo)) ||
+                (x.Email != null && EF.Functions.Like(x.Email, termo)));
         }
 
         if (query.TipoPessoa.HasValue)
@@ -54,7 +54,7 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.Id,
                 x.Nome,
                 MapearTipoPessoa(x.TipoPessoa),
-                x.CpfCnpj,
+                MascaraDocumento(x.CpfCnpj),
                 x.Email,
                 x.Telefone,
                 x.Ativo))
@@ -67,6 +67,7 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
     {
         var pessoa = await dbContext.Pessoas
             .AsNoTracking()
+            .Include(x => x.ChavesPix)
             .Where(x => x.Id == id)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -96,7 +97,9 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
         AtualizarPessoaRequest request,
         CancellationToken cancellationToken)
     {
-        var pessoa = await dbContext.Pessoas.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var pessoa = await dbContext.Pessoas
+            .Include(x => x.ChavesPix)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (pessoa is null)
         {
@@ -113,7 +116,9 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
 
         try
         {
-            pessoa.Atualizar(
+            var chavesPix = MapearChavesPix(request.ChavesPix);
+
+            pessoa.AtualizarDadosBasicos(
                 request.Nome,
                 MapearTipoPessoa(request.TipoPessoa),
                 request.CpfCnpj,
@@ -121,6 +126,19 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 request.Telefone,
                 request.Observacao,
                 pessoa.Ativo);
+
+            if (pessoa.ChavesPix.Count > 0)
+            {
+                dbContext.PessoasChavesPix.RemoveRange(pessoa.ChavesPix);
+                pessoa.SubstituirChavesPix([]);
+            }
+
+            pessoa.SubstituirChavesPix(chavesPix);
+
+            if (pessoa.ChavesPix.Count > 0)
+            {
+                dbContext.PessoasChavesPix.AddRange(pessoa.ChavesPix);
+            }
         }
         catch (ArgumentException exception)
         {
@@ -166,6 +184,7 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 request.Email,
                 request.Telefone,
                 request.Observacao,
+                MapearChavesPix(request.ChavesPix),
                 true);
         }
         catch (ArgumentException exception)
@@ -179,6 +198,8 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
         var campo = exception.ParamName switch
         {
             "nome" => "Nome",
+            "chavesPix" => "ChavesPix",
+            "chave" => "ChavesPix",
             _ => "Request"
         };
 
@@ -194,6 +215,21 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
 
         var digitos = new string(cpfCnpj.Where(char.IsDigit).ToArray());
         return string.IsNullOrWhiteSpace(digitos) ? null : digitos;
+    }
+
+    private static string? MascaraDocumento(string? documento)
+    {
+        if (string.IsNullOrEmpty(documento))
+        {
+            return string.Empty;
+        }
+
+        if (documento.Length <= 4)
+        {
+            return documento;
+        }
+
+        return new string('*', documento.Length - 4) + documento[^4..];
     }
 
     private static TipoPessoa MapearTipoPessoa(PessoaTipo tipoPessoa)
@@ -222,12 +258,48 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             pessoa.Id,
             pessoa.Nome,
             MapearTipoPessoa(pessoa.TipoPessoa),
-            pessoa.CpfCnpj,
+            MascaraDocumento(pessoa.CpfCnpj),
             pessoa.Email,
             pessoa.Telefone,
             pessoa.Observacao,
+            pessoa.ChavesPix
+                .OrderBy(x => x.Tipo)
+                .ThenBy(x => x.Chave)
+                .Select(x => new PessoaChavePixResponse(MapearTipoChavePix(x.Tipo), x.Chave))
+                .ToArray(),
             pessoa.Ativo,
             pessoa.CreatedAtUtc,
             pessoa.UpdatedAtUtc);
+    }
+
+    private static IReadOnlyCollection<ChavePixPlano> MapearChavesPix(IReadOnlyCollection<PessoaChavePixRequest>? chavesPix)
+    {
+        return (chavesPix ?? [])
+            .Select(item => ChavePixPlano.Create(MapearTipoChavePix(item.Tipo), item.Chave))
+            .ToArray();
+    }
+
+    private static TipoChavePix MapearTipoChavePix(PessoaChavePixTipo tipo)
+    {
+        return tipo switch
+        {
+            PessoaChavePixTipo.CpfCnpj => TipoChavePix.CpfCnpj,
+            PessoaChavePixTipo.Email => TipoChavePix.Email,
+            PessoaChavePixTipo.Telefone => TipoChavePix.Telefone,
+            PessoaChavePixTipo.Aleatoria => TipoChavePix.Aleatoria,
+            _ => throw new ArgumentOutOfRangeException(nameof(tipo))
+        };
+    }
+
+    private static PessoaChavePixTipo MapearTipoChavePix(TipoChavePix tipo)
+    {
+        return tipo switch
+        {
+            TipoChavePix.CpfCnpj => PessoaChavePixTipo.CpfCnpj,
+            TipoChavePix.Email => PessoaChavePixTipo.Email,
+            TipoChavePix.Telefone => PessoaChavePixTipo.Telefone,
+            TipoChavePix.Aleatoria => PessoaChavePixTipo.Aleatoria,
+            _ => throw new ArgumentOutOfRangeException(nameof(tipo))
+        };
     }
 }

@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
 
-public sealed class RateioContaGerencial : AuditableEntity
+public sealed class RateioContaGerencial : TenantEntity
 {
     private RateioContaGerencial()
     {
@@ -37,9 +37,9 @@ public sealed class RateioContaGerencial : AuditableEntity
         RateioPlano plano,
         decimal valorBase)
     {
-        if (valorBase <= 0)
+        if (valorBase == 0)
         {
-            throw new ArgumentException("Valor base deve ser maior que zero.", nameof(valorBase));
+            throw new ArgumentException("Valor base deve ser diferente de zero.", nameof(valorBase));
         }
 
         var percentual = decimal.Round((plano.Valor / valorBase) * 100m, 4, MidpointRounding.AwayFromZero);

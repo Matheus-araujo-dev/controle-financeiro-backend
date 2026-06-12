@@ -24,7 +24,7 @@ public sealed class AppDbContextAuditingTests
         await using var context = new AppDbContext(options, clock, currentUser);
         await context.Database.EnsureCreatedAsync();
 
-        var pessoa = Pessoa.Criar("Cliente Exemplo", TipoPessoa.Fisica, null, null, null, null, true);
+        var pessoa = Pessoa.Criar("Cliente Exemplo", TipoPessoa.Fisica, null, null, null, null, [], true);
         context.Pessoas.Add(pessoa);
 
         await context.SaveChangesAsync();
@@ -51,5 +51,9 @@ public sealed class AppDbContextAuditingTests
         public bool IsAuthenticated => true;
 
         public string? UserId { get; } = userId;
+
+        public Guid? FamiliaId => null;
+
+        public string? Papel => null;
     }
 }

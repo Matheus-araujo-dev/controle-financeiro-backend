@@ -6,6 +6,77 @@ namespace ControleFinanceiro.Domain.Tests.Financeiro;
 public sealed class ContaPagarTests
 {
     [Fact]
+    public void Criar_QuandoCompraEmCartaoTiverEstorno_DevePermitirValorLiquidoNegativo()
+    {
+        var conta = ContaPagar.Criar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 4),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            dataVencimento: new DateOnly(2026, 4, 13),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: Guid.NewGuid(),
+            contaBancariaId: null,
+            valorOriginal: -12.96m,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 1,
+            numeroParcela: 1,
+            grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
+            descricao: "Estorno no cartao",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Importacao,
+            rateios: new[]
+            {
+                RateioPlano.CreateSigned(Guid.NewGuid(), -12.96m)
+            });
+
+        conta.ValorLiquido.Should().Be(-12.96m);
+        conta.Rateios.Should().ContainSingle();
+        conta.Rateios.Single().Valor.Should().Be(-12.96m);
+    }
+
+    [Fact]
+    public void Criar_QuandoContaOperacionalTiverValorNegativo_DeveFalhar()
+    {
+        var action = () => ContaPagar.Criar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 4),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            dataVencimento: new DateOnly(2026, 4, 10),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: null,
+            contaBancariaId: null,
+            valorOriginal: -10m,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 1,
+            numeroParcela: 1,
+            grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
+            descricao: "Conta negativa",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Manual,
+            rateios: new[]
+            {
+                RateioPlano.CreateSigned(Guid.NewGuid(), -10m)
+            });
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("*Valor liquido deve ser maior que zero para contas operacionais.*");
+    }
+
+    [Fact]
     public void Criar_QuandoRateiosNaoFecharemValorLiquido_DeveFalhar()
     {
         var rateios = new[]
@@ -30,6 +101,7 @@ public sealed class ContaPagarTests
             quantidadeParcelas: 1,
             numeroParcela: 1,
             grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
             descricao: "Fornecedor",
             observacao: null,
             statusContaId: StatusConta.PendenteId,
@@ -59,6 +131,7 @@ public sealed class ContaPagarTests
             valorJuros: 0m,
             valorMulta: 0.01m,
             quantidadeParcelas: 3,
+            origemCompraPlanejadaId: null,
             descricao: "Parcela",
             observacao: null,
             statusContaId: StatusConta.PendenteId,
@@ -80,6 +153,42 @@ public sealed class ContaPagarTests
     }
 
     [Fact]
+    public void CriarParcelasCartao_DeveAtualizarDescricaoComNumeroDaParcelaCorrente()
+    {
+        var parcelas = ContaPagar.CriarParcelasCartao(
+            numeroDocumento: "NF-300",
+            dataEmissao: new DateOnly(2026, 4, 8),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: Guid.NewGuid(),
+            valorOriginal: 300m,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 3,
+            origemCompraPlanejadaId: null,
+            descricao: "Cadeira DT3 ErgoOne 1/3",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Manual,
+            rateios:
+            [
+                RateioPlano.Create(Guid.NewGuid(), 300m)
+            ],
+            diaFechamentoFatura: 5,
+            diaVencimentoFatura: 15);
+
+        parcelas.Select(x => x.Descricao).Should().ContainInOrder(
+            "Cadeira DT3 ErgoOne 1/3",
+            "Cadeira DT3 ErgoOne 2/3",
+            "Cadeira DT3 ErgoOne 3/3");
+        parcelas.Select(x => x.NumeroParcela).Should().ContainInOrder(1, 2, 3);
+    }
+
+    [Fact]
     public void Liquidar_DeveAtualizarStatusDataEContaBancaria()
     {
         var conta = ContaPagar.Criar(
@@ -98,7 +207,8 @@ public sealed class ContaPagarTests
             quantidadeParcelas: 1,
             numeroParcela: 1,
             grupoParcelamentoId: null,
-            descricao: "Liquidação",
+            origemCompraPlanejadaId: null,
+            descricao: "Liquidacao",
             observacao: null,
             statusContaId: StatusConta.PendenteId,
             ehRecorrente: false,

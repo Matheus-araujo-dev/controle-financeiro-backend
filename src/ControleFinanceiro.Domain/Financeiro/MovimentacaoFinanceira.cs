@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
 
-public sealed class MovimentacaoFinanceira : AuditableEntity
+public sealed class MovimentacaoFinanceira : TenantEntity
 {
     private MovimentacaoFinanceira()
     {
@@ -36,7 +36,8 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
         DateOnly dataMovimentacao,
         decimal valor,
         Guid statusMovimentacaoId,
-        string? observacao)
+        string? observacao,
+        Guid? faturaCartaoId = null)
     {
         return Criar(
             dataMovimentacao,
@@ -45,7 +46,7 @@ public sealed class MovimentacaoFinanceira : AuditableEntity
             contaBancariaId,
             contaPagarId,
             null,
-            null,
+            faturaCartaoId,
             valor,
             statusMovimentacaoId,
             observacao);

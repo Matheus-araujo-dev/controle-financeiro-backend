@@ -51,6 +51,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<int>("DiaVencimentoFatura")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("LimiteCredito")
                         .HasColumnType("decimal(18,2)");
 
@@ -73,6 +76,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContaBancariaPagamentoPadraoId");
+
+                    b.HasIndex("FamiliaId");
 
                     b.ToTable("cartoes", (string)null);
                 });
@@ -104,6 +109,12 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("DataSaldoInicial")
                         .HasColumnType("date");
 
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("LimiteCartoesCompartilhado")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -127,6 +138,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FamiliaId");
 
                     b.ToTable("contas_bancarias", (string)null);
                 });
@@ -158,6 +171,15 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<bool>("EhPadraoRecebimentoFaturaCartao")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ResponsavelPadraoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -172,6 +194,10 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContaPaiId");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("ResponsavelPadraoId");
 
                     b.ToTable("contas_gerenciais", (string)null);
                 });
@@ -197,6 +223,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<bool>("EhCartao")
                         .HasColumnType("bit");
 
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -214,6 +243,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FamiliaId");
 
                     b.ToTable("formas_pagamento", (string)null);
                 });
@@ -240,6 +271,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -271,7 +305,36 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[CpfCnpj] IS NOT NULL");
 
+                    b.HasIndex("FamiliaId");
+
                     b.ToTable("pessoas", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Pessoas.PessoaChavePix", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Chave")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PessoaId", "Tipo", "Chave")
+                        .IsUnique();
+
+                    b.ToTable("pessoas_chaves_pix", (string)null);
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.ContaPagar", b =>
@@ -282,6 +345,10 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("CartaoId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChaveSerieImportacaoCartao")
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
 
                     b.Property<Guid?>("ContaBancariaId")
                         .HasColumnType("uniqueidentifier");
@@ -309,6 +376,12 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<bool>("EhRecorrente")
                         .HasColumnType("bit");
 
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FaturaCartaoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("FormaPagamentoId")
                         .HasColumnType("uniqueidentifier");
 
@@ -330,6 +403,12 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("OrigemCompraPlanejadaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OrigemImportacaoWhatsappId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("QuantidadeParcelas")
                         .HasColumnType("int");
@@ -374,21 +453,34 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CartaoId");
-
                     b.HasIndex("ContaBancariaId");
 
                     b.HasIndex("DataVencimento");
 
+                    b.HasIndex("Descricao");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("FaturaCartaoId");
+
                     b.HasIndex("FormaPagamentoId");
 
-                    b.HasIndex("RecebedorId");
+                    b.HasIndex("NumeroDocumento");
+
+                    b.HasIndex("OrigemCompraPlanejadaId");
+
+                    b.HasIndex("OrigemImportacaoWhatsappId");
 
                     b.HasIndex("RegraRecorrenciaId");
 
                     b.HasIndex("ResponsavelCompraId");
 
-                    b.HasIndex("StatusContaId");
+                    b.HasIndex("RecebedorId", "StatusContaId");
+
+                    b.HasIndex("StatusContaId", "DataVencimento");
+
+                    b.HasIndex("CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas")
+                        .HasFilter("[CartaoId] IS NOT NULL AND [ChaveSerieImportacaoCartao] IS NOT NULL");
 
                     b.ToTable("contas_pagar", (string)null);
                 });
@@ -427,6 +519,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("EhRecorrente")
                         .HasColumnType("bit");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("FormaPagamentoId")
                         .HasColumnType("uniqueidentifier");
@@ -499,6 +594,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DataVencimento");
 
+                    b.HasIndex("FamiliaId");
+
                     b.HasIndex("FormaPagamentoId");
 
                     b.HasIndex("PagadorId");
@@ -544,6 +641,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("DataVencimento")
                         .HasColumnType("date");
 
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -566,6 +666,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ContaBancariaPagamentoId");
+
+                    b.HasIndex("FamiliaId");
 
                     b.HasIndex("CartaoId", "Competencia")
                         .IsUnique();
@@ -600,6 +702,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("DataMovimentacao")
                         .HasColumnType("date");
 
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("FaturaCartaoId")
                         .HasColumnType("uniqueidentifier");
 
@@ -632,17 +737,19 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContaBancariaId");
-
                     b.HasIndex("ContaPagarId");
 
                     b.HasIndex("ContaReceberId");
 
                     b.HasIndex("DataMovimentacao");
 
+                    b.HasIndex("FamiliaId");
+
                     b.HasIndex("FaturaCartaoId");
 
-                    b.HasIndex("StatusMovimentacaoId");
+                    b.HasIndex("ContaBancariaId", "DataMovimentacao");
+
+                    b.HasIndex("StatusMovimentacaoId", "DataMovimentacao");
 
                     b.ToTable("movimentacoes_financeiras", (string)null);
                 });
@@ -667,6 +774,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal?>("Percentual")
                         .HasPrecision(9, 4)
@@ -695,6 +805,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ContaReceberId");
 
+                    b.HasIndex("FamiliaId");
+
                     b.ToTable("rateios_conta_gerencial", (string)null);
                 });
 
@@ -719,8 +831,11 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("DataInicio")
                         .HasColumnType("date");
 
-                    b.Property<int>("DiaGeracaoMensal")
+                    b.Property<int>("DiaOrdemMensal")
                         .HasColumnType("int");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Observacao")
                         .HasMaxLength(1000)
@@ -732,6 +847,11 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<string>("TemplateJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TipoDia")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("TipoLancamento")
                         .IsRequired()
@@ -750,6 +870,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FamiliaId");
 
                     b.HasIndex("TipoLancamento", "Ativa");
 
@@ -809,6 +931,12 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
                             Codigo = "PARCIAL",
                             Nome = "Parcial"
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
+                            Codigo = "EM_FATURA",
+                            Nome = "Em fatura"
                         });
                 });
 
@@ -862,6 +990,235 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.ConviteFamilia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AceitoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmailConvidado")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<DateTime>("ExpiraEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Papel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("UsuarioAceiteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("convites_familia", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.Familia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("familias", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.MembroFamilia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Papel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("FamiliaId", "UsuarioId")
+                        .IsUnique();
+
+                    b.ToTable("membros_familia", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ExpiraEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RevogadoEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SubstituidoPorTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.Usuario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<Guid?>("FamiliaAtivaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("GoogleSubject")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("GoogleSubject")
+                        .IsUnique();
+
+                    b.ToTable("usuarios", (string)null);
+                });
+
             modelBuilder.Entity("ControleFinanceiro.Domain.ImportacoesWhatsapp.ImportacaoWhatsapp", b =>
                 {
                     b.Property<Guid>("Id")
@@ -884,6 +1241,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("MensagemErro")
                         .HasMaxLength(1000)
@@ -932,6 +1292,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FamiliaId");
+
                     b.HasIndex("Status");
 
                     b.ToTable("importacoes_whatsapp", (string)null);
@@ -943,8 +1305,18 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ChaveAprendizado")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime?>("ConfirmadoEmUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ContaGerencialId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ContaReceberId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
@@ -952,8 +1324,18 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("DescricaoAjustada")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ImportacaoWhatsappId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("MarcarComoRecorrente")
+                        .HasColumnType("bit");
 
                     b.Property<Guid?>("MovimentacaoFinanceiraId")
                         .HasColumnType("uniqueidentifier");
@@ -968,6 +1350,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("RejeitadoEmUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ResponsavelId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -987,11 +1372,106 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ChaveAprendizado");
+
+                    b.HasIndex("ContaGerencialId");
+
+                    b.HasIndex("ContaReceberId");
+
+                    b.HasIndex("FamiliaId");
+
                     b.HasIndex("ImportacaoWhatsappId");
 
                     b.HasIndex("MovimentacaoFinanceiraId");
 
+                    b.HasIndex("ResponsavelId");
+
                     b.ToTable("itens_importados_whatsapp", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.PlanejamentoCompras.PlanejamentoCompra", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContaGerencialId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ContaPagarGeradaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ConvertidaEmContaPagarEmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("DataDesejada")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("Parcelavel")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Prioridade")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("QuantidadeParcelasDesejada")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ResponsavelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("ValorEstimado")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContaGerencialId");
+
+                    b.HasIndex("ContaPagarGeradaId");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("ResponsavelId");
+
+                    b.ToTable("compras_planejadas", (string)null);
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Infrastructure.Persistence.AuditTrailEntry", b =>
@@ -1048,6 +1528,20 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ContaPaiId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("ResponsavelPadraoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Pessoas.PessoaChavePix", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
+                        .WithMany("ChavesPix")
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.ContaPagar", b =>
@@ -1062,11 +1556,26 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ContaBancariaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("ControleFinanceiro.Domain.Financeiro.FaturaCartao", null)
+                        .WithMany()
+                        .HasForeignKey("FaturaCartaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.FormasPagamento.FormaPagamento", null)
                         .WithMany()
                         .HasForeignKey("FormaPagamentoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("ControleFinanceiro.Domain.PlanejamentoCompras.PlanejamentoCompra", null)
+                        .WithMany()
+                        .HasForeignKey("OrigemCompraPlanejadaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ControleFinanceiro.Domain.ImportacoesWhatsapp.ImportacaoWhatsapp", null)
+                        .WithMany()
+                        .HasForeignKey("OrigemImportacaoWhatsappId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()
@@ -1194,8 +1703,53 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.ConviteFamilia", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Identidade.Familia", null)
+                        .WithMany()
+                        .HasForeignKey("FamiliaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.MembroFamilia", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Identidade.Familia", null)
+                        .WithMany("Membros")
+                        .HasForeignKey("FamiliaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ControleFinanceiro.Domain.Identidade.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.RefreshToken", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ControleFinanceiro.Domain.ImportacoesWhatsapp.ItemImportadoWhatsapp", b =>
                 {
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasGerenciais.ContaGerencial", null)
+                        .WithMany()
+                        .HasForeignKey("ContaGerencialId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ControleFinanceiro.Domain.Financeiro.ContaReceber", null)
+                        .WithMany()
+                        .HasForeignKey("ContaReceberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ControleFinanceiro.Domain.ImportacoesWhatsapp.ImportacaoWhatsapp", null)
                         .WithMany("Itens")
                         .HasForeignKey("ImportacaoWhatsappId")
@@ -1206,6 +1760,41 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("MovimentacaoFinanceiraId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("ResponsavelId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.PlanejamentoCompras.PlanejamentoCompra", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasGerenciais.ContaGerencial", null)
+                        .WithMany()
+                        .HasForeignKey("ContaGerencialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ControleFinanceiro.Domain.Financeiro.ContaPagar", null)
+                        .WithMany()
+                        .HasForeignKey("ContaPagarGeradaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("ResponsavelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", b =>
+                {
+                    b.Navigation("ChavesPix");
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.Familia", b =>
+                {
+                    b.Navigation("Membros");
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.ImportacoesWhatsapp.ImportacaoWhatsapp", b =>

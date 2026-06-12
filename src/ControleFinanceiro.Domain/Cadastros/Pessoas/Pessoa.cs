@@ -8,8 +8,10 @@ public enum TipoPessoa
     Juridica = 2
 }
 
-public sealed class Pessoa : AuditableEntity
+public sealed class Pessoa : TenantEntity
 {
+    private readonly List<PessoaChavePix> _chavesPix = [];
+
     private Pessoa()
     {
     }
@@ -28,6 +30,8 @@ public sealed class Pessoa : AuditableEntity
 
     public bool Ativo { get; private set; }
 
+    public IReadOnlyCollection<PessoaChavePix> ChavesPix => _chavesPix;
+
     public static Pessoa Criar(
         string nome,
         TipoPessoa tipoPessoa,
@@ -35,14 +39,30 @@ public sealed class Pessoa : AuditableEntity
         string? email,
         string? telefone,
         string? observacao,
+        IReadOnlyCollection<ChavePixPlano> chavesPix,
         bool ativo)
     {
         var pessoa = new Pessoa();
-        pessoa.Atualizar(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo);
+        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo);
+        pessoa.SubstituirChavesPix(chavesPix);
         return pessoa;
     }
 
     public void Atualizar(
+        string nome,
+        TipoPessoa tipoPessoa,
+        string? cpfCnpj,
+        string? email,
+        string? telefone,
+        string? observacao,
+        IReadOnlyCollection<ChavePixPlano> chavesPix,
+        bool ativo)
+    {
+        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo);
+        SubstituirChavesPix(chavesPix);
+    }
+
+    public void AtualizarDadosBasicos(
         string nome,
         TipoPessoa tipoPessoa,
         string? cpfCnpj,
@@ -74,7 +94,7 @@ public sealed class Pessoa : AuditableEntity
     {
         if (string.IsNullOrWhiteSpace(valor))
         {
-            throw new ArgumentException("O valor informado e obrigatorio.", parametro);
+            throw new ArgumentException("O valor informado é obrigatório.", parametro);
         }
 
         var normalizado = valor.Trim();
@@ -113,5 +133,37 @@ public sealed class Pessoa : AuditableEntity
 
         var digitos = new string(cpfCnpj.Where(char.IsDigit).ToArray());
         return string.IsNullOrWhiteSpace(digitos) ? null : digitos;
+    }
+
+    public void SubstituirChavesPix(IReadOnlyCollection<ChavePixPlano> chavesPix)
+    {
+        var itens = (chavesPix ?? []).ToArray();
+        var duplicada = itens
+            .GroupBy(item => new { item.Tipo, item.Chave })
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicada is not null)
+        {
+            throw new ArgumentException("Chave Pix duplicada para a mesma pessoa.", nameof(chavesPix));
+        }
+
+        var quantidadeComum = Math.Min(_chavesPix.Count, itens.Length);
+
+        for (var indice = 0; indice < quantidadeComum; indice++)
+        {
+            _chavesPix[indice].Atualizar(itens[indice]);
+        }
+
+        if (_chavesPix.Count > itens.Length)
+        {
+            _chavesPix.RemoveRange(itens.Length, _chavesPix.Count - itens.Length);
+        }
+
+        if (itens.Length > quantidadeComum)
+        {
+            _chavesPix.AddRange(itens
+                .Skip(quantidadeComum)
+                .Select(item => PessoaChavePix.Criar(Id, item)));
+        }
     }
 }

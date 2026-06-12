@@ -9,6 +9,14 @@ public sealed record FaturaListQueryRequest : ListQueryRequest
     public string? Competencia { get; init; }
 
     public string? StatusCodigo { get; init; }
+
+    public DateOnly? DataVencimentoInicial { get; init; }
+
+    public DateOnly? DataVencimentoFinal { get; init; }
+
+    public DateOnly? DataFechamentoInicial { get; init; }
+
+    public DateOnly? DataFechamentoFinal { get; init; }
 }
 
 public sealed record PagarFaturaRequest(
@@ -28,6 +36,26 @@ public sealed record FaturaResumoResponse(
     string StatusCodigo,
     string StatusNome,
     int QuantidadeItens);
+
+public sealed record FaturaAgrupamentoResumoResponse(
+    string Chave,
+    string Label,
+    int QuantidadeFaturas,
+    decimal ValorTotal);
+
+public sealed record FaturaListSummaryResponse(
+    int TotalRegistros,
+    decimal ValorTotal,
+    IReadOnlyCollection<FaturaAgrupamentoResumoResponse> PorCartao,
+    IReadOnlyCollection<FaturaAgrupamentoResumoResponse> PorCompetencia);
+
+public sealed record FaturaListResponse(
+    IReadOnlyCollection<FaturaResumoResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    FaturaListSummaryResponse Summary);
 
 public sealed record FaturaItemResponse(
     Guid ContaPagarId,

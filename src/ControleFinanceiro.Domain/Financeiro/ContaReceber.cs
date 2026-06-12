@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
 
-public sealed class ContaReceber : AuditableEntity
+public sealed class ContaReceber : TenantEntity
 {
     private readonly List<RateioContaGerencial> _rateios = [];
 
@@ -226,7 +226,7 @@ public sealed class ContaReceber : AuditableEntity
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
         {
-            throw new InvalidOperationException("Nao e permitido editar contas liquidadas ou canceladas.");
+            throw new InvalidOperationException("Não é permitido editar contas liquidadas ou canceladas.");
         }
 
         DefinirCampos(
@@ -258,7 +258,7 @@ public sealed class ContaReceber : AuditableEntity
     {
         if (StatusContaId == StatusConta.CanceladaId)
         {
-            throw new InvalidOperationException("Conta cancelada nao pode ser liquidada.");
+            throw new InvalidOperationException("Conta cancelada não pode ser liquidada.");
         }
 
         DataLiquidacao = dataLiquidacao;
@@ -266,11 +266,23 @@ public sealed class ContaReceber : AuditableEntity
         StatusContaId = statusContaLiquidadaId;
     }
 
+    public void Estornar(Guid statusContaPendenteId)
+    {
+        if (StatusContaId != StatusConta.LiquidadaId)
+        {
+            throw new InvalidOperationException("Apenas contas liquidadas podem ser estornadas.");
+        }
+
+        StatusContaId = statusContaPendenteId;
+        DataLiquidacao = null;
+        ContaBancariaId = null;
+    }
+
     public void Cancelar(Guid statusContaCanceladaId)
     {
         if (StatusContaId == StatusConta.LiquidadaId)
         {
-            throw new InvalidOperationException("Conta liquidada nao pode ser cancelada.");
+            throw new InvalidOperationException("Conta liquidada não pode ser cancelada.");
         }
 
         StatusContaId = statusContaCanceladaId;
@@ -301,27 +313,27 @@ public sealed class ContaReceber : AuditableEntity
     {
         if (pagadorId == Guid.Empty)
         {
-            throw new ArgumentException("Pagador e obrigatorio.", nameof(pagadorId));
+            throw new ArgumentException("Pagador é obrigatório.", nameof(pagadorId));
         }
 
         if (formaPagamentoId == Guid.Empty)
         {
-            throw new ArgumentException("Forma de pagamento e obrigatoria.", nameof(formaPagamentoId));
+            throw new ArgumentException("Forma de pagamento é obrigatória.", nameof(formaPagamentoId));
         }
 
         if (string.IsNullOrWhiteSpace(descricao))
         {
-            throw new ArgumentException("Descricao e obrigatoria.", nameof(descricao));
+            throw new ArgumentException("Descrição é obrigatória.", nameof(descricao));
         }
 
         if (quantidadeParcelas < 1)
         {
-            throw new ArgumentException("Quantidade de parcelas invalida.", nameof(quantidadeParcelas));
+            throw new ArgumentException("Quantidade de parcelas inválida.", nameof(quantidadeParcelas));
         }
 
         if (numeroParcela < 1 || numeroParcela > quantidadeParcelas)
         {
-            throw new ArgumentException("Numero da parcela invalido.", nameof(numeroParcela));
+            throw new ArgumentException("Número da parcela inválido.", nameof(numeroParcela));
         }
 
         NumeroDocumento = string.IsNullOrWhiteSpace(numeroDocumento) ? null : numeroDocumento.Trim();
@@ -349,7 +361,7 @@ public sealed class ContaReceber : AuditableEntity
 
         if (ValorLiquido <= 0)
         {
-            throw new ArgumentException("Valor liquido deve ser maior que zero.", nameof(valorOriginal));
+            throw new ArgumentException("Valor líquido deve ser maior que zero.", nameof(valorOriginal));
         }
     }
 
@@ -364,14 +376,14 @@ public sealed class ContaReceber : AuditableEntity
     {
         if (rateios.Count == 0)
         {
-            throw new ArgumentException("Ao menos um rateio e obrigatorio.", nameof(rateios));
+            throw new ArgumentException("Ao menos um rateio é obrigatório.", nameof(rateios));
         }
 
         var totalRateio = rateios.Sum(x => x.Valor);
 
         if (totalRateio != valorLiquido)
         {
-            throw new ArgumentException("A soma dos rateios deve fechar exatamente o valor liquido.", nameof(rateios));
+            throw new ArgumentException("A soma dos rateios deve fechar exatamente o valor líquido.", nameof(rateios));
         }
     }
 

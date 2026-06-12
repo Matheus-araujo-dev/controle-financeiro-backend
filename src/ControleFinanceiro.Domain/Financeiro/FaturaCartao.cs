@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
 
-public sealed class FaturaCartao : AuditableEntity
+public sealed class FaturaCartao : TenantEntity
 {
     private FaturaCartao()
     {
@@ -50,15 +50,32 @@ public sealed class FaturaCartao : AuditableEntity
             return;
         }
 
+        DataFechamento = dataFechamento;
+        DataVencimento = dataVencimento;
+        AtualizarValorTotal(valorTotal);
+    }
+
+    /// <summary>
+    /// Atualiza apenas o valor (estornos/ajustes) sem re-datar a fatura. Usado para
+    /// faturas já fechadas: alterações nos dias do cartão não mexem em competências passadas.
+    /// </summary>
+    public void AtualizarValorTotal(decimal valorTotal)
+    {
+        if (Status == StatusFaturaCartao.Paga)
+        {
+            return;
+        }
+
         if (valorTotal <= 0)
         {
             throw new ArgumentException("Valor total da fatura deve ser maior que zero.", nameof(valorTotal));
         }
 
-        DataFechamento = dataFechamento;
-        DataVencimento = dataVencimento;
         ValorTotal = decimal.Round(valorTotal, 2, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>Fatura cujo dia de fechamento já passou: imutável quanto a datas.</summary>
+    public bool EstaFechada(DateOnly hoje) => DataFechamento < hoje;
 
     public void Pagar(DateOnly dataPagamento, Guid contaBancariaPagamentoId, string? observacao)
     {
@@ -76,6 +93,18 @@ public sealed class FaturaCartao : AuditableEntity
         ContaBancariaPagamentoId = contaBancariaPagamentoId;
         Status = StatusFaturaCartao.Paga;
         Observacao = string.IsNullOrWhiteSpace(observacao) ? Observacao : observacao.Trim();
+    }
+
+    public void ReabrirPagamento()
+    {
+        if (Status != StatusFaturaCartao.Paga)
+        {
+            throw new InvalidOperationException("Apenas faturas pagas podem ser reabertas.");
+        }
+
+        DataPagamento = null;
+        ContaBancariaPagamentoId = null;
+        Status = StatusFaturaCartao.Aberta;
     }
 
     private void DefinirCampos(

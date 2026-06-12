@@ -5,7 +5,7 @@ namespace ControleFinanceiro.Api.Controllers;
 
 public abstract class ApiControllerBase : ControllerBase
 {
-    protected NotFoundObjectResult NotFoundResponse(string message = "Registro nao encontrado.")
+    protected NotFoundObjectResult NotFoundResponse(string message = "Registro não encontrado.")
     {
         return NotFound(new ApiErrorResponse(
             "NOT_FOUND",

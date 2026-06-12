@@ -38,6 +38,10 @@ public sealed record CartaoResumoResponse(
     int DiaVencimentoFatura,
     Guid? ContaBancariaPagamentoPadraoId,
     decimal? LimiteCredito,
+    bool UsaLimiteCompartilhado,
+    decimal? LimiteEfetivo,
+    decimal LimiteComprometido,
+    decimal? LimiteDisponivel,
     bool Ativo);
 
 public sealed record CartaoDetalheResponse(
@@ -49,6 +53,10 @@ public sealed record CartaoDetalheResponse(
     int DiaVencimentoFatura,
     Guid? ContaBancariaPagamentoPadraoId,
     decimal? LimiteCredito,
+    bool UsaLimiteCompartilhado,
+    decimal? LimiteEfetivo,
+    decimal LimiteComprometido,
+    decimal? LimiteDisponivel,
     bool Ativo,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

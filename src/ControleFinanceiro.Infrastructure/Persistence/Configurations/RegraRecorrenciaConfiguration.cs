@@ -22,6 +22,14 @@ public sealed class RegraRecorrenciaConfiguration : IEntityTypeConfiguration<Reg
             .HasMaxLength(20)
             .IsRequired();
 
+        builder.Property(x => x.TipoDia)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired();
+
+        builder.Property(x => x.DiaOrdemMensal)
+            .IsRequired();
+
         builder.Property(x => x.Observacao)
             .HasMaxLength(1000);
 

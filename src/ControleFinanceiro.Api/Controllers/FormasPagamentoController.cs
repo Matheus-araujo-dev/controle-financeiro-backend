@@ -2,11 +2,13 @@ using ControleFinanceiro.Application.Cadastros.FormasPagamento;
 using ControleFinanceiro.Contracts.Cadastros.FormasPagamento;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/formas-pagamento")]
 public sealed class FormasPagamentoController(FormaPagamentoAppService service) : ApiControllerBase
 {

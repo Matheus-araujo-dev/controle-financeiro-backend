@@ -2,11 +2,15 @@ using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.ImportacoesWhatsapp;
+using ControleFinanceiro.Api.Filters;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ControleFinanceiro.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/v1/importacoes-whatsapp")]
 public sealed class ImportacoesWhatsappController(ImportacoesWhatsappAppService service) : ApiControllerBase
 {
@@ -29,8 +33,12 @@ public sealed class ImportacoesWhatsappController(ImportacoesWhatsappAppService 
     }
 
     [HttpPost("webhook")]
+    [AllowAnonymous]
+    [ValidateWebhookSignature]
+    [EnableRateLimiting("Strict")]
     [ProducesResponseType(typeof(ImportacaoWhatsappDetalheResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ImportacaoWhatsappDetalheResponse>> ReceberWebhook(
         [FromBody] ReceberImportacaoWhatsappWebhookRequest request,
         CancellationToken cancellationToken)
@@ -45,6 +53,42 @@ public sealed class ImportacoesWhatsappController(ImportacoesWhatsappAppService 
     public async Task<ActionResult<ImportacaoWhatsappDetalheResponse>> Reprocessar(Guid id, CancellationToken cancellationToken)
     {
         var response = await service.ReprocessarAsync(id, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/confirmar")]
+    [ProducesResponseType(typeof(ImportacaoWhatsappDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ImportacaoWhatsappDetalheResponse>> ConfirmarImportacao(
+        Guid id,
+        [FromBody] AprovarImportacaoWhatsappRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.AprovarImportacaoAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/completar-fechamento-fatura")]
+    [ProducesResponseType(typeof(ImportacaoWhatsappDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ImportacaoWhatsappDetalheResponse>> CompletarFechamentoFatura(
+        Guid id,
+        [FromBody] AprovarImportacaoWhatsappRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.CompletarFechamentoFaturaAsync(id, request, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/reabrir")]
+    [ProducesResponseType(typeof(ImportacaoWhatsappDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ImportacaoWhatsappDetalheResponse>> ReabrirImportacao(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.ReabrirImportacaoAsync(id, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 

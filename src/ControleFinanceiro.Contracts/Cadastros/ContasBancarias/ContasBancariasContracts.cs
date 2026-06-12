@@ -17,6 +17,7 @@ public sealed record CriarContaBancariaRequest(
     string? TipoConta,
     decimal SaldoInicial,
     DateOnly DataSaldoInicial,
+    decimal? LimiteCartoesCompartilhado,
     bool Ativo);
 
 public sealed record AtualizarContaBancariaRequest(
@@ -27,6 +28,7 @@ public sealed record AtualizarContaBancariaRequest(
     string? TipoConta,
     decimal SaldoInicial,
     DateOnly DataSaldoInicial,
+    decimal? LimiteCartoesCompartilhado,
     bool Ativo);
 
 public sealed record ContaBancariaResumoResponse(
@@ -38,6 +40,10 @@ public sealed record ContaBancariaResumoResponse(
     string? TipoConta,
     decimal SaldoInicial,
     DateOnly DataSaldoInicial,
+    decimal SaldoAtual,
+    decimal? LimiteCartoesCompartilhado,
+    decimal LimiteCartoesComprometido,
+    decimal? LimiteCartoesDisponivel,
     bool Ativo);
 
 public sealed record ContaBancariaDetalheResponse(
@@ -49,6 +55,10 @@ public sealed record ContaBancariaDetalheResponse(
     string? TipoConta,
     decimal SaldoInicial,
     DateOnly DataSaldoInicial,
+    decimal SaldoAtual,
+    decimal? LimiteCartoesCompartilhado,
+    decimal LimiteCartoesComprometido,
+    decimal? LimiteCartoesDisponivel,
     bool Ativo,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

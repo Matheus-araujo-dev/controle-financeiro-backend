@@ -2,7 +2,7 @@ using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 
-public sealed class ContaBancaria : AuditableEntity
+public sealed class ContaBancaria : TenantEntity
 {
     private ContaBancaria()
     {
@@ -22,6 +22,8 @@ public sealed class ContaBancaria : AuditableEntity
 
     public DateOnly DataSaldoInicial { get; private set; }
 
+    public decimal? LimiteCartoesCompartilhado { get; private set; }
+
     public bool Ativo { get; private set; }
 
     public static ContaBancaria Criar(
@@ -32,10 +34,11 @@ public sealed class ContaBancaria : AuditableEntity
         string? tipoConta,
         decimal saldoInicial,
         DateOnly dataSaldoInicial,
+        decimal? limiteCartoesCompartilhado,
         bool ativo)
     {
         var conta = new ContaBancaria();
-        conta.Atualizar(nome, banco, agencia, numeroConta, tipoConta, saldoInicial, dataSaldoInicial, ativo);
+        conta.Atualizar(nome, banco, agencia, numeroConta, tipoConta, saldoInicial, dataSaldoInicial, limiteCartoesCompartilhado, ativo);
         return conta;
     }
 
@@ -47,16 +50,22 @@ public sealed class ContaBancaria : AuditableEntity
         string? tipoConta,
         decimal saldoInicial,
         DateOnly dataSaldoInicial,
+        decimal? limiteCartoesCompartilhado,
         bool ativo)
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
-            throw new ArgumentException("Nome e obrigatorio.", nameof(nome));
+            throw new ArgumentException("Nome é obrigatório.", nameof(nome));
         }
 
         if (string.IsNullOrWhiteSpace(banco))
         {
-            throw new ArgumentException("Banco e obrigatorio.", nameof(banco));
+            throw new ArgumentException("Banco é obrigatório.", nameof(banco));
+        }
+
+        if (limiteCartoesCompartilhado.HasValue && limiteCartoesCompartilhado.Value < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limiteCartoesCompartilhado), "Limite compartilhado não pode ser negativo.");
         }
 
         Nome = nome.Trim();
@@ -66,6 +75,9 @@ public sealed class ContaBancaria : AuditableEntity
         TipoConta = NormalizarOpcional(tipoConta);
         SaldoInicial = decimal.Round(saldoInicial, 2, MidpointRounding.AwayFromZero);
         DataSaldoInicial = dataSaldoInicial;
+        LimiteCartoesCompartilhado = limiteCartoesCompartilhado.HasValue
+            ? decimal.Round(limiteCartoesCompartilhado.Value, 2, MidpointRounding.AwayFromZero)
+            : null;
         Ativo = ativo;
     }
 

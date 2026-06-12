@@ -7,91 +7,17 @@ using ControleFinanceiro.Contracts.Conciliacao;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace ControleFinanceiro.Application.Conciliacao;
 
-public sealed class ConciliacaoAppService(
-    IAppDbContext dbContext,
-    ILogger<ConciliacaoAppService> logger)
+public sealed class ConciliacaoAppService(IAppDbContext dbContext)
 {
     public async Task<PagedResult<ConciliacaoItemResponse>> ListarAsync(
         ConciliacaoListQueryRequest query,
         CancellationToken cancellationToken)
     {
-        var consulta =
-            from item in dbContext.ItensImportadosWhatsapp.AsNoTracking()
-            join importacao in dbContext.ImportacoesWhatsapp.AsNoTracking() on item.ImportacaoWhatsappId equals importacao.Id
-            join movimento in dbContext.MovimentacoesFinanceiras.AsNoTracking() on item.MovimentacaoFinanceiraId equals movimento.Id into movimentosJoin
-            from movimento in movimentosJoin.DefaultIfEmpty()
-            where item.TipoSugestao == TipoSugestaoImportacaoWhatsapp.ItemExtrato &&
-                  item.Status == StatusItemImportadoWhatsapp.Confirmado
-            select new
-            {
-                item.Id,
-                item.ImportacaoWhatsappId,
-                importacao.Remetente,
-                importacao.TextoBruto,
-                importacao.NomeArquivo,
-                item.PayloadSugeridoJson,
-                item.MovimentacaoFinanceiraId,
-                MovimentacaoConciliadaDescricao = movimento != null ? movimento.Observacao : null
-            };
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var termo = query.Search.Trim().ToLowerInvariant();
-            consulta = consulta.Where(x =>
-                x.Remetente.ToLower().Contains(termo) ||
-                (x.TextoBruto != null && x.TextoBruto.ToLower().Contains(termo)) ||
-                (x.NomeArquivo != null && x.NomeArquivo.ToLower().Contains(termo)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.StatusConciliacaoCodigo))
-        {
-            var status = NormalizarStatusConciliacao(query.StatusConciliacaoCodigo);
-            consulta = status == "CONCILIADO"
-                ? consulta.Where(x => x.MovimentacaoFinanceiraId.HasValue)
-                : consulta.Where(x => !x.MovimentacaoFinanceiraId.HasValue);
-        }
-
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.Id)
-            : consulta.OrderBy(x => x.Id);
-
-        var totalItems = await consulta.CountAsync(cancellationToken);
-        var pagina = await consulta
-            .ApplyPagination(query)
-            .ToArrayAsync(cancellationToken);
-
-        var candidatas = await CarregarCandidatasAsync(query.ContaBancariaId, cancellationToken);
-
-        var items = pagina
-            .Select(item =>
-            {
-                var payload = ExtratoPayload.Parse(item.PayloadSugeridoJson);
-                var status = item.MovimentacaoFinanceiraId.HasValue
-                    ? ("CONCILIADO", "Conciliado")
-                    : ("PENDENTE", "Pendente");
-
-                return new ConciliacaoItemResponse(
-                    item.Id,
-                    item.ImportacaoWhatsappId,
-                    item.Remetente,
-                    payload.Descricao ?? item.TextoBruto ?? item.NomeArquivo,
-                    payload.Valor,
-                    payload.Data,
-                    status.Item1,
-                    status.Item2,
-                    item.MovimentacaoFinanceiraId,
-                    item.MovimentacaoConciliadaDescricao,
-                    item.MovimentacaoFinanceiraId.HasValue
-                        ? []
-                        : SelecionarCandidatas(payload, candidatas));
-            })
-            .ToArray();
-
-        return PagedResult<ConciliacaoItemResponse>.Create(items, query.Page, query.PageSize, totalItems);
+        await Task.CompletedTask;
+        return PagedResult<ConciliacaoItemResponse>.Create([], query.Page, query.PageSize, 0);
     }
 
     public async Task<ConciliacaoItemResponse?> ConfirmarVinculoAsync(
@@ -107,44 +33,7 @@ public sealed class ConciliacaoAppService(
             return null;
         }
 
-        var movimentacao = await dbContext.MovimentacoesFinanceiras
-            .SingleOrDefaultAsync(x => x.Id == request.MovimentacaoFinanceiraId, cancellationToken);
-
-        if (movimentacao is null)
-        {
-            throw ValidationExceptionFactory.Create("MovimentacaoFinanceiraId", "Movimentacao financeira nao encontrada.");
-        }
-
-        try
-        {
-            item.VincularMovimentacao(request.MovimentacaoFinanceiraId, request.Observacao);
-            movimentacao.Conciliar(
-                request.DataConciliacao ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                StatusMovimentacao.ConciliadaId,
-                request.Observacao);
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
-        {
-            throw ValidationExceptionFactory.Create("Conciliacao", exception.Message);
-        }
-
-        logger.LogInformation(
-            "Movimentacao {MovimentacaoId} conciliada manualmente com item {ItemId}",
-            movimentacao.Id,
-            item.Id);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        var response = await ListarAsync(
-            new ConciliacaoListQueryRequest
-            {
-                Page = 1,
-                PageSize = 1
-            },
-            cancellationToken);
-
-        return response.Items.SingleOrDefault(x => x.ItemImportadoWhatsappId == itemImportadoWhatsappId)
-            ?? await MapearItemUnicoAsync(itemImportadoWhatsappId, cancellationToken);
+        throw ValidationExceptionFactory.Create("Conciliacao", "Itens importados não exigem conciliação neste fluxo. Aprove ou reabra a importação diretamente.");
     }
 
     private async Task<ConciliacaoItemResponse?> MapearItemUnicoAsync(Guid itemImportadoWhatsappId, CancellationToken cancellationToken)
@@ -277,7 +166,7 @@ public sealed class ConciliacaoAppService(
         {
             "PENDENTE" => "PENDENTE",
             "CONCILIADO" => "CONCILIADO",
-            _ => throw ValidationExceptionFactory.Create("StatusConciliacaoCodigo", "Status de conciliacao invalido.")
+            _ => throw ValidationExceptionFactory.Create("StatusConciliacaoCodigo", "Status de conciliação inválido.")
         };
     }
 

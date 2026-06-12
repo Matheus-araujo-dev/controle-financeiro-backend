@@ -36,5 +36,8 @@ public sealed class ContaBancariaConfiguration : IEntityTypeConfiguration<ContaB
         builder.Property(x => x.DataSaldoInicial)
             .HasColumnType("date")
             .IsRequired();
+
+        builder.Property(x => x.LimiteCartoesCompartilhado)
+            .HasColumnType("decimal(18,2)");
     }
 }

@@ -65,6 +65,8 @@ public sealed class AppDbContext(
 
     public DbSet<RateioContaGerencial> RateiosContaGerencial => Set<RateioContaGerencial>();
 
+    public DbSet<MetaOrcamento> MetasOrcamento => Set<MetaOrcamento>();
+
     public DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras => Set<MovimentacaoFinanceira>();
 
     public DbSet<FaturaCartao> FaturasCartao => Set<FaturaCartao>();
@@ -113,6 +115,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new ContaPagarConfiguration());
         modelBuilder.ApplyConfiguration(new ContaReceberConfiguration());
         modelBuilder.ApplyConfiguration(new RateioContaGerencialConfiguration());
+        modelBuilder.ApplyConfiguration(new MetaOrcamentoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
         modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());

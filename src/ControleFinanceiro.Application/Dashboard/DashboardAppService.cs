@@ -805,7 +805,7 @@ public sealed class DashboardAppService
         }
     }
 
-    private async Task<List<RateioLancamentoInfo>> CarregarRateiosPorEmissaoAsync(
+    internal async Task<List<RateioLancamentoInfo>> CarregarRateiosPorEmissaoAsync(
         DateOnly dataInicial,
         DateOnly dataFinal,
         CancellationToken cancellationToken)
@@ -1302,7 +1302,7 @@ public sealed class DashboardAppService
         Guid? ContaGerencialId,
         Guid? ResponsavelId);
 
-    private sealed record RateioLancamentoInfo(
+    internal sealed record RateioLancamentoInfo(
         Guid LancamentoId,
         string TipoLancamento,
         string Descricao,

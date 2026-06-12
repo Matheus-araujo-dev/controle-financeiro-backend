@@ -48,7 +48,6 @@ public sealed class OrcamentoAppService(
                 conta.Ativo ||
                 metasPorConta.ContainsKey(conta.Id) ||
                 realizadoPorConta.ContainsKey(conta.Id))
-            .OrderBy(conta => conta.Descricao)
             .Select(conta =>
             {
                 var meta = metasPorConta.GetValueOrDefault(conta.Id);
@@ -64,6 +63,13 @@ public sealed class OrcamentoAppService(
                     CalcularPercentual(realizado, meta?.ValorMeta),
                     EstaEstourado(realizado, meta?.ValorMeta));
             })
+            // Estouradas primeiro; depois por % consumido decrescente (null = sem meta, vai para baixo);
+            // depois por maior gasto absoluto; por último por código e descrição.
+            .OrderByDescending(item => item.Estourado)
+            .ThenByDescending(item => item.PercentualConsumido ?? -1m)
+            .ThenByDescending(item => item.ValorRealizado)
+            .ThenBy(item => item.ContaGerencialCodigo ?? string.Empty)
+            .ThenBy(item => item.ContaGerencialDescricao)
             .ToList();
 
         var totalMeta = decimal.Round(itens.Sum(item => item.ValorMeta ?? 0m), 2, MidpointRounding.AwayFromZero);

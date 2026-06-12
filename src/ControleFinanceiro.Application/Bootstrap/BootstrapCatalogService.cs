@@ -9,6 +9,7 @@ public sealed class BootstrapCatalogService : IBootstrapCatalogService
     private static readonly BootstrapModuleItemResponse[] Modules =
     [
         new("dashboard", "Dashboard", "/dashboard", 6),
+        new("orcamento", "Orçamento", "/orcamento", 6),
         new("pessoas", "Pessoas", "/pessoas", 2),
         new("formas-pagamento", "Formas de pagamento", "/formas-pagamento", 2),
         new("contas-bancarias", "Contas bancárias", "/contas-bancarias", 2),

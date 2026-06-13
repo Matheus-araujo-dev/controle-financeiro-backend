@@ -77,6 +77,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.RelaxedPolicy, context =>
         RateLimitPartition.GetFixedWindowLimiter(GetPartitionKey(context), _ => rateLimitPolicies[RateLimitPolicies.RelaxedPolicy]));
 
+    options.AddPolicy(RateLimitPolicies.AiPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(GetPartitionKey(context), _ => rateLimitPolicies[RateLimitPolicies.AiPolicy]));
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 

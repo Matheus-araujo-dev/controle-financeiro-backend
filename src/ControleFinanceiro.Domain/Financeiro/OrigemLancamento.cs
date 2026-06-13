@@ -4,5 +4,6 @@ public enum OrigemLancamento
 {
     Manual = 1,
     Recorrencia = 2,
-    Importacao = 3
+    Importacao = 3,
+    AgenteIA = 4
 }

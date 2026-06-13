@@ -4,6 +4,7 @@ using ControleFinanceiro.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260613000332_AdicionarTabelasAgentaIA")]
+    partial class AdicionarTabelasAgentaIA
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -396,10 +399,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ExternalMessageId")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
                     b.Property<string>("Papel")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -414,8 +413,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ConversaId");
-
-                    b.HasIndex("ExternalMessageId");
 
                     b.ToTable("ai_mensagens", (string)null);
                 });
@@ -470,123 +467,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasIndex("ConversaId");
 
                     b.ToTable("ai_tool_calls", (string)null);
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.AlertaWhatsappEnviado", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ChaveReferencia")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateOnly>("DataEnvio")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Telefone")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TipoAlerta")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("AlertasWhatsappEnviados");
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.WhatsappConfigAlerta", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DiasAntecedenciaVencimento")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("FamiliaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("ReceberLimiteCategoria")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("ReceberLimiteResponsavel")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("ReceberVencimento")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FamiliaId");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.ToTable("whatsapp_config_alertas", (string)null);
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.WhatsappUsuario", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("FamiliaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Telefone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("VerificadoEm")
-                        .HasColumnType("datetimeoffset");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FamiliaId");
-
-                    b.HasIndex("Telefone");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.ToTable("whatsapp_usuarios", (string)null);
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.ContaPagar", b =>
@@ -1855,24 +1735,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasOne("ControleFinanceiro.Domain.FinanceAI.AiConversa", null)
                         .WithMany("ToolCalls")
                         .HasForeignKey("ConversaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.WhatsappConfigAlerta", b =>
-                {
-                    b.HasOne("ControleFinanceiro.Domain.Identidade.Usuario", null)
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.WhatsappUsuario", b =>
-                {
-                    b.HasOne("ControleFinanceiro.Domain.Identidade.Usuario", null)
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -5,6 +5,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
+using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.Identidade;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
@@ -79,6 +80,18 @@ public sealed class AppDbContext(
 
     public DbSet<PlanejamentoCompra> ComprasPlanejadas => Set<PlanejamentoCompra>();
 
+    public DbSet<AiConversa> AiConversas => Set<AiConversa>();
+
+    public DbSet<AiMensagem> AiMensagens => Set<AiMensagem>();
+
+    public DbSet<AiToolCall> AiToolCalls => Set<AiToolCall>();
+
+    public DbSet<WhatsappUsuario> WhatsappUsuarios => Set<WhatsappUsuario>();
+
+    public DbSet<WhatsappConfigAlerta> WhatsappConfigAlertas => Set<WhatsappConfigAlerta>();
+
+    public DbSet<AlertaWhatsappEnviado> AlertasWhatsappEnviados => Set<AlertaWhatsappEnviado>();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
 
     public DbSet<Familia> Familias => Set<Familia>();
@@ -127,6 +140,11 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MembroFamiliaConfiguration());
         modelBuilder.ApplyConfiguration(new ConviteFamiliaConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new AiConversaConfiguration());
+        modelBuilder.ApplyConfiguration(new AiMensagemConfiguration());
+        modelBuilder.ApplyConfiguration(new AiToolCallConfiguration());
+        modelBuilder.ApplyConfiguration(new WhatsappUsuarioConfiguration());
+        modelBuilder.ApplyConfiguration(new WhatsappConfigAlertaConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         base.OnModelCreating(modelBuilder);
     }
@@ -182,6 +200,11 @@ public sealed class AppDbContext(
                 {
                     tenantEntity.AtribuirFamilia(_familiaCorrente.Value);
                 }
+            }
+
+            if (entry.State == EntityState.Added)
+            {
+                AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
             }
 
             if (entry.State == EntityState.Modified)

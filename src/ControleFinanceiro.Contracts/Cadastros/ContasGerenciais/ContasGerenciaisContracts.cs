@@ -64,3 +64,5 @@ public sealed record ContaGerencialDetalheResponse(
     bool EhPadraoRecebimentoFaturaCartao,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);
+
+public sealed record SeedPlanoInicialResponse(int ContasCriadas);

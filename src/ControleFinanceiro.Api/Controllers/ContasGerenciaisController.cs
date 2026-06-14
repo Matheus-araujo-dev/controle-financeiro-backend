@@ -4,6 +4,7 @@ using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading;
 
 namespace ControleFinanceiro.Api.Controllers;
 
@@ -39,6 +40,15 @@ public sealed class ContasGerenciaisController(ContaGerencialAppService service)
     {
         var response = await service.CriarAsync(request, cancellationToken);
         return CreatedAtAction(nameof(ObterPorId), new { id = response.Id }, response);
+    }
+
+    [HttpPost("seed-plano-inicial")]
+    [ProducesResponseType(typeof(SeedPlanoInicialResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SeedPlanoInicialResponse>> SeedPlanoInicial(CancellationToken cancellationToken)
+    {
+        var response = await service.SeedPlanoInicialAsync(cancellationToken);
+        return Ok(response);
     }
 
     [HttpPut("{id:guid}")]

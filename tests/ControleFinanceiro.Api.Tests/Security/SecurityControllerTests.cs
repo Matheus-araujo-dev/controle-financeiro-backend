@@ -12,7 +12,7 @@ public sealed class SecurityControllerTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task Me_WhenHeaderIsMissing_ShouldReturnUnauthorized()
     {
-        using var client = _factory.CreateClient();
+        using var client = _factory.CreateAnonymousClient();
 
         var response = await client.GetAsync("/api/v1/security/me");
 
@@ -22,8 +22,7 @@ public sealed class SecurityControllerTests(CustomWebApplicationFactory factory)
     [Fact]
     public async Task Me_WhenDevelopmentUserHeaderIsPresent_ShouldReturnCurrentUser()
     {
-        using var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Debug-User", "codex-user");
+        using var client = _factory.CreateAuthenticatedClient("codex-user");
 
         var response = await client.GetAsync("/api/v1/security/me");
         var payload = await response.Content.ReadFromJsonAsync<CurrentUserResponse>();
@@ -31,7 +30,7 @@ public sealed class SecurityControllerTests(CustomWebApplicationFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         payload.Should().NotBeNull();
         payload!.IsAuthenticated.Should().BeTrue();
-        payload.UserId.Should().Be("codex-user");
+        Guid.TryParse(payload.UserId, out _).Should().BeTrue();
         payload.AuthMode.Should().Be("Development");
     }
 

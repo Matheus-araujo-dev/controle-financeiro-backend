@@ -14,6 +14,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -86,7 +87,9 @@ builder.Services.AddRateLimiter(options =>
 static string GetPartitionKey(HttpContext httpContext)
 {
     var userId = httpContext.User.Identity?.IsAuthenticated == true
-        ? httpContext.User.FindFirst("sub")?.Value ?? httpContext.User.FindFirst("userId")?.Value
+        ? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+          ?? httpContext.User.FindFirstValue("sub")
+          ?? httpContext.User.FindFirstValue("userId")
         : null;
 
     return !string.IsNullOrEmpty(userId)
@@ -197,11 +200,11 @@ else
     });
 }
 
+app.UseAuthentication();
 if (!app.Environment.IsEnvironment("Testing"))
 {
     app.UseRateLimiter();
 }
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");

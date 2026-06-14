@@ -106,6 +106,12 @@
 - A materializacao de compras de cartao recorrentes foi corrigida no fluxo ativo de fechamento para gerar somente a fatura atual e as competencias futuras, sem espalhar previsoes para meses anteriores.
 - `GET /api/v1/faturas` ganhou filtros adicionais por `DataFechamentoInicial` e `DataFechamentoFinal`, alem de ordenacao segura por `CartaoNome`, permitindo a tela de faturas filtrar e ordenar por cartao sem erro.
 - O `summary` da listagem de faturas passou a retornar agregacao por cartao e por competencia do mes, viabilizando totalizadores operacionais no frontend.
+- O contrato de `Pessoas` voltou a retornar `CpfCnpj` normalizado completo em detalhe e listagem, deixando a mascara visual sob responsabilidade do frontend e evitando truncamento do documento na grade.
+- A autenticacao de desenvolvimento passou a rejeitar multiplos headers `X-Debug-User`, emitir claims consistentes de usuario e permitir testes explicitos com cliente anonimo ou autenticado.
+- O rate limiter foi reposicionado apos a autenticacao para particionar corretamente por usuario autenticado antes de cair no fallback por IP.
+- A confirmacao de importacao de fatura passou a exigir `ContaGerencialPadraoId`, validar cartao, forma de pagamento, recebedor e conta gerencial no tenant corrente, e persistir o rateio dos itens importados.
+- O audit trail passou a sanitizar campos sensiveis de pessoas, chaves Pix, contas bancarias, cartoes e tokens antes de gravar `BeforeJson`/`AfterJson`.
+- Os pacotes OpenTelemetry foram atualizados para versoes sem vulnerabilidades conhecidas nas fontes NuGet atuais.
 
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.

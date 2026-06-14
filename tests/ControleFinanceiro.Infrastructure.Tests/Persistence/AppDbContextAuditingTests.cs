@@ -24,7 +24,15 @@ public sealed class AppDbContextAuditingTests
         await using var context = new AppDbContext(options, clock, currentUser);
         await context.Database.EnsureCreatedAsync();
 
-        var pessoa = Pessoa.Criar("Cliente Exemplo", TipoPessoa.Fisica, null, null, null, null, [], true);
+        var pessoa = Pessoa.Criar(
+            "Cliente Exemplo",
+            TipoPessoa.Fisica,
+            "123.456.789-01",
+            "cliente@example.com",
+            "5531999998888",
+            "Observacao sensivel",
+            [],
+            true);
         context.Pessoas.Add(pessoa);
 
         await context.SaveChangesAsync();
@@ -38,7 +46,11 @@ public sealed class AppDbContextAuditingTests
         auditTrail.EntityName.Should().Be(nameof(Pessoa));
         auditTrail.Action.Should().Be("Created");
         auditTrail.ExecutedBy.Should().Be("tester");
-        auditTrail.AfterJson.Should().Contain("Cliente Exemplo");
+        auditTrail.AfterJson.Should().Contain("[REDACTED]");
+        auditTrail.AfterJson.Should().NotContain("Cliente Exemplo");
+        auditTrail.AfterJson.Should().NotContain("12345678901");
+        auditTrail.AfterJson.Should().NotContain("cliente@example.com");
+        auditTrail.AfterJson.Should().NotContain("5531999998888");
     }
 
     private sealed class FakeClock(DateTime utcNow) : IClock

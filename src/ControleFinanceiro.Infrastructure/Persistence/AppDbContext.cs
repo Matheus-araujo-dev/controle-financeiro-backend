@@ -220,6 +220,7 @@ public sealed class AppDbContext(
         DateTime occurredAtUtc,
         string? userId)
     {
+        var entityName = entry.Entity.GetType().Name;
         var beforeJson = entry.State == EntityState.Modified
             ? JsonSerializer.Serialize(entry.OriginalValues.Properties.ToDictionary(
                 property => property.Name,
@@ -233,13 +234,13 @@ public sealed class AppDbContext(
         var action = entry.State == EntityState.Added ? "Created" : "Updated";
 
         return AuditTrailEntry.Create(
-            entry.Entity.GetType().Name,
+            entityName,
             entry.Entity.Id,
             action,
             occurredAtUtc,
             userId,
-            beforeJson,
-            afterJson);
+            AuditTrailSerializer.Sanitize(entityName, beforeJson),
+            AuditTrailSerializer.Sanitize(entityName, afterJson));
     }
 
     private sealed class DefaultClock : IClock

@@ -90,9 +90,33 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     public new HttpClient CreateClient()
     {
+        return CreateAuthenticatedClient("test-user");
+    }
+
+    public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
+    {
+        var client = base.CreateClient(options);
+        Authenticate(client, "test-user");
+        return client;
+    }
+
+    public HttpClient CreateAuthenticatedClient(string user = "test-user")
+    {
+        var client = base.CreateClient();
+        Authenticate(client, user);
+        return client;
+    }
+
+    public HttpClient CreateAnonymousClient()
+    {
         var client = base.CreateClient();
         client.DefaultRequestHeaders.Remove(DevelopmentUserHeader);
-        client.DefaultRequestHeaders.Add(DevelopmentUserHeader, "test-user");
         return client;
+    }
+
+    private static void Authenticate(HttpClient client, string user)
+    {
+        client.DefaultRequestHeaders.Remove(DevelopmentUserHeader);
+        client.DefaultRequestHeaders.Add(DevelopmentUserHeader, user);
     }
 }

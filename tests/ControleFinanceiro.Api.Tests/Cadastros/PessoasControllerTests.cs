@@ -47,7 +47,9 @@ public sealed class PessoasControllerTests(CustomWebApplicationFactory factory) 
         created.ChavesPix.Should().ContainSingle(item => item.Tipo == "Email" && item.Chave == "pix@example.com");
         created.ChavesPix.Should().ContainSingle(item => item.Tipo == "Telefone" && item.Chave == "11988891273");
         listResponse.Should().NotBeNull();
-        listResponse!.Items.Should().ContainSingle(item => item.Nome == "Fornecedor Exemplo");
+        listResponse!.Items.Should().ContainSingle(item =>
+            item.Nome == "Fornecedor Exemplo" &&
+            item.CpfCnpj == "12345678000190");
     }
 
     [Fact]

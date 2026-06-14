@@ -4,6 +4,7 @@ using ControleFinanceiro.Api.Tests.Infrastructure;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Financeiro;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ControleFinanceiro.Api.Tests.Financeiro;
@@ -189,6 +190,59 @@ public sealed class FaturasControllerTests(CustomWebApplicationFactory factory) 
         filtrado.Summary.PorCompetencia.Single().ValorTotal.Should().Be(200m);
     }
 
+    [Fact]
+    public async Task PostImportarConfirmar_DeveCriarContaComRateioEDeduplicarPelaChave()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var payload = new
+        {
+            cartaoId = fixture.CartaoId,
+            formaPagamentoId = fixture.FormaPagamentoCartaoId,
+            recebedorPadraoId = fixture.RecebedorId,
+            contaGerencialPadraoId = fixture.ContaGerencialDespesaId,
+            itens = new[]
+            {
+                new
+                {
+                    dataTransacao = "2026-04-05",
+                    descricao = "Mercado importado",
+                    valor = 123.45m,
+                    chaveImportacao = "2026-04-05|mercado-importado|123.45"
+                }
+            }
+        };
+
+        var primeiraConfirmacao = await client.PostAsJsonAsync("/api/v1/faturas/importar/confirmar", payload);
+        var resultadoPrimeiraConfirmacao = await primeiraConfirmacao.Content.ReadFromJsonAsync<ConfirmarImportacaoFaturaResponse>();
+
+        primeiraConfirmacao.StatusCode.Should().Be(HttpStatusCode.OK);
+        resultadoPrimeiraConfirmacao.Should().NotBeNull();
+        resultadoPrimeiraConfirmacao!.ContasCriadas.Should().Be(1);
+        resultadoPrimeiraConfirmacao.ContasDuplicadas.Should().Be(0);
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+        var contaCriada = await dbContext.ContasPagar
+            .SingleAsync(x => x.ChaveSerieImportacaoCartao == $"{fixture.CartaoId}|2026-04-05|mercado-importado|123.45");
+        var rateio = await dbContext.RateiosContaGerencial.SingleAsync(x => x.ContaPagarId == contaCriada.Id);
+
+        contaCriada.Origem.Should().Be(OrigemLancamento.Importacao);
+        contaCriada.StatusContaId.Should().Be(StatusConta.EmFaturaId);
+        rateio.ContaGerencialId.Should().Be(fixture.ContaGerencialDespesaId);
+        rateio.Valor.Should().Be(123.45m);
+
+        var segundaConfirmacao = await client.PostAsJsonAsync("/api/v1/faturas/importar/confirmar", payload);
+        var resultadoSegundaConfirmacao = await segundaConfirmacao.Content.ReadFromJsonAsync<ConfirmarImportacaoFaturaResponse>();
+
+        segundaConfirmacao.StatusCode.Should().Be(HttpStatusCode.OK);
+        resultadoSegundaConfirmacao.Should().NotBeNull();
+        resultadoSegundaConfirmacao!.ContasCriadas.Should().Be(0);
+        resultadoSegundaConfirmacao.ContasDuplicadas.Should().Be(1);
+    }
+
     private static async Task<Guid> CriarCompraCartaoAsync(
         HttpClient client,
         FinancialFixtureSeed.FixtureIds fixture,
@@ -328,4 +382,8 @@ public sealed class FaturasControllerTests(CustomWebApplicationFactory factory) 
         int PageSize,
         int TotalItems,
         int TotalPages);
+
+    private sealed record ConfirmarImportacaoFaturaResponse(
+        int ContasCriadas,
+        int ContasDuplicadas);
 }

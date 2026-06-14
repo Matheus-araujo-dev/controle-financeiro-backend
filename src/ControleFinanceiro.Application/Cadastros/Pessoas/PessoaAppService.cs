@@ -54,7 +54,7 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.Id,
                 x.Nome,
                 MapearTipoPessoa(x.TipoPessoa),
-                MascaraDocumento(x.CpfCnpj),
+                x.CpfCnpj,
                 x.Email,
                 x.Telefone,
                 x.Ativo))
@@ -217,21 +217,6 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
         return string.IsNullOrWhiteSpace(digitos) ? null : digitos;
     }
 
-    private static string? MascaraDocumento(string? documento)
-    {
-        if (string.IsNullOrEmpty(documento))
-        {
-            return string.Empty;
-        }
-
-        if (documento.Length <= 4)
-        {
-            return documento;
-        }
-
-        return new string('*', documento.Length - 4) + documento[^4..];
-    }
-
     private static TipoPessoa MapearTipoPessoa(PessoaTipo tipoPessoa)
     {
         return tipoPessoa switch
@@ -258,7 +243,7 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             pessoa.Id,
             pessoa.Nome,
             MapearTipoPessoa(pessoa.TipoPessoa),
-            MascaraDocumento(pessoa.CpfCnpj),
+            pessoa.CpfCnpj,
             pessoa.Email,
             pessoa.Telefone,
             pessoa.Observacao,

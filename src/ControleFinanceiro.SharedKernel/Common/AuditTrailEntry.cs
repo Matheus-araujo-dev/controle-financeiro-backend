@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace ControleFinanceiro.SharedKernel.Common;
@@ -39,11 +40,47 @@ public static class AuditTrailSerializer
         return JsonSerializer.Deserialize<T>(json, Options);
     }
 
-    private static readonly Dictionary<string, List<string>> SensitiveProperties = new()
+    private static readonly HashSet<string> AlwaysSensitiveProperties = new(StringComparer.OrdinalIgnoreCase)
     {
-        { "Pessoa", ["Cpf", "Cnpj", "Nome", "Email", "Telefone", "ChavePix"] },
-        { "ContaBancaria", ["Saldo"] },
-        { "Cartao", ["LimiteCredito"] }
+        "Senha",
+        "Password",
+        "Token",
+        "RefreshToken",
+        "RefreshTokenHash",
+        "Chave",
+        "ChavePix",
+        "Secret",
+        "ApiKey",
+        "NumeroConta",
+        "Agencia"
+    };
+
+    private static readonly Dictionary<string, HashSet<string>> SensitivePropertiesByEntity = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Pessoa"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Nome",
+            "Cpf",
+            "Cnpj",
+            "CpfCnpj",
+            "Email",
+            "Telefone",
+            "Observacao"
+        },
+        ["PessoaChavePix"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Chave"
+        },
+        ["ContaBancaria"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Agencia",
+            "NumeroConta",
+            "SaldoInicial"
+        },
+        ["Cartao"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "LimiteCredito"
+        }
     };
 
     public static string Sanitize(string? entityType, string? json)
@@ -51,19 +88,24 @@ public static class AuditTrailSerializer
         if (string.IsNullOrWhiteSpace(json))
             return json!;
 
-        if (string.IsNullOrWhiteSpace(entityType) || !SensitiveProperties.TryGetValue(entityType, out var props))
+        var node = JsonNode.Parse(json) as JsonObject;
+        if (node is null)
             return json;
 
-        var result = json;
-        foreach (var prop in props)
+        var entityProperties = !string.IsNullOrWhiteSpace(entityType)
+            && SensitivePropertiesByEntity.TryGetValue(entityType, out var configuredProperties)
+                ? configuredProperties
+                : null;
+
+        foreach (var property in node.ToList())
         {
-            var pattern = $"\"{prop}\":\"[^\"]*\"";
-            result = Regex.Replace(result, pattern, $"\"{prop}\":\"[REDACTED]\"", RegexOptions.IgnoreCase);
-            
-            var numberPattern = $"\"{prop}\":\\s*\\d+(\\.\\d+)?";
-            result = Regex.Replace(result, numberPattern, $"\"{prop}\":[REDACTED]", RegexOptions.IgnoreCase);
+            if (AlwaysSensitiveProperties.Contains(property.Key)
+                || entityProperties?.Contains(property.Key) == true)
+            {
+                node[property.Key] = "[REDACTED]";
+            }
         }
 
-        return result;
+        return node.ToJsonString(Options);
     }
 }

@@ -180,7 +180,14 @@ app.Use(async (context, next) =>
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'");
+    // CSP permite Google Sign-In e comunicação com Anthropic (usados pelo frontend e backend)
+    context.Response.Headers.Append("Content-Security-Policy",
+        "default-src 'self'; " +
+        "script-src 'self' https://accounts.google.com/gsi/client; " +
+        "frame-src https://accounts.google.com; " +
+        "connect-src 'self' https://apis.google.com; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: https://lh3.googleusercontent.com;");
     await next();
 });
 

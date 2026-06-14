@@ -123,6 +123,28 @@ public static partial class PdfFaturaParser
         return new CsvFaturaItem(data, descricao, valor);
     }
 
+    // ─── Extração de texto bruto (para fallback IA) ─────────────────────────
+
+    public static string ExtrairTexto(Stream stream)
+    {
+        try
+        {
+            using var doc = PdfDocument.Open(stream);
+            var sb = new System.Text.StringBuilder();
+            foreach (var page in doc.GetPages())
+            {
+                var rows = GroupByRow(page.GetWords().ToList());
+                foreach (var row in rows)
+                    sb.AppendLine(string.Join(" ", row.Select(w => w.Text)));
+            }
+            return sb.ToString();
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private static readonly string[] DateFormats =

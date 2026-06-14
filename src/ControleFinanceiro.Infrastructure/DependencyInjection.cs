@@ -1,3 +1,4 @@
+using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
 using ControleFinanceiro.Application.Identidade;
@@ -55,6 +56,8 @@ public static class DependencyInjection
         services.AddScoped<IFinanceTool, ListarMeiosPagamentoTool>();
         services.AddScoped<IFinanceTool, CriarLancamentoTool>();
         services.AddScoped<IFinanceAgentService, FinanceAgentService>();
+        services.AddScoped<FinanceInsightsService>();
+        services.AddScoped<FinanceCategorizacaoService>();
         services.AddScoped<IWhatsappMensagemService, WhatsappMensagemService>();
         services.AddScoped<IExtracaoImagemFinanceiroService, ClaudeVisionExtracaoService>();
         services.AddScoped<AlertasVencimentoService>();

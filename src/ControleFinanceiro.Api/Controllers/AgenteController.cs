@@ -10,7 +10,10 @@ namespace ControleFinanceiro.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/agente")]
-public sealed class AgenteController(IFinanceAgentService agentService) : ApiControllerBase
+public sealed class AgenteController(
+    IFinanceAgentService agentService,
+    FinanceInsightsService insightsService,
+    FinanceCategorizacaoService categorizacaoService) : ApiControllerBase
 {
     [HttpPost("perguntar")]
     [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
@@ -29,5 +32,27 @@ public sealed class AgenteController(IFinanceAgentService agentService) : ApiCon
             cancellationToken);
 
         return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+    }
+
+    [HttpPost("insights")]
+    [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
+    [ProducesResponseType(typeof(AgenteInsightsResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AgenteInsightsResponse>> Insights(
+        [FromBody] AgenteInsightsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await insightsService.GerarInsightsAsync(request.MesReferencia, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPost("categorizar")]
+    [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
+    [ProducesResponseType(typeof(AgenteCategorizarResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AgenteCategorizarResponse>> Categorizar(
+        [FromBody] AgenteCategorizarRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await categorizacaoService.CategorizarAsync(request.Descricoes, cancellationToken);
+        return Ok(new AgenteCategorizarResponse(result));
     }
 }

@@ -17,7 +17,8 @@ public sealed record ImportacaoFaturaItemConfirmar(
     DateOnly DataTransacao,
     string Descricao,
     decimal Valor,
-    string ChaveImportacao);
+    string ChaveImportacao,
+    Guid? ContaGerencialId = null);  // sobrescreve ContaGerencialPadraoId quando informado
 
 public sealed record ConfirmarImportacaoFaturaRequest(
     Guid CartaoId,

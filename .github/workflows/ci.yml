@@ -93,9 +93,16 @@ jobs:
       - name: Check vulnerable packages
         shell: pwsh
         run: |
-          $report = dotnet list package --vulnerable --include-transitive
-          $report
-          if ($report -match 'has the following vulnerable packages' -or $report -match 'Critical' -or $report -match 'High') {
+          $failed = $false
+          Get-ChildItem src -Recurse -Filter *.csproj | ForEach-Object {
+            $report = dotnet list $_.FullName package --vulnerable --include-transitive
+            $report
+            if ($report -match 'has the following vulnerable packages' -or $report -match 'Critical' -or $report -match 'High') {
+              $failed = $true
+            }
+          }
+
+          if ($failed) {
             exit 1
           }
 

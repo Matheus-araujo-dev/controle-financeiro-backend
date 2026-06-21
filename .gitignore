@@ -20,3 +20,12 @@ gitleaks.toml
 src/ControleFinanceiro.Api/App_Data/
 src/ControleFinanceiro.Api/logs/
 *.log
+backend-dev.log
+backend-dev.err.log
+backend-live.log
+backend-live.err.log
+api-run.log
+startup-error.log
+temp-dashboard-debug.log
+temp-dashboard-debug.err.log
+msbuild.binlog

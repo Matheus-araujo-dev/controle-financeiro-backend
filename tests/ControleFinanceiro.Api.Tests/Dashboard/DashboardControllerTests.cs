@@ -30,7 +30,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             valor: 100m,
             descricao: "Despesa liquidada");
 
-        await LiquidarContaPagarAsync(client, despesaLiquidadaId, fixture.ContaBancariaId, "2026-04-02");
+        await LiquidarContaPagarAsync(client, despesaLiquidadaId, fixture.ContaBancariaId, "2026-04-02", 100m);
 
         var receitaLiquidadaId = await CriarContaReceberAsync(
             client,
@@ -40,7 +40,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             valor: 250m,
             descricao: "Receita recebida");
 
-        await LiquidarContaReceberAsync(client, receitaLiquidadaId, fixture.ContaBancariaId, "2026-04-04");
+        await LiquidarContaReceberAsync(client, receitaLiquidadaId, fixture.ContaBancariaId, "2026-04-04", 250m);
 
         await CriarContaPagarAsync(
             client,
@@ -806,7 +806,9 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{contaPagarLiquidadaId}/liquidar", new
         {
             dataLiquidacao = dataVencimentoLiquidada,
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 81m,
+            atualizarValorConta = true
         });
 
         var response = await client.GetFromJsonAsync<DashboardCentralPrevisaoResumoResponse>(
@@ -1202,12 +1204,15 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         HttpClient client,
         Guid contaPagarId,
         Guid contaBancariaId,
-        string dataLiquidacao)
+        string dataLiquidacao,
+        decimal valorLiquidacao)
     {
         var response = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{contaPagarId}/liquidar", new
         {
             dataLiquidacao,
-            contaBancariaId
+            contaBancariaId,
+            valorLiquidacao,
+            atualizarValorConta = true
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1217,12 +1222,15 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         HttpClient client,
         Guid contaReceberId,
         Guid contaBancariaId,
-        string dataLiquidacao)
+        string dataLiquidacao,
+        decimal valorLiquidacao)
     {
         var response = await client.PostAsJsonAsync($"/api/v1/contas-receber/{contaReceberId}/liquidar", new
         {
             dataLiquidacao,
-            contaBancariaId
+            contaBancariaId,
+            valorLiquidacao,
+            atualizarValorConta = true
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);

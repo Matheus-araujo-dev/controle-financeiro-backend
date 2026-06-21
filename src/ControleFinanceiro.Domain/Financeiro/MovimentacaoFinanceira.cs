@@ -28,8 +28,6 @@ public sealed class MovimentacaoFinanceira : TenantEntity
 
     public string? Observacao { get; private set; }
 
-    public DateOnly? DataConciliacao { get; private set; }
-
     public static MovimentacaoFinanceira CriarLiquidacaoContaPagar(
         Guid contaPagarId,
         Guid contaBancariaId,
@@ -139,28 +137,6 @@ public sealed class MovimentacaoFinanceira : TenantEntity
     public void Cancelar(Guid statusMovimentacaoId)
     {
         StatusMovimentacaoId = statusMovimentacaoId;
-    }
-
-    public void Conciliar(DateOnly dataConciliacao, Guid statusMovimentacaoConciliadaId, string? observacao)
-    {
-        if (ContaBancariaId is null)
-        {
-            throw new InvalidOperationException("Apenas movimentacoes bancarias podem ser conciliadas.");
-        }
-
-        if (StatusMovimentacaoId == StatusMovimentacao.CanceladaId)
-        {
-            throw new InvalidOperationException("Movimentacao cancelada nao pode ser conciliada.");
-        }
-
-        if (StatusMovimentacaoId == StatusMovimentacao.ConciliadaId || DataConciliacao.HasValue)
-        {
-            throw new InvalidOperationException("Movimentacao ja esta conciliada.");
-        }
-
-        DataConciliacao = dataConciliacao;
-        StatusMovimentacaoId = statusMovimentacaoConciliadaId;
-        Observacao = string.IsNullOrWhiteSpace(observacao) ? Observacao : observacao.Trim();
     }
 
     private static MovimentacaoFinanceira Criar(

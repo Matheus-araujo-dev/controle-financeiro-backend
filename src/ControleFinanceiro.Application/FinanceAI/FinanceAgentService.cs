@@ -23,6 +23,8 @@ public sealed class FinanceAgentService(
             ?? currentUser.FamiliaId
             ?? throw new InvalidOperationException("Família não identificada.");
 
+        db.DefinirFamiliaCorrente(familiaId);
+
         var (usuarioId, papel, nomeFamilia) = await ResolverContextoAsync(familiaId, request.UsuarioId, cancellationToken);
 
         var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia);

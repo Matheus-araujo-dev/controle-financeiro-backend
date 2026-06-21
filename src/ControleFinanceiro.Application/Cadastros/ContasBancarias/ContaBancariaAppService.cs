@@ -12,7 +12,7 @@ namespace ControleFinanceiro.Application.Cadastros.ContasBancarias;
 
 public sealed class ContaBancariaAppService(IAppDbContext dbContext)
 {
-    public async Task<PagedResult<ContaBancariaResumoResponse>> ListarAsync(
+    public async Task<ContaBancariaListResponse> ListarAsync(
         ContaBancariaListQueryRequest query,
         CancellationToken cancellationToken)
     {
@@ -33,16 +33,79 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => EF.Functions.Like(x.Banco, banco));
         }
 
+        if (!string.IsNullOrWhiteSpace(query.Agencia))
+        {
+            var agencia = $"%{query.Agencia.Trim()}%";
+            consulta = consulta.Where(x => x.Agencia != null && EF.Functions.Like(x.Agencia, agencia));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.NumeroConta))
+        {
+            var numeroConta = $"%{query.NumeroConta.Trim()}%";
+            consulta = consulta.Where(x => x.NumeroConta != null && EF.Functions.Like(x.NumeroConta, numeroConta));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.TipoConta))
+        {
+            var tipoConta = $"%{query.TipoConta.Trim()}%";
+            consulta = consulta.Where(x => x.TipoConta != null && EF.Functions.Like(x.TipoConta, tipoConta));
+        }
+
         if (query.Ativo.HasValue)
         {
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.Nome)
-            : consulta.OrderBy(x => x.Nome);
+        if (query.TiposConta is { Count: > 0 })
+        {
+            var tipos = query.TiposConta;
+            consulta = consulta.Where(x => x.TipoConta != null && tipos.Contains(x.TipoConta));
+        }
 
-        var totalItems = await consulta.CountAsync(cancellationToken);
+        // Base para os totalizadores: considera todo o conjunto filtrado antes da paginação.
+        var baseResumo = await consulta
+            .Select(x => new { x.Id, x.SaldoInicial, x.LimiteCartoesCompartilhado, x.Ativo })
+            .ToListAsync(cancellationToken);
+
+        var totalItems = baseResumo.Count;
+        var todosIds = baseResumo.Select(x => x.Id).ToArray();
+        var comprometimentoTotal = await CarregarComprometimentoPorContaAsync(todosIds, cancellationToken);
+        var movimentadoTotal = await CarregarMovimentadoPorContaAsync(todosIds, cancellationToken);
+
+        var saldoTotal = baseResumo.Sum(x => CalcularSaldoAtual(x.SaldoInicial, movimentadoTotal.GetValueOrDefault(x.Id)));
+        var creditoDisponivel = baseResumo.Sum(x =>
+            (x.LimiteCartoesCompartilhado ?? 0m) - comprometimentoTotal.GetValueOrDefault(x.Id));
+        var summary = new ContaBancariaListSummaryResponse(
+            totalItems,
+            baseResumo.Count(x => x.Ativo),
+            decimal.Round(saldoTotal, 2, MidpointRounding.AwayFromZero),
+            decimal.Round(creditoDisponivel, 2, MidpointRounding.AwayFromZero));
+
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "banco" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Banco).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Banco).ThenBy(x => x.Nome),
+            "agencia" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Agencia).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Agencia).ThenBy(x => x.Nome),
+            "numeroconta" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.NumeroConta).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.NumeroConta).ThenBy(x => x.Nome),
+            "tipoconta" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.TipoConta).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.TipoConta).ThenBy(x => x.Nome),
+            "saldoinicial" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.SaldoInicial).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.SaldoInicial).ThenBy(x => x.Nome),
+            "ativo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Ativo).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Ativo).ThenBy(x => x.Nome),
+            _ => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Nome)
+        };
+
         var selecionadas = await consulta.ApplyPagination(query)
             .Select(x => new ContaBancariaProjection(
                 x.Id,
@@ -58,14 +121,11 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .ToListAsync(cancellationToken);
-        var contaIds = selecionadas.Select(x => x.Id).ToArray();
-        var comprometimento = await CarregarComprometimentoPorContaAsync(contaIds, cancellationToken);
-        var movimentadoPorConta = await CarregarMovimentadoPorContaAsync(contaIds, cancellationToken);
 
         var items = selecionadas
             .Select(x =>
             {
-                var valorComprometido = comprometimento.GetValueOrDefault(x.Id);
+                var valorComprometido = comprometimentoTotal.GetValueOrDefault(x.Id);
                 return new ContaBancariaResumoResponse(
                     x.Id,
                     x.Nome,
@@ -75,7 +135,7 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                     x.TipoConta,
                     x.SaldoInicial,
                     x.DataSaldoInicial,
-                    CalcularSaldoAtual(x.SaldoInicial, movimentadoPorConta.GetValueOrDefault(x.Id)),
+                    CalcularSaldoAtual(x.SaldoInicial, movimentadoTotal.GetValueOrDefault(x.Id)),
                     x.LimiteCartoesCompartilhado,
                     valorComprometido,
                     CalcularDisponivel(x.LimiteCartoesCompartilhado, valorComprometido),
@@ -83,7 +143,15 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
             })
             .ToList();
 
-        return PagedResult<ContaBancariaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
+        var paged = PagedResult<ContaBancariaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
+
+        return new ContaBancariaListResponse(
+            paged.Items,
+            paged.Page,
+            paged.PageSize,
+            paged.TotalItems,
+            paged.TotalPages,
+            summary);
     }
 
     public async Task<ContaBancariaDetalheResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken)

@@ -1,3 +1,0 @@
-Usando as configurações de inicialização de src\ControleFinanceiro.Api\Properties\launchSettings.json...
-Unhandled exception. System.InvalidOperationException: A variável de ambiente DB_PASSWORD deve estar configurada.
-   at Program.<Main>$(String[] args) in D:\Projetos\controle-financeiro\backend\src\ControleFinanceiro.Api\Program.cs:line 30

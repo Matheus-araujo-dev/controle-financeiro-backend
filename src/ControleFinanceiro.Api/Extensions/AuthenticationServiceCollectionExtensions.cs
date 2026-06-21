@@ -69,10 +69,17 @@ public static class AuthenticationServiceCollectionExtensions
 
         if (useSelfJwt)
         {
-            if (string.IsNullOrWhiteSpace(authOptions.JwtSigningKey))
+            if (string.IsNullOrWhiteSpace(authOptions.JwtSigningKey)
+                || authOptions.JwtSigningKey.Contains("${", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
                     "Auth:JwtSigningKey deve estar configurada quando o modo de autenticação é SelfJwt.");
+            }
+
+            if (Encoding.UTF8.GetByteCount(authOptions.JwtSigningKey) < 32)
+            {
+                throw new InvalidOperationException(
+                    "Auth:JwtSigningKey deve ter pelo menos 32 bytes para assinar tokens JWT.");
             }
 
             authenticationBuilder.AddJwtBearer(options =>

@@ -6,9 +6,13 @@ public sealed record FaturaListQueryRequest : ListQueryRequest
 {
     public Guid? CartaoId { get; init; }
 
+    public IReadOnlyCollection<Guid>? CartaoIds { get; init; }
+
     public string? Competencia { get; init; }
 
     public string? StatusCodigo { get; init; }
+
+    public IReadOnlyCollection<string>? StatusCodigos { get; init; }
 
     public DateOnly? DataVencimentoInicial { get; init; }
 

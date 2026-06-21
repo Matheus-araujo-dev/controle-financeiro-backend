@@ -12,11 +12,21 @@ public sealed record ContaGerencialListQueryRequest : ListQueryRequest
 {
     public ContaGerencialTipo? Tipo { get; init; }
 
+    public IReadOnlyList<ContaGerencialTipo>? Tipos { get; init; }
+
     public Guid? ContaPaiId { get; init; }
+
+    public string? ContaPai { get; init; }
+
+    public Guid? ResponsavelPadraoId { get; init; }
+
+    public string? ResponsavelPadrao { get; init; }
 
     public bool? Ativo { get; init; }
 
     public bool? AceitaLancamentos { get; init; }
+
+    public bool? EhPadraoRecebimentoFaturaCartao { get; init; }
 }
 
 public sealed record CriarContaGerencialRequest(

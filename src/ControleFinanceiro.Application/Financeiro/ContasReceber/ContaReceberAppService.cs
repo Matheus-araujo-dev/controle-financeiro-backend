@@ -44,6 +44,10 @@ public sealed class ContaReceberAppService(
                 conta.Descricao,
                 conta.PagadorId,
                 PagadorNome = pagador.Nome,
+                ResponsavelNome = dbContext.Pessoas
+                    .Where(pessoa => pessoa.Id == conta.ResponsavelId)
+                    .Select(pessoa => pessoa.Nome)
+                    .FirstOrDefault(),
                 conta.DataEmissao,
                 conta.DataVencimento,
                 conta.DataLiquidacao,
@@ -67,14 +71,28 @@ public sealed class ContaReceberAppService(
                 EF.Functions.Like(x.PagadorNome, termo));
         }
 
-        if (query.PagadorId.HasValue)
+        if (!string.IsNullOrWhiteSpace(query.NumeroDocumento))
         {
-            consulta = consulta.Where(x => x.PagadorId == query.PagadorId.Value);
+            var termo = $"%{query.NumeroDocumento.Trim()}%";
+            consulta = consulta.Where(x => x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento, termo));
         }
 
-        if (query.FormaPagamentoId.HasValue)
+        if (!string.IsNullOrWhiteSpace(query.Descricao))
         {
-            consulta = consulta.Where(x => x.FormaPagamentoId == query.FormaPagamentoId.Value);
+            var termo = $"%{query.Descricao.Trim()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Descricao, termo));
+        }
+
+        var pagadorIds = NormalizarIds(query.PagadorId, query.PagadorIds);
+        if (pagadorIds.Length > 0)
+        {
+            consulta = consulta.Where(x => pagadorIds.Contains(x.PagadorId));
+        }
+
+        var formaPagamentoIds = NormalizarIds(query.FormaPagamentoId, query.FormaPagamentoIds);
+        if (formaPagamentoIds.Length > 0)
+        {
+            consulta = consulta.Where(x => formaPagamentoIds.Contains(x.FormaPagamentoId));
         }
 
         if (query.DataVencimentoInicial.HasValue)
@@ -87,16 +105,69 @@ public sealed class ContaReceberAppService(
             consulta = consulta.Where(x => x.DataVencimento <= query.DataVencimentoFinal.Value);
         }
 
+        if (query.DataEmissaoInicial.HasValue)
+        {
+            consulta = consulta.Where(x => x.DataEmissao >= query.DataEmissaoInicial.Value);
+        }
+
+        if (query.DataEmissaoFinal.HasValue)
+        {
+            consulta = consulta.Where(x => x.DataEmissao <= query.DataEmissaoFinal.Value);
+        }
+
+        if (query.ValorMinimo.HasValue)
+        {
+            consulta = consulta.Where(x => x.ValorLiquido >= query.ValorMinimo.Value);
+        }
+
+        if (query.ValorMaximo.HasValue)
+        {
+            consulta = consulta.Where(x => x.ValorLiquido <= query.ValorMaximo.Value);
+        }
+
         var consultaBaseSummary = consulta;
 
-        if (!string.IsNullOrWhiteSpace(query.StatusCodigo))
+        var statusCodigosFiltro = NormalizarStatusCodigos(query.StatusCodigo, query.StatusCodigos);
+        if (statusCodigosFiltro.Length > 0)
         {
-            var statusCodigos = NormalizarStatusCodigos(query.StatusCodigo);
-            consulta = consulta.Where(x => statusCodigos.Contains(x.StatusCodigo));
+            var incluiVencida = statusCodigosFiltro.Contains("VENCIDA");
+            var statusFiltrados = statusCodigosFiltro.Where(status => status != "VENCIDA").ToArray();
+
+            if (incluiVencida)
+            {
+                consulta = consulta.Where(x =>
+                    statusFiltrados.Contains(x.StatusCodigo) ||
+                    x.StatusCodigo == "VENCIDA" ||
+                    (x.StatusCodigo == "PENDENTE" && x.DataVencimento < DateOnly.FromDateTime(DateTime.Today)));
+            }
+            else if (statusFiltrados.Length > 0)
+            {
+                consulta = consulta.Where(x => statusFiltrados.Contains(x.StatusCodigo));
+            }
         }
+
+        if (query.EhRecorrente.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhRecorrente == query.EhRecorrente.Value);
+        }
+
+        // Conjunto totalmente filtrado (inclui status), antes da ordenação, para os totais e a página.
+        var consultaFiltrada = consulta;
 
         consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
+            "pagadornome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.PagadorNome).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.PagadorNome).ThenBy(x => x.DataVencimento),
+            "descricao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Descricao).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.Descricao).ThenBy(x => x.DataVencimento),
+            "formapagamentonome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.FormaPagamentoNome).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.FormaPagamentoNome).ThenBy(x => x.DataVencimento),
+            "statuscodigo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.StatusCodigo).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.StatusCodigo).ThenBy(x => x.DataVencimento),
             "valorliquido" => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.ValorLiquido).ThenByDescending(x => x.DataVencimento)
                 : consulta.OrderBy(x => x.ValorLiquido).ThenBy(x => x.DataVencimento),
@@ -108,40 +179,68 @@ public sealed class ContaReceberAppService(
                 : consulta.OrderBy(x => x.DataVencimento).ThenBy(x => x.Descricao)
         };
 
-        var totalItems = await consulta.CountAsync(cancellationToken);
-        var valorTotal = await consulta.SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
-
         var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var totalPendente = await consultaBaseSummary
-            .Where(x => x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA")
-            .SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
-        var totalVencendoHoje = await consultaBaseSummary
-            .Where(x => x.DataVencimento == hoje && (x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA"))
-            .SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
-        var totalLiquidado = await consultaBaseSummary
-            .Where(x => x.StatusCodigo == "LIQUIDADA")
-            .SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
+
+        // Totais que respeitam todos os filtros (inclusive status): 1 round-trip.
+        var totais = await consultaFiltrada
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Valor = g.Sum(x => x.ValorLiquido)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalItems = totais?.Total ?? 0;
+        var valorTotal = totais?.Valor ?? 0m;
+
+        // Breakdown por situação, ignorando o filtro de status (consultaBaseSummary): 1 round-trip.
+        var resumo = await consultaBaseSummary
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Pendente = g.Sum(x => x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA" || x.StatusCodigo == "PARCIAL"
+                    ? x.ValorLiquido
+                    : 0m),
+                Vencido = g.Sum(x => x.DataVencimento < hoje && (x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA" || x.StatusCodigo == "PARCIAL")
+                    ? x.ValorLiquido
+                    : 0m),
+                VencendoHoje = g.Sum(x => x.DataVencimento == hoje && (x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA" || x.StatusCodigo == "PARCIAL")
+                    ? x.ValorLiquido
+                    : 0m),
+                Liquidado = g.Sum(x => x.StatusCodigo == "LIQUIDADA" ? x.ValorLiquido : 0m)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalPendente = resumo?.Pendente ?? 0m;
+        var totalVencido = resumo?.Vencido ?? 0m;
+        var totalVencendoHoje = resumo?.VencendoHoje ?? 0m;
+        var totalLiquidado = resumo?.Liquidado ?? 0m;
+
         var items = (await consulta
                 .ApplyPagination(query)
                 .ToArrayAsync(cancellationToken))
-            .Select(x => new ContaReceberResumoResponse(
-                x.Id,
-                x.NumeroDocumento,
-                x.Descricao,
-                x.PagadorId,
-                x.PagadorNome,
-                x.DataEmissao,
-                x.DataVencimento,
-                x.DataLiquidacao,
-                x.FormaPagamentoId,
-                x.FormaPagamentoNome,
-                x.ValorLiquido,
-                x.StatusCodigo,
-                x.StatusNome,
-                x.QuantidadeParcelas,
-                x.NumeroParcela,
-                x.GrupoParcelamentoId,
-                x.EhRecorrente))
+            .Select(x =>
+            {
+                var (statusCodigo, statusNome) = ResolverStatusEfetivo(x.StatusCodigo, x.StatusNome, x.DataVencimento, hoje);
+                return new ContaReceberResumoResponse(
+                    x.Id,
+                    x.NumeroDocumento,
+                    x.Descricao,
+                    x.PagadorId,
+                    x.PagadorNome,
+                    x.ResponsavelNome,
+                    x.DataEmissao,
+                    x.DataVencimento,
+                    x.DataLiquidacao,
+                    x.FormaPagamentoId,
+                    x.FormaPagamentoNome,
+                    x.ValorLiquido,
+                    statusCodigo,
+                    statusNome,
+                    x.QuantidadeParcelas,
+                    x.NumeroParcela,
+                    x.GrupoParcelamentoId,
+                    x.EhRecorrente);
+            })
             .ToArray();
 
         var paged = PagedResult<ContaReceberResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -152,9 +251,10 @@ public sealed class ContaReceberAppService(
             paged.TotalItems,
             paged.TotalPages,
             new ContaReceberListSummaryResponse(
-                totalItems, 
+                totalItems,
                 decimal.Round(valorTotal, 2, MidpointRounding.AwayFromZero),
                 decimal.Round(totalPendente, 2, MidpointRounding.AwayFromZero),
+                decimal.Round(totalVencido, 2, MidpointRounding.AwayFromZero),
                 decimal.Round(totalVencendoHoje, 2, MidpointRounding.AwayFromZero),
                 decimal.Round(totalLiquidado, 2, MidpointRounding.AwayFromZero)));
     }
@@ -168,13 +268,52 @@ public sealed class ContaReceberAppService(
         return conta is null ? null : await MapearDetalheAsync(conta, cancellationToken);
     }
 
-    private static string[] NormalizarStatusCodigos(string statusCodigo)
+    private static Guid[] NormalizarIds(Guid? idSingular, IReadOnlyCollection<Guid>? ids)
     {
-        return statusCodigo
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => x.ToUpperInvariant())
+        if (ids is not null && ids.Count > 0)
+        {
+            return ids.Distinct().ToArray();
+        }
+
+        return idSingular.HasValue ? [idSingular.Value] : [];
+    }
+
+    private static string[] NormalizarStatusCodigos(string? statusCodigo, IReadOnlyCollection<string>? statusCodigos)
+    {
+        var valores = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(statusCodigo))
+        {
+            valores.AddRange(
+                statusCodigo.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => x.ToUpperInvariant()));
+        }
+
+        if (statusCodigos is not null)
+        {
+            valores.AddRange(
+                statusCodigos
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim().ToUpperInvariant()));
+        }
+
+        return valores
             .Distinct()
             .ToArray();
+    }
+
+    // O status "Vencida" não é gravado em tempo real (só pelo worker diário). Para a listagem nunca
+    // exibir "Pendente" em conta já vencida — e ficar consistente com o filtro de status —, calcula-se
+    // o status efetivo: PENDENTE com vencimento no passado é apresentado como VENCIDA.
+    private static (string Codigo, string Nome) ResolverStatusEfetivo(
+        string statusCodigo,
+        string statusNome,
+        DateOnly dataVencimento,
+        DateOnly hoje)
+    {
+        return statusCodigo == "PENDENTE" && dataVencimento < hoje
+            ? ("VENCIDA", "Vencida")
+            : (statusCodigo, statusNome);
     }
 
     public async Task<ContaReceberDetalheResponse> CriarAsync(CriarContaReceberRequest request, CancellationToken cancellationToken)
@@ -248,7 +387,16 @@ public sealed class ContaReceberAppService(
 
         if (request.QuantidadeParcelas != conta.QuantidadeParcelas)
         {
-            throw ValidationExceptionFactory.Create("QuantidadeParcelas", "NÃ£o Ã© permitido alterar o parcelamento na ediÃ§Ã£o.");
+            throw ValidationExceptionFactory.Create("QuantidadeParcelas", "Não é permitido alterar o parcelamento na edição.");
+        }
+
+        ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
+        Guid? regraRecorrenciaCriadaId = null;
+        if (!conta.RegraRecorrenciaId.HasValue && request.Recorrencia is not null)
+        {
+            var regra = CriarRegraRecorrencia(request, request.Recorrencia);
+            dbContext.RegrasRecorrencia.Add(regra);
+            regraRecorrenciaCriadaId = regra.Id;
         }
 
         if (conta.RegraRecorrenciaId.HasValue)
@@ -258,7 +406,7 @@ public sealed class ContaReceberAppService(
 
             if (!regra.PermiteEdicaoOcorrenciaIndividual)
             {
-                throw ValidationExceptionFactory.Create("Recorrencia", "A regra atual nÃ£o permite ediÃ§Ã£o pontual da ocorrÃªncia.");
+                throw ValidationExceptionFactory.Create("Recorrencia", "A regra atual não permite edição pontual da ocorrência.");
             }
 
             if (request.Recorrencia is not null)
@@ -290,6 +438,10 @@ public sealed class ContaReceberAppService(
             cancellationToken);
 
         AtualizarContaExistente(conta, request);
+        if (regraRecorrenciaCriadaId.HasValue)
+        {
+            conta.VincularRecorrencia(regraRecorrenciaCriadaId.Value);
+        }
 
         await SincronizarRateiosContaAsync(conta, cancellationToken);
 
@@ -390,7 +542,7 @@ public sealed class ContaReceberAppService(
 
         if (!regra.Ativa)
         {
-            throw ValidationExceptionFactory.Create("Recorrencia", "A recorrÃªncia estÃ¡ pausada ou encerrada.");
+            throw ValidationExceptionFactory.Create("Recorrencia", "A recorrência está pausada ou encerrada.");
         }
 
         var datasExistentes = await dbContext.ContasReceber
@@ -474,37 +626,160 @@ public sealed class ContaReceberAppService(
 
         if (conta.StatusContaId == StatusConta.LiquidadaId)
         {
-            throw ValidationExceptionFactory.Create("Status", "Conta jÃ¡ estÃ¡ liquidada.");
+            throw ValidationExceptionFactory.Create("Status", "Conta já está liquidada.");
         }
 
         if (!await dbContext.ContasBancarias.AnyAsync(x => x.Id == request.ContaBancariaId, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancÃ¡ria nÃ£o encontrada.");
+            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancária não encontrada.");
         }
 
-        conta.Liquidar(request.DataLiquidacao, request.ContaBancariaId, StatusConta.LiquidadaId);
+        if (request.FormaPagamentoId.HasValue &&
+            await _lookupCache.GetFormaPagamentoByIdAsync(request.FormaPagamentoId.Value, cancellationToken) is null)
+        {
+            throw ValidationExceptionFactory.Create("FormaPagamentoId", "Forma de pagamento não encontrada.");
+        }
+
+        var saldoJaLiquidado = await CalcularSaldoLiquidadoAsync(conta.Id, cancellationToken);
+        var statusFinal = StatusConta.LiquidadaId;
+        var valorMovimentacao = conta.ValorLiquido;
+
+        var deveAtualizarValor = request.ValorLiquidacao > conta.ValorLiquido || request.AtualizarValorConta;
+        var valorReferenciaConta = conta.ValorLiquido;
+
+        if (deveAtualizarValor)
+        {
+            if (saldoJaLiquidado > 0)
+            {
+                throw ValidationExceptionFactory.Create(
+                    "ValorLiquidacao",
+                    "Conta com liquidações parciais já registradas não pode ter o valor atualizado.");
+            }
+
+            var novosRateios = await RecalcularRateiosAsync(conta.Id, request.ValorLiquidacao, cancellationToken);
+            conta.AtualizarValorLiquido(request.ValorLiquidacao, novosRateios);
+            valorReferenciaConta = request.ValorLiquidacao;
+
+            if (conta.RegraRecorrenciaId.HasValue)
+            {
+                await AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
+            }
+        }
+
+        var saldoFinal = saldoJaLiquidado + request.ValorLiquidacao;
+        statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+        valorMovimentacao = request.ValorLiquidacao;
+
+        conta.Liquidar(request.DataLiquidacao, request.ContaBancariaId, statusFinal);
         dbContext.MovimentacoesFinanceiras.Add(
             MovimentacaoFinanceira.CriarLiquidacaoContaReceber(
                 conta.Id,
                 request.ContaBancariaId,
                 request.DataLiquidacao,
-                conta.ValorLiquido,
+                valorMovimentacao,
                 StatusMovimentacao.EfetivadaId,
                 conta.Descricao));
 
-        await eventDispatcher.DispatchAsync(
-            new ContaReceberRecebidaEvent(
-                conta.Id,
-                conta.NumeroDocumento,
-                conta.PagadorId,
-                conta.Descricao,
-                conta.ValorLiquido,
-                request.DataLiquidacao,
-                request.ContaBancariaId),
-            cancellationToken);
+        if (statusFinal == StatusConta.LiquidadaId)
+        {
+            await eventDispatcher.DispatchAsync(
+                new ContaReceberRecebidaEvent(
+                    conta.Id,
+                    conta.NumeroDocumento,
+                    conta.PagadorId,
+                    conta.Descricao,
+                    conta.ValorLiquido,
+                    request.DataLiquidacao,
+                    request.ContaBancariaId),
+                cancellationToken);
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await MapearDetalheAsync(conta, cancellationToken);
+    }
+
+    private async Task<decimal> CalcularSaldoLiquidadoAsync(Guid contaId, CancellationToken cancellationToken)
+    {
+        return await dbContext.MovimentacoesFinanceiras
+            .Where(x =>
+                x.ContaReceberId == contaId &&
+                x.Natureza == NaturezaMovimentacao.Realizada &&
+                x.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+            .SumAsync(x => (decimal?)x.Valor, cancellationToken) ?? 0m;
+    }
+
+    private async Task<IReadOnlyCollection<RateioPlano>> RecalcularRateiosAsync(
+        Guid contaId,
+        decimal novoValorLiquido,
+        CancellationToken cancellationToken)
+    {
+        var rateiosOriginais = await (
+            from rateio in dbContext.RateiosContaGerencial.AsNoTracking()
+            join contaGerencial in dbContext.ContasGerenciais.AsNoTracking() on rateio.ContaGerencialId equals contaGerencial.Id
+            where rateio.ContaReceberId == contaId
+            orderby contaGerencial.Descricao
+            select new RateioPlano(rateio.ContaGerencialId, rateio.Valor))
+            .ToArrayAsync(cancellationToken);
+
+        if (rateiosOriginais.Length == 0)
+        {
+            throw ValidationExceptionFactory.Create("Rateios", "Ao menos um rateio é obrigatório.");
+        }
+
+        if (rateiosOriginais.Length == 1)
+        {
+            return [RateioPlano.Create(rateiosOriginais[0].ContaGerencialId, novoValorLiquido)];
+        }
+
+        var totalOriginal = rateiosOriginais.Sum(x => x.Valor);
+        if (totalOriginal <= 0)
+        {
+            throw ValidationExceptionFactory.Create("Rateios", "Valor base de rateio inválido.");
+        }
+
+        var planos = new List<RateioPlano>(rateiosOriginais.Length);
+        decimal acumulado = 0m;
+
+        for (var index = 0; index < rateiosOriginais.Length - 1; index++)
+        {
+            var rateio = rateiosOriginais[index];
+            var valorDistribuido = decimal.Round(
+                novoValorLiquido * (rateio.Valor / totalOriginal),
+                2,
+                MidpointRounding.AwayFromZero);
+
+            acumulado += valorDistribuido;
+            planos.Add(RateioPlano.Create(rateio.ContaGerencialId, valorDistribuido));
+        }
+
+        var ultimo = rateiosOriginais[^1];
+        planos.Add(RateioPlano.Create(ultimo.ContaGerencialId, decimal.Round(novoValorLiquido - acumulado, 2, MidpointRounding.AwayFromZero)));
+        return planos;
+    }
+
+    private async Task AtualizarTemplateRecorrenciaAsync(
+        Guid regraRecorrenciaId,
+        decimal novoValorLiquido,
+        IReadOnlyCollection<RateioPlano> novosRateios,
+        CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia.SingleAsync(x => x.Id == regraRecorrenciaId, cancellationToken);
+        var template = DesserializarTemplate(regra.TemplateJson);
+        var novoTemplate = template with
+        {
+            ValorOriginal = decimal.Round(novoValorLiquido + template.ValorDesconto - template.ValorJuros - template.ValorMulta, 2, MidpointRounding.AwayFromZero),
+            Rateios = novosRateios.Select(rateio => new RateioRecorrenciaTemplate(rateio.ContaGerencialId, rateio.Valor)).ToArray()
+        };
+
+        regra.Atualizar(
+            regra.TipoPeriodicidade,
+            regra.TipoDia,
+            regra.DiaOrdemMensal,
+            regra.DataInicio,
+            regra.DataFim,
+            regra.PermiteEdicaoOcorrenciaIndividual,
+            regra.Observacao,
+            JsonSerializer.Serialize(novoTemplate));
     }
 
     public async Task<ContaReceberDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken)
@@ -648,20 +923,20 @@ public sealed class ContaReceberAppService(
     {
         if (!await dbContext.Pessoas.AnyAsync(x => x.Id == pagadorId, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("PagadorId", "Pagador nÃ£o encontrado.");
+            throw ValidationExceptionFactory.Create("PagadorId", "Pagador não encontrado.");
         }
 
         if (responsavelId.HasValue &&
             !await dbContext.Pessoas.AnyAsync(x => x.Id == responsavelId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ResponsavelId", "ResponsÃ¡vel nÃ£o encontrado.");
+            throw ValidationExceptionFactory.Create("ResponsavelId", "Responsável não encontrado.");
         }
 
         var formaPagamento = await _lookupCache.GetFormaPagamentoByIdAsync(formaPagamentoId, cancellationToken);
 
         if (formaPagamento is null)
         {
-            throw ValidationExceptionFactory.Create("FormaPagamentoId", "Forma de pagamento nÃ£o encontrada.");
+            throw ValidationExceptionFactory.Create("FormaPagamentoId", "Forma de pagamento não encontrada.");
         }
 
         if (quantidadeParcelas < 1)
@@ -672,13 +947,13 @@ public sealed class ContaReceberAppService(
         if (cartaoId.HasValue &&
             !await dbContext.Cartoes.AnyAsync(x => x.Id == cartaoId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("CartaoId", "CartÃ£o nÃ£o encontrado.");
+            throw ValidationExceptionFactory.Create("CartaoId", "Cartão não encontrado.");
         }
 
         if (contaBancariaId.HasValue &&
             !await dbContext.ContasBancarias.AnyAsync(x => x.Id == contaBancariaId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancÃ¡ria nÃ£o encontrada.");
+            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancária não encontrada.");
         }
 
         await ContaGerencialLancamentoValidator.ValidarContasLancaveisPorTipoAsync(
@@ -686,19 +961,19 @@ public sealed class ContaReceberAppService(
             rateios.Select(x => x.ContaGerencialId).ToArray(),
             TipoContaGerencial.Receita,
             "Rateios",
-            "Uma ou mais contas gerenciais nÃ£o foram encontradas.",
+            "Uma ou mais contas gerenciais não foram encontradas.",
             "Somente contas gerenciais filhas podem ser usadas em rateios.",
             "Contas a receber aceitam apenas contas gerenciais de receita.",
             cancellationToken);
 
         if (!formaPagamento.BaixarAutomaticamente && dataLiquidacao.HasValue)
         {
-            throw ValidationExceptionFactory.Create("DataLiquidacao", "Data de liquidaÃ§Ã£o sÃ³ pode ser informada com baixa automÃ¡tica.");
+            throw ValidationExceptionFactory.Create("DataLiquidacao", "Data de liquidação só pode ser informada com baixa automática.");
         }
 
         if (formaPagamento.BaixarAutomaticamente && !contaBancariaId.HasValue)
         {
-            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancÃ¡ria Ã© obrigatÃ³ria para baixa automÃ¡tica.");
+            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para baixa automática.");
         }
 
         return formaPagamento.BaixarAutomaticamente;
@@ -749,7 +1024,7 @@ public sealed class ContaReceberAppService(
         return tipo switch
         {
             TipoPeriodicidadeRecorrenciaContract.Mensal => TipoPeriodicidadeRecorrenciaDomain.Mensal,
-            _ => throw ValidationExceptionFactory.Create("Recorrencia.TipoPeriodicidade", "Tipo de periodicidade de recorrÃªncia invÃ¡lido.")
+            _ => throw ValidationExceptionFactory.Create("Recorrencia.TipoPeriodicidade", "Tipo de periodicidade de recorrência inválido.")
         };
     }
 
@@ -768,7 +1043,7 @@ public sealed class ContaReceberAppService(
         {
             TipoDiaRecorrenciaContract.DiaFixo => TipoDiaRecorrenciaDomain.DiaFixo,
             TipoDiaRecorrenciaContract.DiaUtil => TipoDiaRecorrenciaDomain.DiaUtil,
-            _ => throw ValidationExceptionFactory.Create("Recorrencia.TipoDia", "Tipo de dia de recorrÃªncia invÃ¡lido.")
+            _ => throw ValidationExceptionFactory.Create("Recorrencia.TipoDia", "Tipo de dia de recorrência inválido.")
         };
     }
 
@@ -807,6 +1082,24 @@ public sealed class ContaReceberAppService(
     }
 
     private RegraRecorrencia CriarRegraRecorrencia(CriarContaReceberRequest request, RecorrenciaConfigRequest recorrencia)
+    {
+        var tipoDia = MapearTipoDiaDominio(recorrencia.TipoDia);
+        var dataInicio = ResolveDataInicioRecorrencia(request.DataEmissao, recorrencia);
+        var dataFim = ResolveDataFimRecorrencia(recorrencia);
+
+        return RegraRecorrencia.Criar(
+            TipoLancamentoRecorrencia.ContaReceber,
+            MapearTipoPeriodicidadeDominio(recorrencia.TipoPeriodicidade),
+            tipoDia,
+            recorrencia.DiaOrdemMensal,
+            dataInicio,
+            dataFim,
+            recorrencia.PermiteEdicaoOcorrenciaIndividual,
+            recorrencia.Observacao,
+            SerializarTemplate(request));
+    }
+
+    private RegraRecorrencia CriarRegraRecorrencia(AtualizarContaReceberRequest request, RecorrenciaConfigRequest recorrencia)
     {
         var tipoDia = MapearTipoDiaDominio(recorrencia.TipoDia);
         var dataInicio = ResolveDataInicioRecorrencia(request.DataEmissao, recorrencia);
@@ -896,7 +1189,7 @@ public sealed class ContaReceberAppService(
     private static ContaReceberRecorrenciaTemplate DesserializarTemplate(string templateJson)
     {
         return JsonSerializer.Deserialize<ContaReceberRecorrenciaTemplate>(templateJson)
-               ?? throw new InvalidOperationException("Template de recorrÃªncia invÃ¡lido.");
+               ?? throw new InvalidOperationException("Template de recorrência inválido.");
     }
 
     private static AtualizarContaReceberRequest AjustarRequestParaMes(AtualizarContaReceberRequest request, int monthOffset)
@@ -995,7 +1288,7 @@ public sealed class ContaReceberAppService(
     {
         if (!conta.RegraRecorrenciaId.HasValue)
         {
-            throw ValidationExceptionFactory.Create("Recorrencia", "A conta informada nÃ£o possui regra de recorrÃªncia.");
+            throw ValidationExceptionFactory.Create("Recorrencia", "A conta informada não possui regra de recorrência.");
         }
 
         return await dbContext.RegrasRecorrencia

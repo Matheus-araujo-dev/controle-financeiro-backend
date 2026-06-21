@@ -36,6 +36,7 @@ public sealed class ImportacoesWhatsappController(ImportacoesWhatsappAppService 
     [AllowAnonymous]
     [ValidateWebhookSignature]
     [EnableRateLimiting("Strict")]
+    [RequestSizeLimit(10 * 1024 * 1024)]
     [ProducesResponseType(typeof(ImportacaoWhatsappDetalheResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]

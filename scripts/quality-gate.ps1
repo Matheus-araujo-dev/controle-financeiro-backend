@@ -2,10 +2,15 @@
 # Runs build, test with coverage thresholds, and verifies results
 
 param(
+    # Threshold do relatório MERGED de cobertura (line, stat=total). Atingido: 80,6% (alvo de 80% OK).
     [int]$Threshold = 80
 )
 
 $ErrorActionPreference = "Stop"
+
+# Garante que os comandos 'dotnet' (restore/build/list) rodem na raiz do backend,
+# independentemente do diretório de onde o script foi chamado.
+Set-Location (Resolve-Path (Join-Path $PSScriptRoot '..'))
 
 Write-Host "=== Backend Quality Gate ===" -ForegroundColor Cyan
 Write-Host "Threshold: $Threshold%" -ForegroundColor Cyan
@@ -30,11 +35,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Build succeeded" -ForegroundColor Green
 
-Write-Host "`n[3/4] Running tests with coverage (threshold $Threshold%)..." -ForegroundColor Yellow
-dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:Threshold=$Threshold /p:ThresholdType=line
+Write-Host "`n[3/4] Running tests with MERGED coverage gate (line >= $Threshold%)..." -ForegroundColor Yellow
+# Gate aplicado sobre o relatório merged das 4 suítes (coverlet.collector + ReportGenerator).
+& (Join-Path $PSScriptRoot 'coverage-gate.ps1') -Threshold $Threshold
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "`nQUALITY GATE FAILED: Tests failed or coverage below $Threshold%" -ForegroundColor Red
+    Write-Host "`nQUALITY GATE FAILED: Tests failed or merged coverage below $Threshold%" -ForegroundColor Red
     exit 1
 }
 

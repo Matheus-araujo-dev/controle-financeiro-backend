@@ -48,7 +48,6 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 ContaReceberResponsavelId = contaReceber != null ? contaReceber.ResponsavelId : null,
                 ResponsavelNome = responsavelPagar != null ? responsavelPagar.Nome : (responsavelReceber != null ? responsavelReceber.Nome : null),
                 movimento.Observacao,
-                movimento.DataConciliacao,
                 movimento.CreatedAtUtc,
                 movimento.UpdatedAtUtc
             };
@@ -110,9 +109,27 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
             consulta = consulta.Where(x => x.DataMovimentacao <= query.DataFinal.Value);
         }
 
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.DataMovimentacao).ThenByDescending(x => x.Id)
-            : consulta.OrderBy(x => x.DataMovimentacao).ThenBy(x => x.Id);
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "observacao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Observacao).ThenByDescending(x => x.DataMovimentacao)
+                : consulta.OrderBy(x => x.Observacao).ThenBy(x => x.DataMovimentacao),
+            "natureza" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Natureza).ThenByDescending(x => x.DataMovimentacao)
+                : consulta.OrderBy(x => x.Natureza).ThenBy(x => x.DataMovimentacao),
+            "contabancarianome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ContaBancariaNome).ThenByDescending(x => x.DataMovimentacao)
+                : consulta.OrderBy(x => x.ContaBancariaNome).ThenBy(x => x.DataMovimentacao),
+            "responsavelnome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ResponsavelNome).ThenByDescending(x => x.DataMovimentacao)
+                : consulta.OrderBy(x => x.ResponsavelNome).ThenBy(x => x.DataMovimentacao),
+            "valor" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Valor).ThenByDescending(x => x.DataMovimentacao)
+                : consulta.OrderBy(x => x.Valor).ThenBy(x => x.DataMovimentacao),
+            _ => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.DataMovimentacao).ThenByDescending(x => x.Id)
+                : consulta.OrderBy(x => x.DataMovimentacao).ThenBy(x => x.Id)
+        };
 
         var totalItems = await consulta.CountAsync(cancellationToken);
         var summaryProjection = await consulta
@@ -187,7 +204,6 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 movimento.ContaReceberId,
                 movimento.FaturaCartaoId,
                 movimento.Observacao,
-                movimento.DataConciliacao,
                 movimento.CreatedAtUtc,
                 movimento.UpdatedAtUtc
             })
@@ -209,7 +225,6 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 item.ContaReceberId,
                 item.FaturaCartaoId,
                 item.Observacao,
-                item.DataConciliacao,
                 item.CreatedAtUtc,
                 item.UpdatedAtUtc);
     }

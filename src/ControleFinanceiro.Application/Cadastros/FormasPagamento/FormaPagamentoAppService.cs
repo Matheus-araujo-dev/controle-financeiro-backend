@@ -51,6 +51,12 @@ public sealed class FormaPagamentoAppService
             consulta = consulta.Where(x => x.Tipo == MapearTipo(query.Tipo.Value));
         }
 
+        if (query.Tipos is { Count: > 0 })
+        {
+            var tipos = query.Tipos.Select(MapearTipo).ToArray();
+            consulta = consulta.Where(x => tipos.Contains(x.Tipo));
+        }
+
         if (query.EhCartao.HasValue)
         {
             consulta = consulta.Where(x => x.EhCartao == query.EhCartao.Value);
@@ -66,9 +72,24 @@ public sealed class FormaPagamentoAppService
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.Nome)
-            : consulta.OrderBy(x => x.Nome);
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "tipo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Tipo).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Tipo).ThenBy(x => x.Nome),
+            "ehcartao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.EhCartao).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.EhCartao).ThenBy(x => x.Nome),
+            "baixarautomaticamente" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.BaixarAutomaticamente).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.BaixarAutomaticamente).ThenBy(x => x.Nome),
+            "ativo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Ativo).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Ativo).ThenBy(x => x.Nome),
+            _ => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Nome)
+        };
 
         var totalItems = await consulta.CountAsync(cancellationToken);
         var entidades = await consulta.ApplyPagination(query).ToListAsync(cancellationToken);

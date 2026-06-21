@@ -26,8 +26,6 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
 
     public Guid? ContaReceberId { get; private set; }
 
-    public Guid? MovimentacaoFinanceiraId { get; private set; }
-
     public StatusItemImportadoWhatsapp Status { get; private set; }
 
     public string? Observacao { get; private set; }
@@ -114,21 +112,9 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
             return;
         }
 
-        ValidarPodeSerEditadoAposReabertura();
-
         Status = StatusItemImportadoWhatsapp.Sugerido;
         ConfirmadoEmUtc = null;
         RejeitadoEmUtc = null;
-    }
-
-    public void HabilitarEdicaoAposReabertura()
-    {
-        if (Status == StatusItemImportadoWhatsapp.Sugerido)
-        {
-            return;
-        }
-
-        ValidarPodeSerEditadoAposReabertura();
     }
 
     public void Rejeitar(string? observacao)
@@ -142,39 +128,5 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
         Observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
         RejeitadoEmUtc = DateTime.UtcNow;
         ConfirmadoEmUtc = null;
-    }
-
-    public void VincularMovimentacao(Guid movimentacaoFinanceiraId, string? observacao)
-    {
-        if (TipoSugestao != TipoSugestaoImportacaoWhatsapp.ItemExtrato)
-        {
-            throw new InvalidOperationException("Somente itens de extrato podem ser vinculados na conciliação.");
-        }
-
-        if (Status != StatusItemImportadoWhatsapp.Confirmado)
-        {
-            throw new InvalidOperationException("Somente itens confirmados podem ser conciliados.");
-        }
-
-        if (movimentacaoFinanceiraId == Guid.Empty)
-        {
-            throw new ArgumentException("Movimentação financeira é obrigatória.", nameof(movimentacaoFinanceiraId));
-        }
-
-        if (MovimentacaoFinanceiraId.HasValue)
-        {
-            throw new InvalidOperationException("Item de extrato já possui movimentação conciliada.");
-        }
-
-        MovimentacaoFinanceiraId = movimentacaoFinanceiraId;
-        Observacao = string.IsNullOrWhiteSpace(observacao) ? Observacao : observacao.Trim();
-    }
-
-    private void ValidarPodeSerEditadoAposReabertura()
-    {
-        if (MovimentacaoFinanceiraId.HasValue)
-        {
-            throw new InvalidOperationException("Itens já vinculados à movimentação não podem ser reabertos para edição.");
-        }
     }
 }

@@ -6,10 +6,7 @@
     <AnalysisLevel>latest</AnalysisLevel>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
-    <CollectCoverage>true</CollectCoverage>
-    <CoverletOutputFormat>opencover</CoverletOutputFormat>
-    <CoverletOutput>$(MSBuildProjectDirectory)\TestResults\coverage\</CoverletOutput>
-    <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
-  </PropertyGroup>
+  <!-- Cobertura é coletada via coverlet.collector (data collector "XPlat Code Coverage").
+       Escopo e exclusões (migrations, código gerado) ficam em backend/coverlet.runsettings;
+       o gate merged é aplicado por scripts/coverage-gate.ps1 com o ReportGenerator. -->
 </Project>

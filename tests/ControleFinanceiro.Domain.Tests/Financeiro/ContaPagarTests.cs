@@ -227,4 +227,62 @@ public sealed class ContaPagarTests
         conta.DataLiquidacao.Should().Be(new DateOnly(2026, 4, 6));
         conta.ContaBancariaId.Should().Be(contaBancariaId);
     }
+
+    [Fact]
+    public void Atualizar_QuandoContaEstiverLiquidada_DeveFalhar()
+    {
+        var conta = ContaPagar.Criar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 4),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            dataVencimento: new DateOnly(2026, 4, 10),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: null,
+            contaBancariaId: null,
+            valorOriginal: 100m,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 1,
+            numeroParcela: 1,
+            grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
+            descricao: "Atualizacao bloqueada",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Manual,
+            rateios: new[]
+            {
+                RateioPlano.Create(Guid.NewGuid(), 100m)
+            });
+
+        conta.Liquidar(new DateOnly(2026, 4, 6), Guid.NewGuid(), StatusConta.LiquidadaId);
+
+        var action = () => conta.Atualizar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 4),
+            responsavelCompraId: null,
+            recebedorId: conta.RecebedorId,
+            dataVencimento: new DateOnly(2026, 4, 10),
+            formaPagamentoId: conta.FormaPagamentoId,
+            cartaoId: null,
+            contaBancariaId: null,
+            valorOriginal: 100m,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            descricao: "Atualizacao bloqueada",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            rateios: new[]
+            {
+                RateioPlano.Create(conta.Rateios.Single().ContaGerencialId, 100m)
+            });
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Não é permitido editar contas liquidadas ou canceladas.*");
+    }
 }

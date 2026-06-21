@@ -6,6 +6,14 @@ public sealed record CartaoListQueryRequest : ListQueryRequest
 {
     public string? Bandeira { get; init; }
 
+    public string? NumeroFinal { get; init; }
+
+    public int? DiaFechamentoFatura { get; init; }
+
+    public int? DiaVencimentoFatura { get; init; }
+
+    public Guid? ContaBancariaPagamentoPadraoId { get; init; }
+
     public bool? Ativo { get; init; }
 }
 

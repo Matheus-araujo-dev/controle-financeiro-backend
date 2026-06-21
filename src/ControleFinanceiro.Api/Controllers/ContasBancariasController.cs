@@ -13,8 +13,8 @@ namespace ControleFinanceiro.Api.Controllers;
 public sealed class ContasBancariasController(ContaBancariaAppService service) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<ContaBancariaResumoResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<ContaBancariaResumoResponse>>> Listar(
+    [ProducesResponseType(typeof(ContaBancariaListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ContaBancariaListResponse>> Listar(
         [FromQuery] ContaBancariaListQueryRequest query,
         CancellationToken cancellationToken)
     {

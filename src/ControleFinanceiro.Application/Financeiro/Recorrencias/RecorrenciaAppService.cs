@@ -2,10 +2,13 @@ using ControleFinanceiro.Application.Financeiro.ContasPagar;
 using ControleFinanceiro.Application.Financeiro.ContasReceber;
 using ControleFinanceiro.Application.Common.Extensions;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using DomainOrigemLancamento = ControleFinanceiro.Domain.Financeiro.OrigemLancamento;
+using DomainTipoPeriodicidade = ControleFinanceiro.Domain.Financeiro.TipoPeriodicidadeRecorrencia;
+using DomainTipoDia = ControleFinanceiro.Domain.Financeiro.TipoDiaRecorrencia;
 
 namespace ControleFinanceiro.Application.Financeiro.Recorrencias;
 
@@ -59,114 +62,177 @@ public sealed class RecorrenciaAppService(
         logger.LogInformation("Geração automática concluída. Total de regras processadas: {Total}.", totalGerado);
     }
 
-    public async Task<RecorrenciaListResponse> ListarAtivasAsync(CancellationToken cancellationToken)
+    public async Task<RecorrenciaListResponse> ListarAsync(RecorrenciaListQueryRequest query, CancellationToken cancellationToken)
     {
-        var regras = await dbContext.RegrasRecorrencia
-            .AsNoTracking()
-            .Where(x => x.Ativa)
-            .OrderBy(x => x.DataInicio)
-            .ToListAsync(cancellationToken);
+        // Cada item é uma regra + sua conta de origem (Origem != Recorrencia, a conta original que
+        // criou a regra). Como o tipo da regra define a tabela, origens de pagar/receber nunca colidem.
+        // Os filtros e o dedup (origem mais antiga por regra) rodam no banco — não materializa mais as
+        // tabelas inteiras. O EF Core não traduz UNION com projeção para tipo custom, então a fusão
+        // pagar+receber, ordenação e paginação ocorrem sobre o conjunto JÁ FILTRADO (recorrências são
+        // de baixo volume, tornando a etapa final em memória barata).
+        var tipo = query.Tipo?.Trim();
+        var incluiPagar = !string.Equals(tipo, "Receber", StringComparison.OrdinalIgnoreCase);
+        var incluiReceber = !string.Equals(tipo, "Pagar", StringComparison.OrdinalIgnoreCase);
+        var termo = string.IsNullOrWhiteSpace(query.Search) ? null : $"%{query.Search.Trim()}%";
 
-        if (regras.Count == 0)
+        var rows = new List<RecorrenciaRow>();
+        if (incluiPagar)
         {
-            return new RecorrenciaListResponse([], new RecorrenciaListSummaryResponse(0, 0m));
+            rows.AddRange(await ConsultarOrigensPagarAsync(query, termo, cancellationToken));
         }
 
-        var regraIds = regras.Select(x => x.Id).ToArray();
+        if (incluiReceber)
+        {
+            rows.AddRange(await ConsultarOrigensReceberAsync(query, termo, cancellationToken));
+        }
 
-        var contasPagarOrigem = await (
-            from conta in dbContext.ContasPagar.AsNoTracking()
-            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
-            from responsavel in responsaveis.DefaultIfEmpty()
-            where conta.RegraRecorrenciaId.HasValue &&
-                  conta.Origem != DomainOrigemLancamento.Recorrencia
-            where regraIds.Contains(conta.RegraRecorrenciaId!.Value)
-            orderby conta.CreatedAtUtc
-            select new ContaOrigemProjection(
-                conta.RegraRecorrenciaId!.Value,
-                "ContaPagar",
-                conta.Id,
-                conta.Descricao,
-                conta.ValorLiquido,
-                recebedor.Nome,
-                responsavel != null ? responsavel.Nome : null))
-            .ToListAsync(cancellationToken);
+        var ordenadas = ((query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "descricao" => Ordenar(rows, query, x => x.Descricao),
+            "pessoanome" => Ordenar(rows, query, x => x.PessoaNome),
+            "valorliquido" => Ordenar(rows, query, x => x.ValorLiquido),
+            "diaordemmensal" => Ordenar(rows, query, x => x.DiaOrdemMensal),
+            "datainicio" => Ordenar(rows, query, x => x.DataInicio),
+            "ativa" => Ordenar(rows, query, x => x.Ativa),
+            _ => Ordenar(rows, query, x => x.DataInicio)
+        }).ToArray();
 
-        var contasReceberOrigem = await (
-            from conta in dbContext.ContasReceber.AsNoTracking()
-            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
-            from responsavel in responsaveis.DefaultIfEmpty()
-            where conta.RegraRecorrenciaId.HasValue &&
-                  conta.Origem != DomainOrigemLancamento.Recorrencia
-            where regraIds.Contains(conta.RegraRecorrenciaId!.Value)
-            orderby conta.CreatedAtUtc
-            select new ContaOrigemProjection(
-                conta.RegraRecorrenciaId!.Value,
-                "ContaReceber",
-                conta.Id,
-                conta.Descricao,
-                conta.ValorLiquido,
-                pagador.Nome,
-                responsavel != null ? responsavel.Nome : null))
-            .ToListAsync(cancellationToken);
+        var totalItems = ordenadas.Length;
+        var valorTotal = ordenadas.Sum(r => r.ValorLiquido);
+        var page = query.NormalizedPage;
+        var pageSize = query.NormalizedPageSize;
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize);
 
-        var contaOrigemLookup = contasPagarOrigem
-            .Concat(contasReceberOrigem)
-            .GroupBy(x => x.RegraRecorrenciaId)
-            .ToDictionary(group => group.Key, group => group.First());
-
-        var items = regras
-            .Where(regra => contaOrigemLookup.ContainsKey(regra.Id))
-            .Select(regra => MapearRecorrenciaListItem(regra, contaOrigemLookup[regra.Id]))
+        var items = ordenadas
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(MapearRow)
             .ToArray();
 
         return new RecorrenciaListResponse(
             items,
+            page,
+            pageSize,
+            totalItems,
+            totalPages,
             new RecorrenciaListSummaryResponse(
-                items.Length,
-                decimal.Round(items.Sum(item => item.ValorLiquido), 2, MidpointRounding.AwayFromZero)));
+                totalItems,
+                decimal.Round(valorTotal, 2, MidpointRounding.AwayFromZero)));
     }
 
-    private static RecorrenciaResponse MapearRecorrencia(Domain.Financeiro.RegraRecorrencia regra)
+    public Task<RecorrenciaListResponse> ListarAtivasAsync(CancellationToken cancellationToken) =>
+        ListarAsync(new RecorrenciaListQueryRequest { Ativa = true }, cancellationToken);
+
+    private Task<List<RecorrenciaRow>> ConsultarOrigensPagarAsync(
+        RecorrenciaListQueryRequest query, string? termo, CancellationToken cancellationToken)
     {
-        return new RecorrenciaResponse(
-            regra.Id,
-            (TipoPeriodicidadeRecorrencia)regra.TipoPeriodicidade,
-            (TipoDiaRecorrencia)regra.TipoDia,
-            regra.DiaOrdemMensal,
-            regra.DataInicio,
-            regra.DataFim,
-            regra.Ativa,
-            regra.PermiteEdicaoOcorrenciaIndividual,
-            regra.Observacao);
+        var ativa = query.Ativa;
+        var dataInicial = query.DataReferenciaInicial;
+        var dataFinal = query.DataReferenciaFinal;
+
+        var consulta =
+            from conta in dbContext.ContasPagar.AsNoTracking()
+            where conta.RegraRecorrenciaId.HasValue
+                  && conta.Origem != DomainOrigemLancamento.Recorrencia
+                  && !dbContext.ContasPagar.Any(outra =>
+                      outra.RegraRecorrenciaId == conta.RegraRecorrenciaId
+                      && outra.Origem != DomainOrigemLancamento.Recorrencia
+                      && outra.CreatedAtUtc < conta.CreatedAtUtc)
+            join regra in dbContext.RegrasRecorrencia.AsNoTracking() on conta.RegraRecorrenciaId!.Value equals regra.Id
+            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
+            from responsavel in responsaveis.DefaultIfEmpty()
+            where (termo == null
+                       || EF.Functions.Like(conta.Descricao, termo)
+                       || EF.Functions.Like(recebedor.Nome, termo)
+                       || (responsavel != null && EF.Functions.Like(responsavel.Nome, termo)))
+                  && (ativa == null || regra.Ativa == ativa)
+                  && (dataInicial == null || regra.DataInicio >= dataInicial)
+                  && (dataFinal == null || regra.DataInicio <= dataFinal)
+            select new RecorrenciaRow(
+                regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
+                recebedor.Nome, responsavel.Nome);
+
+        return consulta.ToListAsync(cancellationToken);
     }
 
-    private static RecorrenciaListItemResponse MapearRecorrenciaListItem(
-        Domain.Financeiro.RegraRecorrencia regra,
-        ContaOrigemProjection origem)
+    private Task<List<RecorrenciaRow>> ConsultarOrigensReceberAsync(
+        RecorrenciaListQueryRequest query, string? termo, CancellationToken cancellationToken)
+    {
+        var ativa = query.Ativa;
+        var dataInicial = query.DataReferenciaInicial;
+        var dataFinal = query.DataReferenciaFinal;
+
+        var consulta =
+            from conta in dbContext.ContasReceber.AsNoTracking()
+            where conta.RegraRecorrenciaId.HasValue
+                  && conta.Origem != DomainOrigemLancamento.Recorrencia
+                  && !dbContext.ContasReceber.Any(outra =>
+                      outra.RegraRecorrenciaId == conta.RegraRecorrenciaId
+                      && outra.Origem != DomainOrigemLancamento.Recorrencia
+                      && outra.CreatedAtUtc < conta.CreatedAtUtc)
+            join regra in dbContext.RegrasRecorrencia.AsNoTracking() on conta.RegraRecorrenciaId!.Value equals regra.Id
+            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
+            from responsavel in responsaveis.DefaultIfEmpty()
+            where (termo == null
+                       || EF.Functions.Like(conta.Descricao, termo)
+                       || EF.Functions.Like(pagador.Nome, termo)
+                       || (responsavel != null && EF.Functions.Like(responsavel.Nome, termo)))
+                  && (ativa == null || regra.Ativa == ativa)
+                  && (dataInicial == null || regra.DataInicio >= dataInicial)
+                  && (dataFinal == null || regra.DataInicio <= dataFinal)
+            select new RecorrenciaRow(
+                regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
+                pagador.Nome, responsavel.Nome);
+
+        return consulta.ToListAsync(cancellationToken);
+    }
+
+    private static IEnumerable<RecorrenciaRow> Ordenar<TKey>(
+        IEnumerable<RecorrenciaRow> rows,
+        RecorrenciaListQueryRequest query,
+        Func<RecorrenciaRow, TKey> keySelector)
+    {
+        return query.SortDirection == SortDirection.Desc
+            ? rows.OrderByDescending(keySelector).ThenByDescending(x => x.Descricao)
+            : rows.OrderBy(keySelector).ThenBy(x => x.Descricao);
+    }
+
+    private static RecorrenciaListItemResponse MapearRow(RecorrenciaRow row)
     {
         return new RecorrenciaListItemResponse(
-            regra.Id,
-            (TipoPeriodicidadeRecorrencia)regra.TipoPeriodicidade,
-            (TipoDiaRecorrencia)regra.TipoDia,
-            regra.DiaOrdemMensal,
-            regra.DataInicio,
-            regra.DataFim,
-            regra.Ativa,
-            regra.PermiteEdicaoOcorrenciaIndividual,
-            regra.Observacao,
-            origem.ContaOrigemTipo,
-            origem.ContaOrigemId,
-            origem.Descricao,
-            origem.ValorLiquido,
-            origem.PessoaNome,
-            origem.ResponsavelNome);
+            row.Id,
+            (TipoPeriodicidadeRecorrencia)row.TipoPeriodicidade,
+            (TipoDiaRecorrencia)row.TipoDia,
+            row.DiaOrdemMensal,
+            row.DataInicio,
+            row.DataFim,
+            row.Ativa,
+            row.PermiteEdicaoOcorrenciaIndividual,
+            row.Observacao,
+            row.ContaOrigemTipo,
+            row.ContaOrigemId,
+            row.Descricao,
+            row.ValorLiquido,
+            row.PessoaNome,
+            row.ResponsavelNome);
     }
 
-    private sealed record ContaOrigemProjection(
-        Guid RegraRecorrenciaId,
+    private sealed record RecorrenciaRow(
+        Guid Id,
+        DomainTipoPeriodicidade TipoPeriodicidade,
+        DomainTipoDia TipoDia,
+        int DiaOrdemMensal,
+        DateOnly DataInicio,
+        DateOnly? DataFim,
+        bool Ativa,
+        bool PermiteEdicaoOcorrenciaIndividual,
+        string? Observacao,
         string ContaOrigemTipo,
         Guid ContaOrigemId,
         string Descricao,

@@ -3,15 +3,11 @@
 <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <CollectCoverage>true</CollectCoverage>
-    <CoverletOutputFormat>lcov</CoverletOutputFormat>
-    <CoverletOutput>./coverage/coverage.info</CoverletOutput>
-    <Threshold>80</Threshold>
-    <ThresholdType>line</ThresholdType>
+    <!-- Cobertura via coverlet.collector (data collector "XPlat Code Coverage"); gate em scripts/coverage-gate.ps1. -->
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.msbuild" Version="6.0.4">
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="FluentAssertions" Version="7.0.0" />

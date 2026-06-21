@@ -33,14 +33,53 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => EF.Functions.Like(x.Bandeira, bandeira));
         }
 
+        if (!string.IsNullOrWhiteSpace(query.NumeroFinal))
+        {
+            var numeroFinal = $"%{query.NumeroFinal.Trim()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.NumeroFinal, numeroFinal));
+        }
+
+        if (query.DiaFechamentoFatura.HasValue)
+        {
+            consulta = consulta.Where(x => x.DiaFechamentoFatura == query.DiaFechamentoFatura.Value);
+        }
+
+        if (query.DiaVencimentoFatura.HasValue)
+        {
+            consulta = consulta.Where(x => x.DiaVencimentoFatura == query.DiaVencimentoFatura.Value);
+        }
+
+        if (query.ContaBancariaPagamentoPadraoId.HasValue)
+        {
+            consulta = consulta.Where(x => x.ContaBancariaPagamentoPadraoId == query.ContaBancariaPagamentoPadraoId.Value);
+        }
+
         if (query.Ativo.HasValue)
         {
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.Nome)
-            : consulta.OrderBy(x => x.Nome);
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "bandeira" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Bandeira).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Bandeira).ThenBy(x => x.Nome),
+            "numerofinal" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.NumeroFinal).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.NumeroFinal).ThenBy(x => x.Nome),
+            "diafechamentofatura" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.DiaFechamentoFatura).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.DiaFechamentoFatura).ThenBy(x => x.Nome),
+            "diavencimentofatura" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.DiaVencimentoFatura).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.DiaVencimentoFatura).ThenBy(x => x.Nome),
+            "ativo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Ativo).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Ativo).ThenBy(x => x.Nome),
+            _ => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Nome)
+        };
 
         var totalItems = await consulta.CountAsync(cancellationToken);
         var selecionados = await consulta.ApplyPagination(query)

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Configuração do data collector "XPlat Code Coverage" (coverlet.collector). Usado por
+     scripts/coverage-gate.ps1 com ReportGenerator para um relatório merged confiável.
+     Mede só as assemblies do produto; exclui testes, migrations e código gerado. -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <!-- cobertura: consumido pelo ReportGenerator (gate); opencover: consumido pelo SonarQube. -->
+          <Format>cobertura,opencover</Format>
+          <Include>[ControleFinanceiro.*]*</Include>
+          <Exclude>[ControleFinanceiro.*.Tests]*</Exclude>
+          <ExcludeByFile>**/Migrations/*.cs,**/*.g.cs</ExcludeByFile>
+          <ExcludeByAttribute>GeneratedCodeAttribute</ExcludeByAttribute>
+          <SkipAutoProps>true</SkipAutoProps>
+          <DeterministicReport>false</DeterministicReport>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

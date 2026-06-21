@@ -33,10 +33,6 @@
 - A heuristica de importacao passou a reconhecer o texto normalizado de `FATURA_CARTAO` e gerar um item revisavel por transacao, preservando metadata como emissor, portador, cartao final, parcela, moeda e estorno sem efetivacao automatica.
 - Confirmar ou rejeitar item atualiza apenas o estado de revisao da importacao nesta fase; nao ha efetivacao automatica de `ContaPagar`, `ContaReceber`, `Movimentacao` ou `CompraCartao`, em linha com a decisao canonica de revisao humana obrigatoria no MVP.
 - O reprocessamento substitui integralmente os itens sugeridos da importacao e reexecuta a extracao/sugestao com base no texto bruto e no artefato armazenado, preservando o mesmo registro raiz da importacao.
-- A fase 8 reutilizou `ItemImportadoWhatsapp` do tipo `ItemExtrato` como origem do extrato importado, sem criar uma entidade nova de conciliacao fora do modelo canonico mais recente.
-- O vinculo manual passou a ser persistido por `MovimentacaoFinanceiraId` opcional em `ItemImportadoWhatsapp`, enquanto `MovimentacaoFinanceira` ganhou operacao explicita de conciliacao e aproveitou `DataConciliacao`/`StatusMovimentacao` ja previstos no dominio.
-- As sugestoes de conciliacao sao heuristicas e assistidas, baseadas em valor, data, observacao e tipo de movimentacao sugerido; a confirmacao continua sendo exclusivamente manual nesta fase.
-- A conciliacao manual exige item de extrato confirmado, movimentacao bancaria realizada e nao conciliada, gravando auditoria por atualizacao tanto no item importado quanto na movimentacao financeira.
 - Falhas inesperadas no extrator ou na heuristica passaram a ser degradadas para `ERRO_EXTRACAO` com logging explicito, evitando resposta 500 no fluxo de importacao e preparando a observabilidade base exigida nesta fase.
 - A fase 9 nao introduziu modulo de negocio novo; o foco foi consolidar o MVP com README, documentacao local e validacao final coerentes com o estado real do repositorio.
 - O pipeline e a documentacao de qualidade passaram a refletir explicitamente o caminho de coverage usado no backend e a dependencia dos secrets de Sonar para enforcement remoto do gate.
@@ -63,7 +59,7 @@
 - A importacao de WhatsApp passou a ter aprovacao explicita no nivel agregado, usando `POST /api/v1/importacoes-whatsapp/{id}/confirmar` para travar a revisao e `POST /api/v1/importacoes-whatsapp/{id}/reabrir` para liberar nova edicao.
 - Enquanto a importacao estiver em `PENDENTE_REVISAO`, itens confirmados ou rejeitados podem ser revisados novamente; ao reabrir uma importacao aprovada, os itens retornam a `SUGERIDO` preservando os dados classificados para novo ajuste.
 - O fluxo de caixa futuro passou a considerar apenas compras importadas de cartao vindas de importacoes aprovadas, junto com recorrencias pendentes, com protecao contra duplicidade de parcelas ja previstas.
-- A conciliacao assistida deixou de consumir `ItemImportadoWhatsapp` neste fluxo; itens importados sao encerrados na aprovacao da importacao.
+- Itens importados sao encerrados na aprovacao da importacao, sem etapa operacional posterior neste fluxo.
 - O dashboard passou a aceitar `MesReferencia` no formato `yyyy-MM`, usando o mes civil completo como janela para resumo, fluxo de caixa, consolidacao gerencial, serie gerencial e drill-down.
 - Quando `MesReferencia` e informado, o backend passa a projetar o mes futuro inteiro com base em recorrencias, compras em cartao recorrentes aprovadas e parcelas futuras ainda nao materializadas, sem duplicar a serie quando a parcela real seguinte ja existe.
 - A central de previsao foi introduzida no backend como leitura unificada, com endpoints de resumo e itens por dia, origem e status, sem criar entidade persistida separada so para previsoes.

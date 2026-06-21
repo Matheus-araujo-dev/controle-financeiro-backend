@@ -35,7 +35,27 @@ public sealed record AprovarImportacaoWhatsappRequest(
 
 public sealed record ImportacaoWhatsappListQueryRequest : ListQueryRequest
 {
+    public string? TipoOrigemCodigo { get; init; }
+
     public string? StatusCodigo { get; init; }
+
+    public string? Remetente { get; init; }
+
+    public string? NomeArquivo { get; init; }
+
+    public string? MimeType { get; init; }
+
+    public decimal? ConfiancaExtracaoMin { get; init; }
+
+    public decimal? ConfiancaExtracaoMax { get; init; }
+
+    public DateOnly? RecebidoEmInicial { get; init; }
+
+    public DateOnly? RecebidoEmFinal { get; init; }
+
+    public DateOnly? ProcessadoEmInicial { get; init; }
+
+    public DateOnly? ProcessadoEmFinal { get; init; }
 }
 
 public sealed record ImportacaoWhatsappResumoResponse(
@@ -69,7 +89,6 @@ public sealed record ItemImportadoWhatsappResponse(
     Guid? ResponsavelId,
     string? ResponsavelNome,
     Guid? ContaReceberId,
-    Guid? MovimentacaoFinanceiraId,
     string? StatusPrevisaoCodigo,
     string? StatusPrevisaoNome,
     string? Observacao,

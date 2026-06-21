@@ -12,15 +12,35 @@ public enum LancamentoOrigem
 
 public sealed record ContaPagarListQueryRequest : ListQueryRequest
 {
+    public string? NumeroDocumento { get; init; }
+
+    public string? Descricao { get; init; }
+
     public Guid? RecebedorId { get; init; }
+
+    public IReadOnlyCollection<Guid>? RecebedorIds { get; init; }
 
     public Guid? FormaPagamentoId { get; init; }
 
+    public IReadOnlyCollection<Guid>? FormaPagamentoIds { get; init; }
+
     public string? StatusCodigo { get; init; }
+
+    public IReadOnlyCollection<string>? StatusCodigos { get; init; }
+
+    public DateOnly? DataEmissaoInicial { get; init; }
+
+    public DateOnly? DataEmissaoFinal { get; init; }
 
     public DateOnly? DataVencimentoInicial { get; init; }
 
     public DateOnly? DataVencimentoFinal { get; init; }
+
+    public decimal? ValorMinimo { get; init; }
+
+    public decimal? ValorMaximo { get; init; }
+
+    public bool? EhRecorrente { get; init; }
 }
 
 public sealed record CriarContaPagarRequest(
@@ -65,7 +85,12 @@ public sealed record AtualizarContaPagarRequest(
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia);
 
-public sealed record LiquidarContaPagarRequest(DateOnly DataLiquidacao, Guid ContaBancariaId);
+public sealed record LiquidarContaPagarRequest(
+    decimal ValorLiquidacao,
+    DateOnly DataLiquidacao,
+    Guid ContaBancariaId,
+    Guid? FormaPagamentoId = null,
+    bool AtualizarValorConta = false);
 
 public sealed record ContaPagarResumoResponse(
     Guid Id,
@@ -73,6 +98,7 @@ public sealed record ContaPagarResumoResponse(
     string Descricao,
     Guid RecebedorId,
     string RecebedorNome,
+    string? ResponsavelNome,
     DateOnly DataEmissao,
     DateOnly DataVencimento,
     DateOnly? DataLiquidacao,
@@ -90,6 +116,7 @@ public sealed record ContaPagarListSummaryResponse(
     int TotalRegistros,
     decimal ValorTotal,
     decimal TotalPendente,
+    decimal TotalVencido,
     decimal TotalVencendoHoje,
     decimal TotalLiquidado);
 

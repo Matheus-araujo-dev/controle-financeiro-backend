@@ -152,6 +152,12 @@ public class LiquidarContaReceberValidator : DomainValidator<LiquidarContaRecebe
 {
     public LiquidarContaReceberValidator()
     {
+        RuleFor(x => x.ValorLiquidacao)
+            .GreaterThan(0)
+            .WithMessage("Valor da liquidação deve ser maior que zero.")
+            .PrecisionScale(18, 2, true)
+            .WithMessage("Valor da liquidação deve ter no máximo 18 dígitos e 2 casas decimais.");
+
         RuleFor(x => x.DataLiquidacao)
             .NotEmpty()
             .WithMessage("Data de liquidação é obrigatória.");

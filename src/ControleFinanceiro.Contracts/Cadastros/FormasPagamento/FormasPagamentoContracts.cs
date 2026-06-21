@@ -17,6 +17,8 @@ public sealed record FormaPagamentoListQueryRequest : ListQueryRequest
 {
     public FormaPagamentoTipo? Tipo { get; init; }
 
+    public IReadOnlyList<FormaPagamentoTipo>? Tipos { get; init; }
+
     public bool? EhCartao { get; init; }
 
     public bool? BaixarAutomaticamente { get; init; }

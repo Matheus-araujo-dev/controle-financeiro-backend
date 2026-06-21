@@ -42,7 +42,6 @@ public sealed class ItemImportadoWhatsappConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(x => x.ContaGerencialId);
         builder.HasIndex(x => x.ResponsavelId);
         builder.HasIndex(x => x.ContaReceberId);
-        builder.HasIndex(x => x.MovimentacaoFinanceiraId);
 
         builder.HasOne<ContaGerencial>()
             .WithMany()
@@ -57,11 +56,6 @@ public sealed class ItemImportadoWhatsappConfiguration : IEntityTypeConfiguratio
         builder.HasOne<ContaReceber>()
             .WithMany()
             .HasForeignKey(x => x.ContaReceberId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne<MovimentacaoFinanceira>()
-            .WithMany()
-            .HasForeignKey(x => x.MovimentacaoFinanceiraId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

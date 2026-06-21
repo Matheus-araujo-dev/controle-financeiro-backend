@@ -15,6 +15,7 @@ public sealed class WhatsappController(IWhatsappMensagemService mensagemService)
     /// </summary>
     [HttpPost("mensagem")]
     [InternalApiKey]
+    [RequestSizeLimit(10 * 1024 * 1024)]
     [ProducesResponseType(typeof(WhatsappMensagemInboundResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<WhatsappMensagemInboundResponse>> ReceberMensagem(
         [FromBody] WhatsappMensagemInboundRequest request,

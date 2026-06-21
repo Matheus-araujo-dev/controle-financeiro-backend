@@ -97,7 +97,7 @@ public sealed class WhatsappMensagemService(
         if (string.IsNullOrWhiteSpace(transcricao))
             return null;
 
-        logger.LogDebug("Transcrição: {Texto}", transcricao);
+        logger.LogDebug("Áudio {MessageId} transcrito com {Length} caracteres.", request.MessageId, transcricao.Length);
         return transcricao;
     }
 

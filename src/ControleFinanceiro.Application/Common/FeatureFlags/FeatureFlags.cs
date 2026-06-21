@@ -69,7 +69,6 @@ public static class FeatureFlagsExtensions
 {
     public const string EnableRecorrenciaAutomatica = "recorrencia-automatica";
     public const string EnableImportacaoWhatsapp = "importacao-whatsapp";
-    public const string EnableConciliacaoAutomatica = "conciliacao-automatica";
     public const string EnableDashboardPrevisao = "dashboard-previsao";
     public const string EnableLimiteCompartilhado = "limite-compartilhado";
     public const string EnableComprasPlanejadas = "compras-planejadas";

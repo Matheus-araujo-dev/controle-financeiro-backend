@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using ControleFinanceiro.Api.Tests.Infrastructure;
 using FluentAssertions;
 
@@ -103,7 +104,9 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{liquidada!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-07",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = true
         });
 
         var listResponse = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-pagar?statusCodigo=LIQUIDADA");
@@ -112,10 +115,10 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         listResponse.Should().NotBeNull();
         listResponse!.Items.Should().ContainSingle(item => item.Descricao == "Conta liquidada");
         listResponse.Summary.TotalRegistros.Should().Be(1);
-        listResponse.Summary.ValorTotal.Should().Be(81m);
+        listResponse.Summary.ValorTotal.Should().Be(120m);
         listResponse.Summary.TotalPendente.Should().Be(120m);
         listResponse.Summary.TotalVencendoHoje.Should().Be(120m);
-        listResponse.Summary.TotalLiquidado.Should().Be(81m);
+        listResponse.Summary.TotalLiquidado.Should().Be(120m);
     }
 
     [Fact]
@@ -167,7 +170,9 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         await client.PostAsJsonAsync($"/api/v1/contas-pagar/{liquidada!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-07",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = true
         });
 
         var listResponse =
@@ -176,7 +181,126 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         listResponse.Should().NotBeNull();
         listResponse!.Items.Should().HaveCount(2);
         listResponse.Summary.TotalRegistros.Should().Be(2);
-        listResponse.Summary.ValorTotal.Should().Be(201m);
+        listResponse.Summary.ValorTotal.Should().Be(240m);
+    }
+
+    [Fact]
+    public async Task Get_ComFiltroVencidaDeveRetornarContasPendentesAtrasadas()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var ontem = DateOnly.FromDateTime(DateTime.Today.AddDays(-1)).ToString("yyyy-MM-dd");
+        var hoje = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
+
+        await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-01",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = ontem,
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 55m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Conta vencida",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 55m }
+            }
+        });
+
+        await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-02",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = hoje,
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 80m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Conta de hoje",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 80m }
+            }
+        });
+
+        var listResponse = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-pagar?statusCodigo=VENCIDA");
+
+        listResponse.Should().NotBeNull();
+        listResponse!.Items.Should().ContainSingle(item => item.Descricao == "Conta vencida");
+        listResponse.Items.Should().NotContain(item => item.Descricao == "Conta de hoje");
+        listResponse.Summary.TotalRegistros.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Get_ComFiltrosDeDocumentoEmissaoValorERecorrencia_DeveFiltrarConta()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            numeroDocumento = "DOC-REC-001",
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 150m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Conta recorrente filtrada",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 150m }
+            },
+            recorrencia = new
+            {
+                tipoPeriodicidade = "Mensal",
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 20,
+                dataInicio = (string?)null,
+                dataFim = (string?)null,
+                permiteEdicaoOcorrenciaIndividual = true,
+                observacao = "Filtro recorrente"
+            }
+        });
+
+        await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            numeroDocumento = "DOC-NORMAL-002",
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 80m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Conta nao recorrente",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 80m }
+            }
+        });
+
+        var listResponse = await client.GetFromJsonAsync<ContaListResponse>(
+            "/api/v1/contas-pagar?numeroDocumento=DOC-REC&dataEmissaoInicial=2026-04-01&dataEmissaoFinal=2026-04-30&valorMinimo=140&valorMaximo=160&ehRecorrente=true");
+
+        listResponse.Should().NotBeNull();
+        listResponse!.Items.Should().ContainSingle(item => item.NumeroDocumento == "DOC-REC-001");
+        listResponse.Items.Should().OnlyContain(item => item.EhRecorrente);
+        listResponse.Summary.TotalRegistros.Should().Be(1);
     }
 
     [Fact]
@@ -386,7 +510,9 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-06",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 100m,
+            atualizarValorConta = true
         });
 
         var movimento = await client.GetFromJsonAsync<PagedResponse<MovimentacaoResumoResponse>>("/api/v1/movimentacoes?search=Conta para liquidar");
@@ -398,6 +524,128 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
             item.Natureza == "Realizada" &&
             item.ContaPagarId == created.Id &&
             item.Valor == 100m);
+    }
+
+    [Fact]
+    public async Task PostLiquidar_QuandoValorForMenorEUsuarioNaoAtualizar_DeveMarcarParcial()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 200m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Conta parcial",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 200m }
+            }
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+
+        var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-06",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = false
+        });
+
+        var movimento = await client.GetFromJsonAsync<PagedResponse<MovimentacaoResumoResponse>>("/api/v1/movimentacoes?search=Conta parcial");
+        var contaAtualizada = await liquidarResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+        var liquidacaoJson = JsonDocument.Parse(await liquidarResponse.Content.ReadAsStringAsync());
+
+        liquidarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        contaAtualizada.Should().NotBeNull();
+        liquidacaoJson.RootElement.GetProperty("statusCodigo").GetString().Should().Be("PARCIAL");
+        contaAtualizada!.ValorLiquido.Should().Be(200m);
+        movimento.Should().NotBeNull();
+        movimento!.Items.Should().ContainSingle(item =>
+            item.Tipo == "Saida" &&
+            item.Natureza == "Realizada" &&
+            item.ContaPagarId == created.Id &&
+            item.Valor == 120m);
+    }
+
+    [Fact]
+    public async Task PostLiquidar_QuandoValorForMaior_DeveAtualizarContaERecorrencia()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 100m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Internet escritorio",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 100m }
+            },
+            recorrencia = new
+            {
+                tipoPeriodicidade = "Mensal",
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 20,
+                dataInicio = (string?)null,
+                dataFim = "2026-08-01",
+                permiteEdicaoOcorrenciaIndividual = true,
+                observacao = "Contrato mensal"
+            }
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+
+        var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-06",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 150m,
+            atualizarValorConta = true
+        });
+
+        var listAfterGenerate = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-pagar?search=Internet escritorio");
+
+        liquidarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var contaAtualizada = await liquidarResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+        var liquidacaoJson = JsonDocument.Parse(await liquidarResponse.Content.ReadAsStringAsync());
+        contaAtualizada.Should().NotBeNull();
+        liquidacaoJson.RootElement.GetProperty("statusCodigo").GetString().Should().Be("LIQUIDADA");
+        contaAtualizada!.ValorLiquido.Should().Be(150m);
+        contaAtualizada.Recorrencia.Should().NotBeNull();
+        contaAtualizada.Recorrencia!.Observacao.Should().Be("Contrato mensal");
+
+        var gerarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created.Id}/gerar-ocorrencias", new
+        {
+            ateData = "2026-06-30"
+        });
+
+        gerarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listAfterGenerate = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-pagar?search=Internet escritorio");
+        listAfterGenerate.Should().NotBeNull();
+        listAfterGenerate!.Items.Should().Contain(item =>
+            item.DataVencimento == new DateOnly(2026, 5, 20) &&
+            item.ValorLiquido == 150m);
     }
 
     [Fact]
@@ -454,6 +702,85 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         created.EhRecorrente.Should().BeTrue();
         gerarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         listResponse.Should().NotBeNull();
+        listResponse!.Items.Should().HaveCount(3);
+        listResponse.Items.Should().OnlyContain(item => item.EhRecorrente);
+    }
+
+    [Fact]
+    public async Task Put_QuandoContaPendenteRecebeRecorrencia_DeveVincularRegraEPermitirGerarOcorrencias()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            responsavelCompraId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 110m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Assinatura editada",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 110m }
+            }
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}", new
+        {
+            id = created.Id,
+            dataEmissao = "2026-04-04",
+            responsavelCompraId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 110m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Assinatura editada",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 110m }
+            },
+            recorrencia = new
+            {
+                tipoPeriodicidade = "Mensal",
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 20,
+                dataInicio = (string?)null,
+                dataFim = "2026-06-01",
+                permiteEdicaoOcorrenciaIndividual = true,
+                observacao = "Ativada na edicao"
+            }
+        });
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+        var reloaded = await client.GetFromJsonAsync<ContaDetalheResponse>($"/api/v1/contas-pagar/{created.Id}");
+        var gerarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created.Id}/gerar-ocorrencias", new
+        {
+            ateData = "2026-06-30"
+        });
+        var listResponse = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-pagar?search=Assinatura");
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        updated!.EhRecorrente.Should().BeTrue();
+        updated.Recorrencia.Should().NotBeNull();
+        updated.Recorrencia!.DataInicio.Should().Be(new DateOnly(2026, 5, 20));
+        updated.Recorrencia.DataFim.Should().Be(new DateOnly(2026, 6, 20));
+        reloaded!.EhRecorrente.Should().BeTrue();
+        reloaded.Recorrencia.Should().NotBeNull();
+        gerarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         listResponse!.Items.Should().HaveCount(3);
         listResponse.Items.Should().OnlyContain(item => item.EhRecorrente);
     }
@@ -644,6 +971,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
 
     private sealed record ContaResumoResponse(
         Guid Id,
+        string? NumeroDocumento,
         string Descricao,
         decimal ValorLiquido,
         int QuantidadeParcelas,

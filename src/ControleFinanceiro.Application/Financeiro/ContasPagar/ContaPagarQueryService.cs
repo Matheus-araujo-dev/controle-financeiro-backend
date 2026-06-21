@@ -38,6 +38,10 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 conta.Descricao,
                 conta.RecebedorId,
                 RecebedorNome = recebedor.Nome,
+                ResponsavelNome = dbContext.Pessoas
+                    .Where(pessoa => pessoa.Id == conta.ResponsavelCompraId)
+                    .Select(pessoa => pessoa.Nome)
+                    .FirstOrDefault(),
                 conta.DataEmissao,
                 conta.DataVencimento,
                 conta.DataLiquidacao,
@@ -61,14 +65,28 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 EF.Functions.Like(x.RecebedorNome, termo));
         }
 
-        if (query.RecebedorId.HasValue)
+        if (!string.IsNullOrWhiteSpace(query.NumeroDocumento))
         {
-            consulta = consulta.Where(x => x.RecebedorId == query.RecebedorId.Value);
+            var termo = $"%{query.NumeroDocumento.Trim()}%";
+            consulta = consulta.Where(x => x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento, termo));
         }
 
-        if (query.FormaPagamentoId.HasValue)
+        if (!string.IsNullOrWhiteSpace(query.Descricao))
         {
-            consulta = consulta.Where(x => x.FormaPagamentoId == query.FormaPagamentoId.Value);
+            var termo = $"%{query.Descricao.Trim()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Descricao, termo));
+        }
+
+        var recebedorIds = NormalizarIds(query.RecebedorId, query.RecebedorIds);
+        if (recebedorIds.Length > 0)
+        {
+            consulta = consulta.Where(x => recebedorIds.Contains(x.RecebedorId));
+        }
+
+        var formaPagamentoIds = NormalizarIds(query.FormaPagamentoId, query.FormaPagamentoIds);
+        if (formaPagamentoIds.Length > 0)
+        {
+            consulta = consulta.Where(x => formaPagamentoIds.Contains(x.FormaPagamentoId));
         }
 
         if (query.DataVencimentoInicial.HasValue)
@@ -81,16 +99,70 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             consulta = consulta.Where(x => x.DataVencimento <= query.DataVencimentoFinal.Value);
         }
 
+        if (query.DataEmissaoInicial.HasValue)
+        {
+            consulta = consulta.Where(x => x.DataEmissao >= query.DataEmissaoInicial.Value);
+        }
+
+        if (query.DataEmissaoFinal.HasValue)
+        {
+            consulta = consulta.Where(x => x.DataEmissao <= query.DataEmissaoFinal.Value);
+        }
+
+        if (query.ValorMinimo.HasValue)
+        {
+            consulta = consulta.Where(x => x.ValorLiquido >= query.ValorMinimo.Value);
+        }
+
+        if (query.ValorMaximo.HasValue)
+        {
+            consulta = consulta.Where(x => x.ValorLiquido <= query.ValorMaximo.Value);
+        }
+
         var consultaBaseSummary = consulta;
 
-        if (!string.IsNullOrWhiteSpace(query.StatusCodigo))
+        var statusCodigosFiltro = NormalizarStatusCodigos(query.StatusCodigo, query.StatusCodigos);
+        if (statusCodigosFiltro.Length > 0)
         {
-            var statusCodigos = NormalizarStatusCodigos(query.StatusCodigo);
-            consulta = consulta.Where(x => statusCodigos.Contains(x.StatusCodigo));
+            var incluiVencida = statusCodigosFiltro.Contains("VENCIDA");
+            var statusFiltrados = statusCodigosFiltro.Where(status => status != "VENCIDA").ToArray();
+
+            if (incluiVencida)
+            {
+                consulta = consulta.Where(x =>
+                    statusFiltrados.Contains(x.StatusCodigo) ||
+                    x.StatusCodigo == "VENCIDA" ||
+                    (x.StatusCodigo == "PENDENTE" && x.DataVencimento < DateOnly.FromDateTime(DateTime.Today)));
+            }
+            else if (statusFiltrados.Length > 0)
+            {
+                consulta = consulta.Where(x => statusFiltrados.Contains(x.StatusCodigo));
+            }
         }
+
+        if (query.EhRecorrente.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhRecorrente == query.EhRecorrente.Value);
+        }
+
+        // Conjunto totalmente filtrado (inclui status/recorrência), antes da ordenação,
+        // usado para os totais que respeitam todos os filtros e para a página.
+        var consultaFiltrada = consulta;
 
         consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
+            "recebedornome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.RecebedorNome).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.RecebedorNome).ThenBy(x => x.DataVencimento),
+            "descricao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Descricao).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.Descricao).ThenBy(x => x.DataVencimento),
+            "formapagamentonome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.FormaPagamentoNome).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.FormaPagamentoNome).ThenBy(x => x.DataVencimento),
+            "statuscodigo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.StatusCodigo).ThenByDescending(x => x.DataVencimento)
+                : consulta.OrderBy(x => x.StatusCodigo).ThenBy(x => x.DataVencimento),
             "valorliquido" => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.ValorLiquido).ThenByDescending(x => x.DataVencimento)
                 : consulta.OrderBy(x => x.ValorLiquido).ThenBy(x => x.DataVencimento),
@@ -102,40 +174,68 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 : consulta.OrderBy(x => x.DataVencimento).ThenBy(x => x.Descricao)
         };
 
-        var totalItems = await consulta.CountAsync(cancellationToken);
-        var valorTotal = await consulta.SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
-        
         var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var totalPendente = await consultaBaseSummary
-            .Where(x => x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA")
-            .SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
-        var totalVencendoHoje = await consultaBaseSummary
-            .Where(x => x.DataVencimento == hoje && (x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA"))
-            .SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
-        var totalLiquidado = await consultaBaseSummary
-            .Where(x => x.StatusCodigo == "LIQUIDADA")
-            .SumAsync(x => (decimal?)x.ValorLiquido, cancellationToken) ?? 0m;
+
+        // Totais que respeitam todos os filtros (inclusive status): 1 round-trip.
+        var totais = await consultaFiltrada
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Valor = g.Sum(x => x.ValorLiquido)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalItems = totais?.Total ?? 0;
+        var valorTotal = totais?.Valor ?? 0m;
+
+        // Breakdown por situação, ignorando o filtro de status (consultaBaseSummary): 1 round-trip.
+        var resumo = await consultaBaseSummary
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Pendente = g.Sum(x => x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA" || x.StatusCodigo == "PARCIAL"
+                    ? x.ValorLiquido
+                    : 0m),
+                Vencido = g.Sum(x => x.DataVencimento < hoje && (x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA" || x.StatusCodigo == "PARCIAL")
+                    ? x.ValorLiquido
+                    : 0m),
+                VencendoHoje = g.Sum(x => x.DataVencimento == hoje && (x.StatusCodigo == "PENDENTE" || x.StatusCodigo == "VENCIDA" || x.StatusCodigo == "PARCIAL")
+                    ? x.ValorLiquido
+                    : 0m),
+                Liquidado = g.Sum(x => x.StatusCodigo == "LIQUIDADA" ? x.ValorLiquido : 0m)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalPendente = resumo?.Pendente ?? 0m;
+        var totalVencido = resumo?.Vencido ?? 0m;
+        var totalVencendoHoje = resumo?.VencendoHoje ?? 0m;
+        var totalLiquidado = resumo?.Liquidado ?? 0m;
+
         var items = (await consulta
                 .ApplyPagination(query)
                 .ToArrayAsync(cancellationToken))
-            .Select(x => new ContaPagarResumoResponse(
-                x.Id,
-                x.NumeroDocumento,
-                x.Descricao,
-                x.RecebedorId,
-                x.RecebedorNome,
-                x.DataEmissao,
-                x.DataVencimento,
-                x.DataLiquidacao,
-                x.FormaPagamentoId,
-                x.FormaPagamentoNome,
-                x.ValorLiquido,
-                x.StatusCodigo,
-                x.StatusNome,
-                x.QuantidadeParcelas,
-                x.NumeroParcela,
-                x.GrupoParcelamentoId,
-                x.EhRecorrente))
+            .Select(x =>
+            {
+                var (statusCodigo, statusNome) = ResolverStatusEfetivo(x.StatusCodigo, x.StatusNome, x.DataVencimento, hoje);
+                return new ContaPagarResumoResponse(
+                    x.Id,
+                    x.NumeroDocumento,
+                    x.Descricao,
+                    x.RecebedorId,
+                    x.RecebedorNome,
+                    x.ResponsavelNome,
+                    x.DataEmissao,
+                    x.DataVencimento,
+                    x.DataLiquidacao,
+                    x.FormaPagamentoId,
+                    x.FormaPagamentoNome,
+                    x.ValorLiquido,
+                    statusCodigo,
+                    statusNome,
+                    x.QuantidadeParcelas,
+                    x.NumeroParcela,
+                    x.GrupoParcelamentoId,
+                    x.EhRecorrente);
+            })
             .ToArray();
 
         var paged = PagedResult<ContaPagarResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -146,9 +246,10 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             paged.TotalItems,
             paged.TotalPages,
             new ContaPagarListSummaryResponse(
-                totalItems, 
+                totalItems,
                 decimal.Round(valorTotal, 2, MidpointRounding.AwayFromZero),
                 decimal.Round(totalPendente, 2, MidpointRounding.AwayFromZero),
+                decimal.Round(totalVencido, 2, MidpointRounding.AwayFromZero),
                 decimal.Round(totalVencendoHoje, 2, MidpointRounding.AwayFromZero),
                 decimal.Round(totalLiquidado, 2, MidpointRounding.AwayFromZero)));
     }
@@ -181,13 +282,52 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         return await MapearDetalheAsync(conta, rateios, cancellationToken);
     }
 
-    private static string[] NormalizarStatusCodigos(string statusCodigo)
+    private static Guid[] NormalizarIds(Guid? idSingular, IReadOnlyCollection<Guid>? ids)
     {
-        return statusCodigo
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => x.ToUpperInvariant())
+        if (ids is not null && ids.Count > 0)
+        {
+            return ids.Distinct().ToArray();
+        }
+
+        return idSingular.HasValue ? [idSingular.Value] : [];
+    }
+
+    private static string[] NormalizarStatusCodigos(string? statusCodigo, IReadOnlyCollection<string>? statusCodigos)
+    {
+        var valores = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(statusCodigo))
+        {
+            valores.AddRange(
+                statusCodigo.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => x.ToUpperInvariant()));
+        }
+
+        if (statusCodigos is not null)
+        {
+            valores.AddRange(
+                statusCodigos
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim().ToUpperInvariant()));
+        }
+
+        return valores
             .Distinct()
             .ToArray();
+    }
+
+    // O status "Vencida" não é gravado em tempo real (só pelo worker diário). Para a listagem nunca
+    // exibir "Pendente" em conta já vencida — e ficar consistente com o filtro de status —, calcula-se
+    // o status efetivo: PENDENTE com vencimento no passado é apresentado como VENCIDA.
+    private static (string Codigo, string Nome) ResolverStatusEfetivo(
+        string statusCodigo,
+        string statusNome,
+        DateOnly dataVencimento,
+        DateOnly hoje)
+    {
+        return statusCodigo == "PENDENTE" && dataVencimento < hoje
+            ? ("VENCIDA", "Vencida")
+            : (statusCodigo, statusNome);
     }
 
     private async Task<ContaPagarDetalheResponse> MapearDetalheAsync(

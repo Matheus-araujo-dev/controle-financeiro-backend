@@ -77,6 +77,5 @@ public sealed record MovimentacaoDetalheResponse(
     Guid? ContaReceberId,
     Guid? FaturaCartaoId,
     string? Observacao,
-    DateOnly? DataConciliacao,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

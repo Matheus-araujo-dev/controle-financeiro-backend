@@ -254,6 +254,22 @@ public sealed class ContaReceber : TenantEntity
         SubstituirRateios(rateios);
     }
 
+    public void VincularRecorrencia(Guid regraRecorrenciaId)
+    {
+        if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
+        {
+            throw new InvalidOperationException("NÃ£o Ã© permitido editar contas liquidadas ou canceladas.");
+        }
+
+        if (regraRecorrenciaId == Guid.Empty)
+        {
+            throw new ArgumentException("Regra de recorrÃªncia Ã© obrigatÃ³ria.", nameof(regraRecorrenciaId));
+        }
+
+        EhRecorrente = true;
+        RegraRecorrenciaId = regraRecorrenciaId;
+    }
+
     public void Liquidar(DateOnly dataLiquidacao, Guid contaBancariaId, Guid statusContaLiquidadaId)
     {
         if (StatusContaId == StatusConta.CanceladaId)
@@ -264,6 +280,29 @@ public sealed class ContaReceber : TenantEntity
         DataLiquidacao = dataLiquidacao;
         ContaBancariaId = contaBancariaId;
         StatusContaId = statusContaLiquidadaId;
+    }
+
+    public void AtualizarValorLiquido(decimal novoValorLiquido, IReadOnlyCollection<RateioPlano> rateios)
+    {
+        if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
+        {
+            throw new InvalidOperationException("Não é permitido editar contas liquidadas ou canceladas.");
+        }
+
+        if (novoValorLiquido <= 0)
+        {
+            throw new ArgumentException("Valor líquido deve ser maior que zero.", nameof(novoValorLiquido));
+        }
+
+        var novoValorOriginal = decimal.Round(novoValorLiquido + ValorDesconto - ValorJuros - ValorMulta, 2, MidpointRounding.AwayFromZero);
+        if (novoValorOriginal <= 0)
+        {
+            throw new ArgumentException("Valor original deve ser maior que zero.", nameof(novoValorLiquido));
+        }
+
+        ValorOriginal = novoValorOriginal;
+        ValorLiquido = decimal.Round(novoValorLiquido, 2, MidpointRounding.AwayFromZero);
+        SubstituirRateios(rateios);
     }
 
     public void Estornar(Guid statusContaPendenteId)

@@ -1,3 +1,5 @@
+using ControleFinanceiro.Contracts.Filters;
+
 namespace ControleFinanceiro.Contracts.Financeiro.Common;
 
 public enum TipoPeriodicidadeRecorrencia
@@ -31,6 +33,17 @@ public sealed record RecorrenciaResponse(
     bool PermiteEdicaoOcorrenciaIndividual,
     string? Observacao);
 
+public sealed record RecorrenciaListQueryRequest : ListQueryRequest
+{
+    public bool? Ativa { get; init; }
+
+    public string? Tipo { get; init; }
+
+    public DateOnly? DataReferenciaInicial { get; init; }
+
+    public DateOnly? DataReferenciaFinal { get; init; }
+}
+
 public sealed record RecorrenciaListItemResponse(
     Guid Id,
     TipoPeriodicidadeRecorrencia TipoPeriodicidade,
@@ -54,6 +67,10 @@ public sealed record RecorrenciaListSummaryResponse(
 
 public sealed record RecorrenciaListResponse(
     IReadOnlyCollection<RecorrenciaListItemResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
     RecorrenciaListSummaryResponse Summary);
 
 public sealed record GerarOcorrenciasRecorrenciaRequest(DateOnly AteData);

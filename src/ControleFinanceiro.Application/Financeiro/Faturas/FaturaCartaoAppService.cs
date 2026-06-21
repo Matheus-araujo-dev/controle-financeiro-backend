@@ -50,9 +50,19 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                 EF.Functions.Like(x.Competencia, termo));
         }
 
-        if (query.CartaoId.HasValue)
+        var cartaoIds = query.CartaoIds?
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToHashSet() ?? [];
+
+        if (query.CartaoId.HasValue && query.CartaoId.Value != Guid.Empty)
         {
-            consulta = consulta.Where(x => x.CartaoId == query.CartaoId.Value);
+            cartaoIds.Add(query.CartaoId.Value);
+        }
+
+        if (cartaoIds.Count > 0)
+        {
+            consulta = consulta.Where(x => cartaoIds.Contains(x.CartaoId));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Competencia))
@@ -61,10 +71,20 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.Competencia == competencia);
         }
 
+        var statusSelecionados = query.StatusCodigos?
+            .Where(status => !string.IsNullOrWhiteSpace(status))
+            .Select(NormalizarStatus)
+            .Distinct()
+            .ToHashSet() ?? [];
+
         if (!string.IsNullOrWhiteSpace(query.StatusCodigo))
         {
-            var status = NormalizarStatus(query.StatusCodigo);
-            consulta = consulta.Where(x => x.Status == status);
+            statusSelecionados.Add(NormalizarStatus(query.StatusCodigo));
+        }
+
+        if (statusSelecionados.Count > 0)
+        {
+            consulta = consulta.Where(x => statusSelecionados.Contains(x.Status));
         }
 
         if (query.DataVencimentoInicial.HasValue)
@@ -87,8 +107,12 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.DataFechamento <= query.DataFechamentoFinal.Value);
         }
 
-        var totalItems = await consulta.CountAsync(cancellationToken);
-        var valorTotal = await consulta.SumAsync(x => (decimal?)x.ValorTotal, cancellationToken) ?? 0m;
+        var totais = await consulta
+            .GroupBy(_ => 1)
+            .Select(g => new { Total = g.Count(), Valor = g.Sum(x => x.ValorTotal) })
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalItems = totais?.Total ?? 0;
+        var valorTotal = totais?.Valor ?? 0m;
         var totalPorCartaoBruto = await consulta
             .GroupBy(x => new { x.CartaoId, x.CartaoNome })
             .Select(group => new

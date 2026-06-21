@@ -6,9 +6,27 @@ public sealed record CompraPlanejadaListQueryRequest : ListQueryRequest
 {
     public string? Prioridade { get; init; }
 
+    public IReadOnlyList<string>? Prioridades { get; init; }
+
     public string? Status { get; init; }
 
+    public IReadOnlyList<string>? Statuses { get; init; }
+
     public Guid? ResponsavelId { get; init; }
+
+    public Guid? ContaGerencialId { get; init; }
+
+    public bool? Parcelavel { get; init; }
+
+    public DateOnly? DataDesejadaInicial { get; init; }
+
+    public DateOnly? DataDesejadaFinal { get; init; }
+
+    public decimal? ValorEstimadoMin { get; init; }
+
+    public decimal? ValorEstimadoMax { get; init; }
+
+    public string? Link { get; init; }
 }
 
 public sealed record CriarCompraPlanejadaRequest(

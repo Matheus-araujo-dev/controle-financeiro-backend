@@ -18,12 +18,14 @@ MVP fechado no backend ate a fase 9, sem pendencias estruturais criticas abertas
 
 ```powershell
 dotnet build --configuration Release -m:1 --no-restore
-dotnet test --configuration Release -m:1 --no-build --no-restore /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+# Gate merged de cobertura (coverlet.collector + ReportGenerator), threshold 80%:
+./scripts/coverage-gate.ps1 -Threshold 80
 ```
 
 ## Artefatos principais
 
-- cobertura OpenCover: `tests/*/TestResults/coverage/coverage.opencover.xml`
+- cobertura (cobertura + opencover): `TestResults/coverage-collector/**/coverage.*.xml`
+- relatório merged: `TestResults/coverage-report/` (gerado pelo ReportGenerator)
 - pipeline: `.github/workflows/ci.yml`
 - configuracao Sonar: `sonar-project.properties`
 

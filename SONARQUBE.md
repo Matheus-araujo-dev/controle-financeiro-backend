@@ -84,9 +84,10 @@ jobs:
 # Install dotnet-sonarscanner
 dotnet tool install --global dotnet-sonarscanner
 
-# Run analysis
+# Run analysis (cobertura coletada via coverlet.collector; ver coverlet.runsettings)
+dotnet tool restore
 dotnet sonarscanner begin /k:"controle-financeiro-backend" /d:sonar.token="YOUR_TOKEN"
 dotnet build
-dotnet test /p:CollectCoverage=true
+dotnet test --collect "XPlat Code Coverage" --settings coverlet.runsettings
 dotnet sonarscanner end /d:sonar.token="YOUR_TOKEN"
 ```

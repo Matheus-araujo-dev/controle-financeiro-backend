@@ -102,6 +102,7 @@ builder.Services.AddHealthChecks()
     .AddCheck("cache", () => HealthCheckResult.Healthy("Memory cache is available"), tags: ["cache", "infra"])
     .AddCheck("logging", () => HealthCheckResult.Healthy("Logging is available"), tags: ["logging", "infra"]);
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker>();
+builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.AtualizacaoStatusContasWorker>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

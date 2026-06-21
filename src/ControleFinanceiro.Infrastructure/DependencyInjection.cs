@@ -14,6 +14,7 @@ using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ControleFinanceiro.Infrastructure;
 
@@ -67,6 +68,18 @@ public static class DependencyInjection
         services.Configure<LlmOptions>(configuration.GetSection(LlmOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
 
+        // Registro único de políticas de resiliência (retry + circuit breaker compartilhado por cliente).
+        services.AddPolicyRegistry((sp, registry) =>
+        {
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            foreach (var client in new[] { "Anthropic", "Whisper", "WhatsappBridge" })
+            {
+                var logger = loggerFactory.CreateLogger($"HttpResilience.{client}");
+                registry.Add($"{client}.retry", HttpResiliencePolicies.RetryPolicy(logger, client));
+                registry.Add($"{client}.cb", HttpResiliencePolicies.CircuitBreakerPolicy(logger, client));
+            }
+        });
+
         var llmOptions = configuration.GetSection(LlmOptions.SectionName).Get<LlmOptions>() ?? new LlmOptions();
         if (llmOptions.Enabled && !string.IsNullOrWhiteSpace(llmOptions.ApiKey))
         {
@@ -75,7 +88,10 @@ public static class DependencyInjection
                 client.BaseAddress = new Uri("https://api.anthropic.com/v1/");
                 client.DefaultRequestHeaders.Add("x-api-key", llmOptions.ApiKey);
                 client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-            });
+                client.Timeout = TimeSpan.FromSeconds(120);
+            })
+                .AddPolicyHandlerFromRegistry("Anthropic.retry")
+                .AddPolicyHandlerFromRegistry("Anthropic.cb");
             services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
             services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
         }
@@ -93,7 +109,10 @@ public static class DependencyInjection
             {
                 client.BaseAddress = new Uri("https://api.openai.com/v1/");
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiOptions.ApiKey}");
-            });
+                client.Timeout = TimeSpan.FromSeconds(120);
+            })
+                .AddPolicyHandlerFromRegistry("Whisper.retry")
+                .AddPolicyHandlerFromRegistry("Whisper.cb");
             services.AddScoped<ITranscricaoAudioService, WhisperTranscricaoService>();
         }
         else
@@ -108,7 +127,10 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(bridgeOptions.OutboundUrl.TrimEnd('/') + "/");
             if (!string.IsNullOrWhiteSpace(bridgeOptions.ApiKey))
                 client.DefaultRequestHeaders.Add("X-Internal-ApiKey", bridgeOptions.ApiKey);
-        });
+            client.Timeout = TimeSpan.FromSeconds(15);
+        })
+            .AddPolicyHandlerFromRegistry("WhatsappBridge.retry")
+            .AddPolicyHandlerFromRegistry("WhatsappBridge.cb");
         services.AddScoped<IWhatsappOutboundService, WhatsappOutboundService>();
         services.AddHostedService<AlertasWhatsappHostedService>();
 

@@ -31,7 +31,7 @@ public sealed class BootstrapCatalogServiceTests
     {
         var result = _service.ListModules(new ListQueryRequest());
 
-        result.TotalItems.Should().Be(13);
+        result.TotalItems.Should().Be(12);
         result.Items.Should().NotBeEmpty();
     }
 }

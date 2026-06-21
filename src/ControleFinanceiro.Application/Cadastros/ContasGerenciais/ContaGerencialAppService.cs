@@ -29,9 +29,40 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.Tipo == MapearTipo(query.Tipo.Value));
         }
 
+        if (query.Tipos is { Count: > 0 })
+        {
+            var tipos = query.Tipos.Select(MapearTipo).ToArray();
+            consulta = consulta.Where(x => tipos.Contains(x.Tipo));
+        }
+
         if (query.ContaPaiId.HasValue)
         {
             consulta = consulta.Where(x => x.ContaPaiId == query.ContaPaiId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ContaPai))
+        {
+            var contaPai = $"%{query.ContaPai.Trim()}%";
+            consulta = consulta.Where(x =>
+                x.ContaPaiId.HasValue &&
+                dbContext.ContasGerenciais.Any(parent =>
+                    parent.Id == x.ContaPaiId.Value &&
+                    EF.Functions.Like(parent.Descricao, contaPai)));
+        }
+
+        if (query.ResponsavelPadraoId.HasValue)
+        {
+            consulta = consulta.Where(x => x.ResponsavelPadraoId == query.ResponsavelPadraoId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ResponsavelPadrao))
+        {
+            var responsavelPadrao = $"%{query.ResponsavelPadrao.Trim()}%";
+            consulta = consulta.Where(x =>
+                x.ResponsavelPadraoId.HasValue &&
+                dbContext.Pessoas.Any(pessoa =>
+                    pessoa.Id == x.ResponsavelPadraoId.Value &&
+                    EF.Functions.Like(pessoa.Nome, responsavelPadrao)));
         }
 
         if (query.Ativo.HasValue)
@@ -46,6 +77,11 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
                 : consulta.Where(x => dbContext.ContasGerenciais.Any(child => child.ContaPaiId == x.Id));
         }
 
+        if (query.EhPadraoRecebimentoFaturaCartao.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhPadraoRecebimentoFaturaCartao == query.EhPadraoRecebimentoFaturaCartao.Value);
+        }
+
         consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
             "codigo" => query.SortDirection == SortDirection.Desc
@@ -57,6 +93,48 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
                     .OrderBy(x => x.Codigo == null)
                     .ThenBy(x => x.Codigo)
                     .ThenBy(x => x.Descricao),
+            "tipo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Tipo).ThenByDescending(x => x.Descricao)
+                : consulta.OrderBy(x => x.Tipo).ThenBy(x => x.Descricao),
+            "contapaidescricao" => query.SortDirection == SortDirection.Desc
+                ? consulta
+                    .OrderByDescending(x => dbContext.ContasGerenciais
+                        .Where(parent => parent.Id == x.ContaPaiId)
+                        .Select(parent => parent.Descricao)
+                        .FirstOrDefault())
+                    .ThenByDescending(x => x.Descricao)
+                : consulta
+                    .OrderBy(x => dbContext.ContasGerenciais
+                        .Where(parent => parent.Id == x.ContaPaiId)
+                        .Select(parent => parent.Descricao)
+                        .FirstOrDefault())
+                    .ThenBy(x => x.Descricao),
+            "responsavelpadraonome" => query.SortDirection == SortDirection.Desc
+                ? consulta
+                    .OrderByDescending(x => dbContext.Pessoas
+                        .Where(pessoa => pessoa.Id == x.ResponsavelPadraoId)
+                        .Select(pessoa => pessoa.Nome)
+                        .FirstOrDefault())
+                    .ThenByDescending(x => x.Descricao)
+                : consulta
+                    .OrderBy(x => dbContext.Pessoas
+                        .Where(pessoa => pessoa.Id == x.ResponsavelPadraoId)
+                        .Select(pessoa => pessoa.Nome)
+                        .FirstOrDefault())
+                    .ThenBy(x => x.Descricao),
+            "aceitalancamentos" => query.SortDirection == SortDirection.Desc
+                ? consulta
+                    .OrderByDescending(x => !dbContext.ContasGerenciais.Any(child => child.ContaPaiId == x.Id))
+                    .ThenByDescending(x => x.Descricao)
+                : consulta
+                    .OrderBy(x => !dbContext.ContasGerenciais.Any(child => child.ContaPaiId == x.Id))
+                    .ThenBy(x => x.Descricao),
+            "ehpadraorecebimentofaturacartao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.EhPadraoRecebimentoFaturaCartao).ThenByDescending(x => x.Descricao)
+                : consulta.OrderBy(x => x.EhPadraoRecebimentoFaturaCartao).ThenBy(x => x.Descricao),
+            "ativo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Ativo).ThenByDescending(x => x.Descricao)
+                : consulta.OrderBy(x => x.Ativo).ThenBy(x => x.Descricao),
             _ => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.Descricao)
                 : consulta.OrderBy(x => x.Descricao)

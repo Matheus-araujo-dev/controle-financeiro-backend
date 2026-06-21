@@ -13,8 +13,8 @@ namespace ControleFinanceiro.Api.Controllers;
 public sealed class PessoasController(PessoaAppService service) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<PessoaResumoResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<PessoaResumoResponse>>> Listar(
+    [ProducesResponseType(typeof(PessoaListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PessoaListResponse>> Listar(
         [FromQuery] PessoaListQueryRequest query,
         CancellationToken cancellationToken)
     {

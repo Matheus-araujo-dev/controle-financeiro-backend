@@ -12,8 +12,10 @@ public sealed class RecorrenciasController(RecorrenciaAppService service) : ApiC
 {
     [HttpGet]
     [ProducesResponseType(typeof(RecorrenciaListResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<RecorrenciaListResponse>> ListarAtivas(CancellationToken cancellationToken)
+    public async Task<ActionResult<RecorrenciaListResponse>> Listar(
+        [FromQuery] RecorrenciaListQueryRequest query,
+        CancellationToken cancellationToken)
     {
-        return Ok(await service.ListarAtivasAsync(cancellationToken));
+        return Ok(await service.ListarAsync(query, cancellationToken));
     }
 }

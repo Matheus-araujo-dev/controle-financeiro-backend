@@ -160,6 +160,15 @@ public sealed class ContaPagarCommandService(
             throw _validationFactory.Create("QuantidadeParcelas", "Não é permitido alterar o parcelamento na edição.");
         }
 
+        ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
+        Guid? regraRecorrenciaCriadaId = null;
+        if (!conta.RegraRecorrenciaId.HasValue && request.Recorrencia is not null)
+        {
+            var regra = CriarRegraRecorrencia(request, request.Recorrencia);
+            dbContext.RegrasRecorrencia.Add(regra);
+            regraRecorrenciaCriadaId = regra.Id;
+        }
+
         if (conta.RegraRecorrenciaId.HasValue)
         {
             var regra = await dbContext.RegrasRecorrencia
@@ -200,6 +209,10 @@ public sealed class ContaPagarCommandService(
             cancellationToken);
 
         AtualizarContaExistente(conta, request);
+        if (regraRecorrenciaCriadaId.HasValue)
+        {
+            conta.VincularRecorrencia(regraRecorrenciaCriadaId.Value);
+        }
 
         await SincronizarRateiosContaAsync(conta, cancellationToken);
 
@@ -417,6 +430,12 @@ public sealed class ContaPagarCommandService(
             throw _validationFactory.Create("ContaBancariaId", "Conta bancária não encontrada.");
         }
 
+        if (request.FormaPagamentoId.HasValue &&
+            await _lookupCache.GetFormaPagamentoByIdAsync(request.FormaPagamentoId.Value, cancellationToken) is null)
+        {
+            throw _validationFactory.Create("FormaPagamentoId", "Forma de pagamento não encontrada.");
+        }
+
         var formaPagamento = await _lookupCache.GetFormaPagamentoByIdAsync(conta.FormaPagamentoId, cancellationToken)
             ?? throw new InvalidOperationException("FormaPagamento not found");
 
@@ -425,7 +444,40 @@ public sealed class ContaPagarCommandService(
             throw _validationFactory.Create("CartaoId", "Compras em cartão devem ser liquidadas pela fatura.");
         }
 
-        conta.Liquidar(request.DataLiquidacao, request.ContaBancariaId, StatusConta.LiquidadaId);
+        var saldoJaLiquidado = await CalcularSaldoLiquidadoAsync(conta.Id, cancellationToken);
+        var statusFinal = StatusConta.LiquidadaId;
+        var valorMovimentacao = conta.ValorLiquido;
+
+        if (!formaPagamento.EhCartao && !conta.CartaoId.HasValue)
+        {
+            var deveAtualizarValor = request.ValorLiquidacao > conta.ValorLiquido || request.AtualizarValorConta;
+            var valorReferenciaConta = conta.ValorLiquido;
+
+            if (deveAtualizarValor)
+            {
+                if (saldoJaLiquidado > 0)
+                {
+                    throw _validationFactory.Create(
+                        "ValorLiquidacao",
+                        "Conta com liquidacoes parciais ja registradas nao pode ter o valor atualizado.");
+                }
+
+                var novosRateios = await RecalcularRateiosAsync(conta.Id, request.ValorLiquidacao, cancellationToken);
+                conta.AtualizarValorLiquido(request.ValorLiquidacao, novosRateios);
+                valorReferenciaConta = request.ValorLiquidacao;
+
+                if (conta.RegraRecorrenciaId.HasValue)
+                {
+                    await AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
+                }
+            }
+
+            var saldoFinal = saldoJaLiquidado + request.ValorLiquidacao;
+            statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+            valorMovimentacao = request.ValorLiquidacao;
+        }
+
+        conta.Liquidar(request.DataLiquidacao, request.ContaBancariaId, statusFinal);
 
         if (conta.FaturaCartaoId.HasValue)
         {
@@ -461,19 +513,22 @@ public sealed class ContaPagarCommandService(
                 conta.Id,
                 request.ContaBancariaId,
                 request.DataLiquidacao,
-                conta.ValorLiquido,
+                valorMovimentacao,
                 StatusMovimentacao.EfetivadaId,
                 conta.Descricao,
                 conta.FaturaCartaoId));
 
-        await _eventDispatcher.DispatchAsync(
-            new ContaPagarLiquidadaEvent(
-                conta.Id,
-                conta.ValorLiquido,
-                request.DataLiquidacao,
-                request.ContaBancariaId,
-                conta.Descricao),
-            cancellationToken);
+        if (statusFinal == StatusConta.LiquidadaId)
+        {
+            await _eventDispatcher.DispatchAsync(
+                new ContaPagarLiquidadaEvent(
+                    conta.Id,
+                    conta.ValorLiquido,
+                    request.DataLiquidacao,
+                    request.ContaBancariaId,
+                    conta.Descricao),
+                cancellationToken);
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -837,6 +892,24 @@ public sealed class ContaPagarCommandService(
             SerializarTemplate(request));
     }
 
+    private RegraRecorrencia CriarRegraRecorrencia(AtualizarContaPagarRequest request, RecorrenciaConfigRequest recorrencia)
+    {
+        var tipoDia = MapearTipoDiaDominio(recorrencia.TipoDia);
+        var dataInicio = ResolveDataInicioRecorrencia(request.DataEmissao, recorrencia);
+        var dataFim = ResolveDataFimRecorrencia(recorrencia);
+
+        return RegraRecorrencia.Criar(
+            TipoLancamentoRecorrencia.ContaPagar,
+            MapearTipoPeriodicidadeDominio(recorrencia.TipoPeriodicidade),
+            tipoDia,
+            recorrencia.DiaOrdemMensal,
+            dataInicio,
+            dataFim,
+            recorrencia.PermiteEdicaoOcorrenciaIndividual,
+            recorrencia.Observacao,
+            SerializarTemplate(request));
+    }
+
     private DateOnly ResolveDataInicioRecorrencia(DateOnly dataEmissao, RecorrenciaConfigRequest recorrencia)
     {
         if (recorrencia.DataInicio.HasValue)
@@ -1005,6 +1078,90 @@ public sealed class ContaPagarCommandService(
         {
             movimentoEconomico.Cancelar(StatusMovimentacao.CanceladaId);
         }
+    }
+
+    private async Task<decimal> CalcularSaldoLiquidadoAsync(Guid contaId, CancellationToken cancellationToken)
+    {
+        return await dbContext.MovimentacoesFinanceiras
+            .Where(x =>
+                x.ContaPagarId == contaId &&
+                x.Natureza == NaturezaMovimentacao.Realizada &&
+                x.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+            .SumAsync(x => (decimal?)x.Valor, cancellationToken) ?? 0m;
+    }
+
+    private async Task<IReadOnlyCollection<RateioPlano>> RecalcularRateiosAsync(
+        Guid contaId,
+        decimal novoValorLiquido,
+        CancellationToken cancellationToken)
+    {
+        var rateiosOriginais = await (
+            from rateio in dbContext.RateiosContaGerencial.AsNoTracking()
+            join contaGerencial in dbContext.ContasGerenciais.AsNoTracking() on rateio.ContaGerencialId equals contaGerencial.Id
+            where rateio.ContaPagarId == contaId
+            orderby contaGerencial.Descricao
+            select new RateioPlano(rateio.ContaGerencialId, rateio.Valor))
+            .ToArrayAsync(cancellationToken);
+
+        if (rateiosOriginais.Length == 0)
+        {
+            throw _validationFactory.Create("Rateios", "Ao menos um rateio é obrigatório.");
+        }
+
+        if (rateiosOriginais.Length == 1)
+        {
+            return [RateioPlano.Create(rateiosOriginais[0].ContaGerencialId, novoValorLiquido)];
+        }
+
+        var totalOriginal = rateiosOriginais.Sum(x => x.Valor);
+        if (totalOriginal <= 0)
+        {
+            throw _validationFactory.Create("Rateios", "Valor base de rateio inválido.");
+        }
+
+        var planos = new List<RateioPlano>(rateiosOriginais.Length);
+        decimal acumulado = 0m;
+
+        for (var index = 0; index < rateiosOriginais.Length - 1; index++)
+        {
+            var rateio = rateiosOriginais[index];
+            var valorDistribuido = decimal.Round(
+                novoValorLiquido * (rateio.Valor / totalOriginal),
+                2,
+                MidpointRounding.AwayFromZero);
+
+            acumulado += valorDistribuido;
+            planos.Add(RateioPlano.Create(rateio.ContaGerencialId, valorDistribuido));
+        }
+
+        var ultimo = rateiosOriginais[^1];
+        planos.Add(RateioPlano.Create(ultimo.ContaGerencialId, decimal.Round(novoValorLiquido - acumulado, 2, MidpointRounding.AwayFromZero)));
+        return planos;
+    }
+
+    private async Task AtualizarTemplateRecorrenciaAsync(
+        Guid regraRecorrenciaId,
+        decimal novoValorLiquido,
+        IReadOnlyCollection<RateioPlano> novosRateios,
+        CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia.SingleAsync(x => x.Id == regraRecorrenciaId, cancellationToken);
+        var template = DesserializarTemplate(regra.TemplateJson);
+        var novoTemplate = template with
+        {
+            ValorOriginal = decimal.Round(novoValorLiquido + template.ValorDesconto - template.ValorJuros - template.ValorMulta, 2, MidpointRounding.AwayFromZero),
+            Rateios = novosRateios.Select(rateio => new RateioRecorrenciaTemplate(rateio.ContaGerencialId, rateio.Valor)).ToArray()
+        };
+
+        regra.Atualizar(
+            regra.TipoPeriodicidade,
+            regra.TipoDia,
+            regra.DiaOrdemMensal,
+            regra.DataInicio,
+            regra.DataFim,
+            regra.PermiteEdicaoOcorrenciaIndividual,
+            regra.Observacao,
+            JsonSerializer.Serialize(novoTemplate));
     }
 
     private async Task<RegraRecorrencia> ObterRegraRecorrenciaObrigatoriaAsync(

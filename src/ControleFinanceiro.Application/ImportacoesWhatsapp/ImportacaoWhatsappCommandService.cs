@@ -10,6 +10,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Application.Identidade;
+using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
@@ -79,12 +80,8 @@ public sealed class ImportacaoWhatsappCommandService(
     {
         ValidarWebhook(request);
 
-        // Webhook é anônimo: associa a importação à família padrão configurada.
-        // TODO (fase WhatsApp): resolver a família pelo remetente cadastrado.
-        if (currentUser.FamiliaId is null && identidadeOptions.Value.FamiliaPadraoId is { } familiaPadraoId)
-        {
-            dbContext.DefinirFamiliaCorrente(familiaPadraoId);
-        }
+        var familiaId = await ResolverFamiliaWebhookAsync(request.Remetente, cancellationToken);
+        dbContext.DefinirFamiliaCorrente(familiaId);
 
         var tipoOrigem = MapearTipoOrigem(request.TipoOrigem);
         var importacao = ImportacaoWhatsapp.CriarRecebida(
@@ -119,7 +116,34 @@ public sealed class ImportacaoWhatsappCommandService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await queryService.ObterPorIdAsync(importacao.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Falha ao recuperar a importaÃ§Ã£o processada.");
+            ?? throw new InvalidOperationException("Falha ao recuperar a importação processada.");
+    }
+
+    private async Task<Guid> ResolverFamiliaWebhookAsync(string remetente, CancellationToken cancellationToken)
+    {
+        if (currentUser.FamiliaId is { } familiaAutenticada)
+        {
+            return familiaAutenticada;
+        }
+
+        var telefone = WhatsappUsuario.NormalizarTelefone(remetente);
+        var familiaDoRemetente = await dbContext.WhatsappUsuarios
+            .AsNoTracking()
+            .Where(usuario => usuario.Telefone == telefone && usuario.Ativo)
+            .Select(usuario => (Guid?)usuario.FamiliaId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (familiaDoRemetente.HasValue)
+        {
+            return familiaDoRemetente.Value;
+        }
+
+        if (identidadeOptions.Value.FamiliaPadraoId is { } familiaPadraoId)
+        {
+            return familiaPadraoId;
+        }
+
+        throw ValidationExceptionFactory.Create("Remetente", "Remetente não está vinculado a uma família ativa.");
     }
 
     public async Task<ImportacaoWhatsappDetalheResponse?> ReprocessarAsync(
@@ -134,7 +158,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
         if (importacao.Status == StatusImportacaoWhatsapp.Confirmado)
         {
-            throw ValidationExceptionFactory.Create("Status", "Reabra a importaÃ§Ã£o antes de reprocessar.");
+            throw ValidationExceptionFactory.Create("Status", "Reabra a importação antes de reprocessar.");
         }
 
         if (importacao.Itens.Count > 0)
@@ -214,7 +238,7 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             throw ValidationExceptionFactory.Create(
                 "Status",
-                "A importaÃ§Ã£o precisa estar aprovada para completar o fechamento da fatura.");
+                "A importação precisa estar aprovada para completar o fechamento da fatura.");
         }
 
         var itensCompraCartao = importacao.Itens
@@ -226,7 +250,7 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             throw ValidationExceptionFactory.Create(
                 "Status",
-                "NÃ£o hÃ¡ itens confirmados de compra em cartÃ£o para materializar a fatura.");
+                "Não há itens confirmados de compra em cartão para materializar a fatura.");
         }
 
         if (await ImportacaoJaPossuiGeracaoFinanceiraAsync(importacao.Id, cancellationToken))
@@ -291,7 +315,7 @@ public sealed class ImportacaoWhatsappCommandService(
             }
             else
             {
-                throw new InvalidOperationException("Somente itens da importaÃ§Ã£o em revisÃ£o podem ser confirmados.");
+                throw new InvalidOperationException("Somente itens da importação em revisão podem ser confirmados.");
             }
 
             importacao.AtualizarStatusRevisao();
@@ -381,660 +405,6 @@ public sealed class ImportacaoWhatsappCommandService(
             contexto,
             cancellationToken);
 
-#pragma warning disable CS0162
-        var itensPreparados = new List<ItemImportadoPreparado>(itens.Count);
-        var contasGeradas = new List<ContaPagar>();
-        var chavesAfetadas = new HashSet<FaturaKey>();
-        var chavesContaPagarFatura = new HashSet<FaturaKey>();
-
-        foreach (var item in itens)
-        {
-            if (!item.ContaGerencialId.HasValue || !item.ResponsavelId.HasValue)
-            {
-                throw ValidationExceptionFactory.Create(
-                    "Itens",
-                    "Todos os itens de compra em cartÃƒÂ£o devem possuir conta gerencial e responsÃƒÂ¡vel antes da aprovaÃƒÂ§ÃƒÂ£o.");
-            }
-
-            var payload = ImportacaoWhatsappSuggestionPayload.Parse(item.PayloadSugeridoJson);
-            if (!payload.Valor.HasValue || payload.Valor.Value == 0)
-            {
-                throw ValidationExceptionFactory.Create("Itens", "Os itens aprovados da fatura precisam ter valor diferente de zero.");
-            }
-
-            var cartao = ResolverCartaoDaCompra(payload, contexto);
-            var descricao = string.IsNullOrWhiteSpace(item.DescricaoAjustada)
-                ? payload.Descricao ?? "Compra em cartÃƒÂ£o importada"
-                : item.DescricaoAjustada.Trim();
-
-            var contaGerencialId = item.ContaGerencialId!.Value;
-            var responsavelId = item.ResponsavelId!.Value;
-            var valorItem = payload.Valor!.Value;
-            var competenciaImportacaoAtual = payload.DataVencimento.HasValue
-                ? FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                    payload.DataVencimento.Value,
-                    cartao.DiaFechamentoFatura,
-                    cartao.DiaVencimentoFatura)
-                : (payload.DataIdentificada.HasValue
-                    ? FaturaCartaoCompetencia.Calcular(
-                        payload.DataIdentificada.Value,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura)
-                    : FaturaCartaoCompetencia.Calcular(
-                        new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1),
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura));
-
-            var infoParcelamento = payload.GetParcelamentoCompraCartaoInfo();
-            if (infoParcelamento is not null)
-            {
-                if (!payload.DataIdentificada.HasValue)
-                {
-                    throw ValidationExceptionFactory.Create(
-                        "Itens",
-                        $"O item '{descricao}' nÃƒÂ£o possui data identificada para projetar as parcelas futuras.");
-                }
-
-                var grupoParcelamentoId = Guid.NewGuid();
-                var chaveSerie = payload.BuildInstallmentSeriesKey();
-                var dataParcelaAtual = payload.DataIdentificada.Value;
-
-                for (var numeroParcela = infoParcelamento.NumeroParcela; numeroParcela <= infoParcelamento.QuantidadeParcelas; numeroParcela++)
-                {
-                    var dataCompraParcela = dataParcelaAtual.AddMonths(numeroParcela - infoParcelamento.NumeroParcela);
-                    var competencia = FaturaCartaoCompetencia.Calcular(
-                        dataCompraParcela,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (await ParcelaImportadaJaExisteAsync(
-                            cartao.Id,
-                            chaveSerie,
-                            numeroParcela,
-                            infoParcelamento.QuantidadeParcelas,
-                            cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var descricaoParcela = ImportacaoWhatsappSuggestionPayload.AtualizarMarcadorParcela(
-                        descricao,
-                        numeroParcela,
-                        infoParcelamento.QuantidadeParcelas);
-
-                    var conta = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraParcela,
-                        responsavelCompraId: item.ResponsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: payload.Valor.Value,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: infoParcelamento.QuantidadeParcelas,
-                        numeroParcela: numeroParcela,
-                        grupoParcelamentoId: grupoParcelamentoId,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÂ§ÃƒÂ£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(item.ContaGerencialId.Value, payload.Valor.Value)
-                        ]);
-
-                    conta.VincularOrigemImportacao(importacaoId);
-                    conta.DefinirChaveSerieImportacaoCartao(chaveSerie);
-                    contasGeradas.Add(conta);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = monthOffset == 0
-                        ? payload.DataIdentificada ?? CriarDataCompraDaCompetencia(competencia)
-                        : CriarDataCompraDaCompetencia(competencia);
-
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃ§Ã£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = monthOffset == 0
-                        ? payload.DataIdentificada ?? CriarDataCompraDaCompetencia(competencia)
-                        : CriarDataCompraDaCompetencia(competencia);
-
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = monthOffset == 0
-                        ? payload.DataIdentificada ?? CriarDataCompraDaCompetencia(competencia)
-                        : CriarDataCompraDaCompetencia(competencia);
-
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = monthOffset == 0
-                        ? payload.DataIdentificada ?? CriarDataCompraDaCompetencia(competencia)
-                        : CriarDataCompraDaCompetencia(competencia);
-
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = monthOffset == 0
-                        ? payload.DataIdentificada ?? CriarDataCompraDaCompetencia(competencia)
-                        : CriarDataCompraDaCompetencia(competencia);
-
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = monthOffset == 0
-                        ? payload.DataIdentificada ?? CriarDataCompraDaCompetencia(competencia)
-                        : CriarDataCompraDaCompetencia(competencia);
-
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            if (item.MarcarComoRecorrente)
-            {
-                var chaveSerieRecorrente = payload.BuildRecurringSeriesKey();
-
-                for (var monthOffset = 0; monthOffset < CompetenciasProjetadasParaCompraRecorrenteImportada; monthOffset++)
-                {
-                    var dataVencimentoCompetencia = competenciaImportacaoAtual.DataVencimento.AddMonths(monthOffset);
-                    var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
-                        dataVencimentoCompetencia,
-                        cartao.DiaFechamentoFatura,
-                        cartao.DiaVencimentoFatura);
-
-                    chavesAfetadas.Add(new FaturaKey(cartao.Id, competencia.Competencia));
-
-                    if (monthOffset == 0)
-                    {
-                        await RemoverCompraRecorrenteProjetadaAsync(
-                            cartao.Id,
-                            chaveSerieRecorrente,
-                            competencia.DataVencimento,
-                            cancellationToken);
-                    }
-                    else if (await CompraRecorrenteImportadaJaExisteAsync(
-                                 cartao.Id,
-                                 chaveSerieRecorrente,
-                                 competencia.DataVencimento,
-                                 cancellationToken))
-                    {
-                        continue;
-                    }
-
-                    var dataCompraRecorrente = CriarDataCompraDaCompetencia(competencia);
-                    var contaRecorrente = ContaPagar.Criar(
-                        numeroDocumento: null,
-                        dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
-                        recebedorId: contexto.RecebedorFaturaId,
-                        dataVencimento: competencia.DataVencimento,
-                        formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                        cartaoId: cartao.Id,
-                        contaBancariaId: null,
-                        valorOriginal: valorItem,
-                        valorDesconto: 0m,
-                        valorJuros: 0m,
-                        valorMulta: 0m,
-                        quantidadeParcelas: 1,
-                        numeroParcela: 1,
-                        grupoParcelamentoId: null,
-                        origemCompraPlanejadaId: null,
-                        descricao: descricao,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o {importacaoId}.",
-                        statusContaId: StatusConta.PendenteId,
-                        ehRecorrente: false,
-                        regraRecorrenciaId: null,
-                        origem: OrigemLancamento.Importacao,
-                        rateios:
-                        [
-                            RateioPlano.CreateSigned(contaGerencialId, valorItem)
-                        ]);
-
-                    contaRecorrente.VincularOrigemImportacao(importacaoId);
-                    contaRecorrente.DefinirChaveSerieImportacaoCartao(chaveSerieRecorrente);
-                    contasGeradas.Add(contaRecorrente);
-                }
-
-                continue;
-            }
-
-            var dataCompra = payload.DataIdentificada
-                ?? throw ValidationExceptionFactory.Create("Itens", $"O item '{descricao}' nÃƒÂ£o possui data identificada.");
-            chavesAfetadas.Add(new FaturaKey(cartao.Id, competenciaImportacaoAtual.Competencia));
-
-            var contaUnica = ContaPagar.Criar(
-                numeroDocumento: null,
-                dataEmissao: dataCompra,
-                responsavelCompraId: item.ResponsavelId,
-                recebedorId: contexto.RecebedorFaturaId,
-                dataVencimento: competenciaImportacaoAtual.DataVencimento,
-                formaPagamentoId: contexto.FormaPagamentoCartaoId,
-                cartaoId: cartao.Id,
-                contaBancariaId: null,
-                valorOriginal: payload.Valor.Value,
-                valorDesconto: 0m,
-                valorJuros: 0m,
-                valorMulta: 0m,
-                quantidadeParcelas: 1,
-                numeroParcela: 1,
-                grupoParcelamentoId: null,
-                origemCompraPlanejadaId: null,
-                descricao: descricao,
-                observacao: $"Gerada automaticamente a partir da importaÃƒÂ§ÃƒÂ£o {importacaoId}.",
-                statusContaId: StatusConta.PendenteId,
-                ehRecorrente: false,
-                regraRecorrenciaId: null,
-                origem: OrigemLancamento.Importacao,
-                rateios:
-                [
-                    RateioPlano.CreateSigned(item.ContaGerencialId.Value, payload.Valor.Value)
-                ]);
-
-            contaUnica.VincularOrigemImportacao(importacaoId);
-            contasGeradas.Add(contaUnica);
-        }
-
-        return new ImportacaoMaterializadaResult(
-            contasGeradas,
-            chavesAfetadas.ToArray(),
-            chavesAfetadas.ToArray());
-#pragma warning restore CS0162
     }
 
     private async Task<ImportacaoMaterializadaResult> MaterializarComprasCartaoImportadasPorCompetenciaAtualAsync(
@@ -1054,7 +424,7 @@ public sealed class ImportacaoWhatsappCommandService(
             {
                 throw ValidationExceptionFactory.Create(
                     "Itens",
-                    "Todos os itens de compra em cartÃƒÆ’Ã‚Â£o devem possuir conta gerencial e responsÃƒÆ’Ã‚Â¡vel antes da aprovaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.");
+                    "Todos os itens de compra em cartão devem possuir conta gerencial e responsável antes da aprovação.");
             }
 
             var payload = ImportacaoWhatsappSuggestionPayload.Parse(item.PayloadSugeridoJson);
@@ -1065,7 +435,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
             var cartao = ResolverCartaoDaCompra(payload, contexto);
             var descricao = string.IsNullOrWhiteSpace(item.DescricaoAjustada)
-                ? payload.Descricao ?? "Compra em cartÃƒÆ’Ã‚Â£o importada"
+                ? payload.Descricao ?? "Compra em cartão importada"
                 : item.DescricaoAjustada.Trim();
 
             var contaGerencialId = item.ContaGerencialId!.Value;
@@ -1147,7 +517,7 @@ public sealed class ImportacaoWhatsappCommandService(
                         grupoParcelamentoId: grupoParcelamentoId,
                         origemCompraPlanejadaId: null,
                         descricao: descricaoParcela,
-                        observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o {importacaoId}.",
+                        observacao: $"Gerada automaticamente a partir da importação {importacaoId}.",
                         statusContaId: StatusConta.PendenteId,
                         ehRecorrente: false,
                         regraRecorrenciaId: null,
@@ -1234,10 +604,10 @@ public sealed class ImportacaoWhatsappCommandService(
 
 
             var dataCompra = payload.DataIdentificada
-                ?? throw ValidationExceptionFactory.Create("Itens", $"O item '{descricao}' nÃƒÆ’Ã‚Â£o possui data identificada.");
+                ?? throw ValidationExceptionFactory.Create("Itens", $"O item '{descricao}' não possui data identificada.");
             chavesAfetadas.Add(new FaturaKey(cartao.Id, competenciaImportacaoAtual.Competencia));
 
-            // Conciliação com lançamentos manuais: se a compra já foi registrada à mão
+            // Deduplicação com lançamentos manuais: se a compra já foi registrada à mão
             // (mesmo cartão, mesmo valor, data próxima), aproveita o lançamento existente
             // — rateio, descrição e classificação são preservados — e não duplica.
             if (await ExisteCompraManualCorrespondenteAsync(cartao.Id, valorItem, dataCompra, cancellationToken))
@@ -1263,7 +633,7 @@ public sealed class ImportacaoWhatsappCommandService(
                 grupoParcelamentoId: null,
                 origemCompraPlanejadaId: null,
                 descricao: descricao,
-                observacao: $"Gerada automaticamente a partir da importaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o {importacaoId}.",
+                observacao: $"Gerada automaticamente a partir da importação {importacaoId}.",
                 statusContaId: StatusConta.PendenteId,
                 ehRecorrente: false,
                 regraRecorrenciaId: null,
@@ -1360,7 +730,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
         throw ValidationExceptionFactory.Create(
             "Itens",
-            "NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel inferir a competÃƒÆ’Ã‚Âªncia atual da fatura importada para projetar as parcelas.");
+            "Não foi possível inferir a competência atual da fatura importada para projetar as parcelas.");
     }
 
     private static DateOnly CriarDataCompraDaCompetencia(FaturaCartaoCompetencia.Resultado competencia)
@@ -1461,7 +831,7 @@ public sealed class ImportacaoWhatsappCommandService(
                     grupoParcelamentoId: null,
                     origemCompraPlanejadaId: null,
                     descricao: descricaoFatura,
-                    observacao: $"Gerada automaticamente a partir da importaÃƒÂ§ÃƒÂ£o {importacaoId}.",
+                    observacao: $"Gerada automaticamente a partir da importação {importacaoId}.",
                     statusContaId: StatusConta.PendenteId,
                     ehRecorrente: false,
                     regraRecorrenciaId: null,
@@ -1581,12 +951,12 @@ public sealed class ImportacaoWhatsappCommandService(
     {
         if (request?.RecebedorFaturaId is null || request.RecebedorFaturaId == Guid.Empty)
         {
-            throw ValidationExceptionFactory.Create("RecebedorFaturaId", "Recebedor da fatura ÃƒÂ© obrigatÃƒÂ³rio.");
+            throw ValidationExceptionFactory.Create("RecebedorFaturaId", "Recebedor da fatura é obrigatório.");
         }
 
         if (request.ResponsavelPagamentoFaturaId is null || request.ResponsavelPagamentoFaturaId == Guid.Empty)
         {
-            throw ValidationExceptionFactory.Create("ResponsavelPagamentoFaturaId", "ResponsÃƒÂ¡vel pelo pagamento da fatura ÃƒÂ© obrigatÃƒÂ³rio.");
+            throw ValidationExceptionFactory.Create("ResponsavelPagamentoFaturaId", "Responsável pelo pagamento da fatura é obrigatório.");
         }
 
         var cartaoIds = request.CartaoIds?
@@ -1596,17 +966,17 @@ public sealed class ImportacaoWhatsappCommandService(
 
         if (cartaoIds.Length == 0)
         {
-            throw ValidationExceptionFactory.Create("CartaoIds", "Informe ao menos um cartÃƒÂ£o vinculado ÃƒÂ  fatura.");
+            throw ValidationExceptionFactory.Create("CartaoIds", "Informe ao menos um cartão vinculado à fatura.");
         }
 
         if (!await dbContext.Pessoas.AnyAsync(x => x.Id == request.RecebedorFaturaId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("RecebedorFaturaId", "Recebedor da fatura nÃƒÂ£o encontrado.");
+            throw ValidationExceptionFactory.Create("RecebedorFaturaId", "Recebedor da fatura não encontrado.");
         }
 
         if (!await dbContext.Pessoas.AnyAsync(x => x.Id == request.ResponsavelPagamentoFaturaId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ResponsavelPagamentoFaturaId", "ResponsÃƒÂ¡vel pelo pagamento nÃƒÂ£o encontrado.");
+            throw ValidationExceptionFactory.Create("ResponsavelPagamentoFaturaId", "Responsável pelo pagamento não encontrado.");
         }
 
         var cartoes = await dbContext.Cartoes
@@ -1616,7 +986,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
         if (cartoes.Length != cartaoIds.Length)
         {
-            throw ValidationExceptionFactory.Create("CartaoIds", "Um ou mais cartÃƒÂµes vinculados nÃƒÂ£o foram encontrados.");
+            throw ValidationExceptionFactory.Create("CartaoIds", "Um ou mais cartões vinculados não foram encontrados.");
         }
 
         var formaPagamentoCartao = await dbContext.FormasPagamento
@@ -1627,7 +997,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
         if (formaPagamentoCartao is null)
         {
-            throw ValidationExceptionFactory.Create("CartaoIds", "Cadastre uma forma de pagamento ativa do tipo cartÃƒÂ£o.");
+            throw ValidationExceptionFactory.Create("CartaoIds", "Cadastre uma forma de pagamento ativa do tipo cartão.");
         }
 
         return new AprovacaoFaturaContext(
@@ -1654,7 +1024,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
             if (matches.Length > 1)
             {
-                throw ValidationExceptionFactory.Create("CartaoIds", $"Mais de um cartÃƒÂ£o selecionado termina com {payload.CartaoFinal}.");
+                throw ValidationExceptionFactory.Create("CartaoIds", $"Mais de um cartão selecionado termina com {payload.CartaoFinal}.");
             }
         }
 
@@ -1665,7 +1035,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
         throw ValidationExceptionFactory.Create(
             "CartaoIds",
-            "NÃƒÂ£o foi possÃƒÂ­vel identificar automaticamente o cartÃƒÂ£o do item importado. Ajuste os cartÃƒÂµes vinculados da fatura.");
+            "Não foi possível identificar automaticamente o cartão do item importado. Ajuste os cartões vinculados da fatura.");
     }
 
     private async Task<bool> ParcelaImportadaJaExisteAsync(
@@ -1769,7 +1139,7 @@ public sealed class ImportacaoWhatsappCommandService(
 
             if (!extractionResult.Success || string.IsNullOrWhiteSpace(extractionResult.TextoExtraido))
             {
-                importacao.RegistrarErroExtracao(extractionResult.MensagemErro ?? "NÃ£o foi possÃ­vel extrair conteÃºdo da importaÃ§Ã£o.");
+                importacao.RegistrarErroExtracao(extractionResult.MensagemErro ?? "Não foi possível extrair conteúdo da importação.");
                 return;
             }
 
@@ -1809,7 +1179,7 @@ public sealed class ImportacaoWhatsappCommandService(
     {
         if (string.IsNullOrWhiteSpace(request.Remetente))
         {
-            throw ValidationExceptionFactory.Create("Remetente", "Remetente Ã© obrigatÃ³rio.");
+            throw ValidationExceptionFactory.Create("Remetente", "Remetente é obrigatório.");
         }
 
         if (string.IsNullOrWhiteSpace(request.TextoBruto) && string.IsNullOrWhiteSpace(request.ArquivoBase64))
@@ -1821,17 +1191,17 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             if (string.IsNullOrWhiteSpace(request.NomeArquivo))
             {
-                throw ValidationExceptionFactory.Create("NomeArquivo", "Nome do arquivo Ã© obrigatÃ³rio quando houver artefato.");
+                throw ValidationExceptionFactory.Create("NomeArquivo", "Nome do arquivo é obrigatório quando houver artefato.");
             }
 
             if (string.IsNullOrWhiteSpace(request.MimeType))
             {
-                throw ValidationExceptionFactory.Create("MimeType", "Mime type Ã© obrigatÃ³rio quando houver artefato.");
+                throw ValidationExceptionFactory.Create("MimeType", "Mime type é obrigatório quando houver artefato.");
             }
 
             if (!MimeTypesSuportados.Contains(request.MimeType.Trim(), StringComparer.OrdinalIgnoreCase))
             {
-                throw ValidationExceptionFactory.Create("MimeType", "Mime type nÃ£o suportado para importaÃ§Ã£o.");
+                throw ValidationExceptionFactory.Create("MimeType", "Mime type não suportado para importação.");
             }
         }
     }
@@ -1869,14 +1239,14 @@ public sealed class ImportacaoWhatsappCommandService(
             {
                 throw ValidationExceptionFactory.Create(
                     "ContaGerencialId",
-                    "Conta gerencial Ã© obrigatÃ³ria para aprovar compras de cartÃ£o importadas.");
+                    "Conta gerencial é obrigatória para aprovar compras de cartão importadas.");
             }
 
             if (!request.ResponsavelId.HasValue)
             {
                 throw ValidationExceptionFactory.Create(
                     "ResponsavelId",
-                    "ResponsÃ¡vel Ã© obrigatÃ³rio para aprovar compras de cartÃ£o importadas.");
+                    "Responsável é obrigatório para aprovar compras de cartão importadas.");
             }
         }
 
@@ -1886,21 +1256,21 @@ public sealed class ImportacaoWhatsappCommandService(
             {
                 throw ValidationExceptionFactory.Create(
                     "DescricaoAjustada",
-                    "A renomeaÃ§Ã£o amigÃ¡vel estÃ¡ disponÃ­vel apenas para compras de cartÃ£o importadas.");
+                    "A renomeação amigável está disponível apenas para compras de cartão importadas.");
             }
 
             if (request.MarcarComoRecorrente)
             {
                 throw ValidationExceptionFactory.Create(
                     "MarcarComoRecorrente",
-                    "A recorrÃªncia por histÃ³rico estÃ¡ disponÃ­vel apenas para compras de cartÃ£o importadas.");
+                    "A recorrência por histórico está disponível apenas para compras de cartão importadas.");
             }
         }
 
         if (request.ResponsavelId.HasValue &&
             !await dbContext.Pessoas.AnyAsync(x => x.Id == request.ResponsavelId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ResponsavelId", "ResponsÃ¡vel nÃ£o encontrado.");
+            throw ValidationExceptionFactory.Create("ResponsavelId", "Responsável não encontrado.");
         }
 
         if (request.ContaGerencialId.HasValue)
@@ -1920,7 +1290,7 @@ public sealed class ImportacaoWhatsappCommandService(
                     request.ContaGerencialId.Value,
                     tipoEsperado.Value,
                     "ContaGerencialId",
-                    "Conta gerencial nÃ£o encontrada.",
+                    "Conta gerencial não encontrada.",
                     "Somente contas gerenciais filhas podem ser utilizadas na categorizacao.",
                     tipoEsperado.Value == TipoContaGerencial.Receita
                         ? "A categorizacao informada exige uma conta gerencial de receita."
@@ -1933,7 +1303,7 @@ public sealed class ImportacaoWhatsappCommandService(
                     dbContext,
                     request.ContaGerencialId.Value,
                     "ContaGerencialId",
-                    "Conta gerencial nÃ£o encontrada.",
+                    "Conta gerencial não encontrada.",
                     "Somente contas gerenciais filhas podem ser utilizadas na categorizacao.",
                     cancellationToken);
             }
@@ -1948,24 +1318,24 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             throw ValidationExceptionFactory.Create(
                 "GerarContaReceber",
-                "A geraÃ§Ã£o automÃ¡tica de conta a receber estÃ¡ disponÃ­vel apenas para compras de cartÃ£o importadas.");
+                "A geração automática de conta a receber está disponível apenas para compras de cartão importadas.");
         }
 
         if (!request.ResponsavelId.HasValue)
         {
             throw ValidationExceptionFactory.Create(
                 "ResponsavelId",
-                "ResponsÃ¡vel Ã© obrigatÃ³rio para gerar conta a receber a partir da fatura.");
+                "Responsável é obrigatório para gerar conta a receber a partir da fatura.");
         }
 
         if (string.IsNullOrWhiteSpace(payload.Descricao))
         {
-            throw ValidationExceptionFactory.Create("Payload", "NÃ£o foi possÃ­vel identificar a descriÃ§Ã£o do item importado.");
+            throw ValidationExceptionFactory.Create("Payload", "Não foi possível identificar a descrição do item importado.");
         }
 
         if (!payload.Valor.HasValue || payload.Valor.Value <= 0)
         {
-            throw ValidationExceptionFactory.Create("Payload", "NÃ£o foi possÃ­vel identificar um valor positivo para gerar a conta a receber.");
+            throw ValidationExceptionFactory.Create("Payload", "Não foi possível identificar um valor positivo para gerar a conta a receber.");
         }
 
         var dataVencimentoContaReceber = await ResolverDataVencimentoContaReceberAsync(payload, request, cancellationToken);
@@ -1973,7 +1343,7 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             throw ValidationExceptionFactory.Create(
                 "DataVencimentoContaReceber",
-                "Informe o vencimento do receber quando o documento nÃ£o trouxer o vencimento da fatura.");
+                "Informe o vencimento do receber quando o documento não trouxer o vencimento da fatura.");
         }
 
         var contaGerencialPadrao = await dbContext.ContasGerenciais
@@ -1984,7 +1354,7 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             throw ValidationExceptionFactory.Create(
                 "GerarContaReceber",
-                "Nenhuma conta gerencial padrÃ£o para recebimento de fatura foi configurada.");
+                "Nenhuma conta gerencial padrão para recebimento de fatura foi configurada.");
         }
 
         await ContaGerencialLancamentoValidator.ValidarContaLancavelPorTipoAsync(
@@ -1992,9 +1362,9 @@ public sealed class ImportacaoWhatsappCommandService(
             contaGerencialPadrao.Id,
             TipoContaGerencial.Receita,
             "GerarContaReceber",
-            "Conta gerencial padrÃ£o para recebimento de fatura nÃ£o encontrada.",
-            "A conta gerencial padrÃ£o para recebimento de fatura precisa ser lanÃ§Ã¡vel.",
-            "A conta gerencial padrÃ£o para recebimento de fatura precisa ser do tipo receita.",
+            "Conta gerencial padrão para recebimento de fatura não encontrada.",
+            "A conta gerencial padrão para recebimento de fatura precisa ser lançável.",
+            "A conta gerencial padrão para recebimento de fatura precisa ser do tipo receita.",
             cancellationToken);
 
         var formaPagamento = await dbContext.FormasPagamento
@@ -2008,7 +1378,7 @@ public sealed class ImportacaoWhatsappCommandService(
         {
             throw ValidationExceptionFactory.Create(
                 "GerarContaReceber",
-                "Cadastre ao menos uma forma de pagamento ativa nÃ£o-cartÃ£o para gerar a conta a receber.");
+                "Cadastre ao menos uma forma de pagamento ativa não-cartão para gerar a conta a receber.");
         }
 
         var contaReceber = ContaReceber.Criar(
@@ -2028,7 +1398,7 @@ public sealed class ImportacaoWhatsappCommandService(
             numeroParcela: 1,
             grupoParcelamentoId: null,
             descricao: descricaoAjustada ?? payload.Descricao,
-            observacao: "Gerada automaticamente a partir da revisÃ£o de item importado da fatura.",
+            observacao: "Gerada automaticamente a partir da revisão de item importado da fatura.",
             statusContaId: StatusConta.PendenteId,
             ehRecorrente: false,
             regraRecorrenciaId: null,
@@ -2103,7 +1473,7 @@ public sealed class ImportacaoWhatsappCommandService(
     {
         if (importacao.Status == StatusImportacaoWhatsapp.Confirmado)
         {
-            throw new InvalidOperationException("ImportaÃ§Ã£o aprovada nÃ£o pode ser alterada. Reabra a importaÃ§Ã£o para editar os itens.");
+            throw new InvalidOperationException("Importação aprovada não pode ser alterada. Reabra a importação para editar os itens.");
         }
     }
 
@@ -2115,9 +1485,9 @@ public sealed class ImportacaoWhatsappCommandService(
             TipoOrigemImportacaoWhatsappRequest.Imagem => TipoOrigemImportacaoWhatsapp.Imagem,
             TipoOrigemImportacaoWhatsappRequest.Pdf => TipoOrigemImportacaoWhatsapp.Pdf,
             TipoOrigemImportacaoWhatsappRequest.Arquivo => TipoOrigemImportacaoWhatsapp.Arquivo,
-            _ => throw new ApplicationValidationException("Um ou mais campos sÃ£o invÃ¡lidos.", new Dictionary<string, string[]>
+            _ => throw new ApplicationValidationException("Um ou mais campos são inválidos.", new Dictionary<string, string[]>
             {
-                ["TipoOrigem"] = ["Tipo de origem invÃ¡lido."]
+                ["TipoOrigem"] = ["Tipo de origem inválido."]
             })
         };
     }

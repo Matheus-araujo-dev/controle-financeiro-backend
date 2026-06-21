@@ -51,7 +51,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             consulta = consulta.Where(x =>
                 EF.Functions.Like(x.Titulo, termo) ||
                 EF.Functions.Like(x.ContaGerencialDescricao, termo) ||
-                EF.Functions.Like(x.ResponsavelNome, termo));
+                EF.Functions.Like(x.ResponsavelNome, termo) ||
+                (x.Link != null && EF.Functions.Like(x.Link, termo)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Prioridade))
@@ -60,10 +61,22 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             consulta = consulta.Where(x => x.Prioridade == prioridade);
         }
 
+        if (query.Prioridades is { Count: > 0 })
+        {
+            var prioridades = query.Prioridades.Select(ParsePrioridade).ToArray();
+            consulta = consulta.Where(x => prioridades.Contains(x.Prioridade));
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
             var status = ParseStatus(query.Status);
             consulta = consulta.Where(x => x.Status == status);
+        }
+
+        if (query.Statuses is { Count: > 0 })
+        {
+            var statuses = query.Statuses.Select(ParseStatus).ToArray();
+            consulta = consulta.Where(x => statuses.Contains(x.Status));
         }
 
         if (query.ResponsavelId.HasValue)
@@ -71,12 +84,76 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             consulta = consulta.Where(x => x.ResponsavelId == query.ResponsavelId.Value);
         }
 
-        consulta = query.SortDirection == SortDirection.Desc
-            ? consulta.OrderByDescending(x => x.DataDesejada).ThenByDescending(x => x.Titulo)
-            : consulta.OrderBy(x => x.DataDesejada).ThenBy(x => x.Titulo);
+        if (query.ContaGerencialId.HasValue)
+        {
+            consulta = consulta.Where(x => x.ContaGerencialId == query.ContaGerencialId.Value);
+        }
 
-        var totalItems = await consulta.CountAsync(cancellationToken);
-        var valorTotalEstimado = await consulta.SumAsync(x => (decimal?)x.ValorEstimado, cancellationToken) ?? 0m;
+        if (query.Parcelavel.HasValue)
+        {
+            consulta = consulta.Where(x => x.Parcelavel == query.Parcelavel.Value);
+        }
+
+        if (query.DataDesejadaInicial.HasValue)
+        {
+            consulta = consulta.Where(x => x.DataDesejada.HasValue && x.DataDesejada.Value >= query.DataDesejadaInicial.Value);
+        }
+
+        if (query.DataDesejadaFinal.HasValue)
+        {
+            consulta = consulta.Where(x => x.DataDesejada.HasValue && x.DataDesejada.Value <= query.DataDesejadaFinal.Value);
+        }
+
+        if (query.ValorEstimadoMin.HasValue)
+        {
+            consulta = consulta.Where(x => x.ValorEstimado >= query.ValorEstimadoMin.Value);
+        }
+
+        if (query.ValorEstimadoMax.HasValue)
+        {
+            consulta = consulta.Where(x => x.ValorEstimado <= query.ValorEstimadoMax.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Link))
+        {
+            var link = $"%{query.Link.Trim()}%";
+            consulta = consulta.Where(x => x.Link != null && EF.Functions.Like(x.Link, link));
+        }
+
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "titulo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.Titulo),
+            "valorestimado" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ValorEstimado).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.ValorEstimado).ThenBy(x => x.Titulo),
+            "prioridade" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Prioridade).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.Prioridade).ThenBy(x => x.Titulo),
+            "status" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Status).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.Status).ThenBy(x => x.Titulo),
+            "contagerencialdescricao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ContaGerencialDescricao).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.ContaGerencialDescricao).ThenBy(x => x.Titulo),
+            "responsavelnome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ResponsavelNome).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.ResponsavelNome).ThenBy(x => x.Titulo),
+            "quantidadeparcelasdesejada" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.QuantidadeParcelasDesejada).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.QuantidadeParcelasDesejada).ThenBy(x => x.Titulo),
+            _ => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.DataDesejada).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.DataDesejada).ThenBy(x => x.Titulo)
+        };
+
+        var totais = await consulta
+            .GroupBy(_ => 1)
+            .Select(g => new { Total = g.Count(), Valor = g.Sum(x => x.ValorEstimado) })
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalItems = totais?.Total ?? 0;
+        var valorTotalEstimado = totais?.Valor ?? 0m;
         var items = await consulta
             .ApplyPagination(query)
             .Select(x => new CompraPlanejadaResumoResponse(

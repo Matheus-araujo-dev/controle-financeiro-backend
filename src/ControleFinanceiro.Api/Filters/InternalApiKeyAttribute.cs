@@ -25,7 +25,9 @@ public sealed class InternalApiKeyAttribute : Attribute, IAsyncActionFilter
         }
 
         var apiKey = context.HttpContext.Request.Headers["X-Internal-ApiKey"].FirstOrDefault();
-        if (apiKey != options.ApiKey)
+        if (!CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(apiKey ?? string.Empty),
+                Encoding.UTF8.GetBytes(options.ApiKey)))
         {
             context.Result = new UnauthorizedResult();
             return;

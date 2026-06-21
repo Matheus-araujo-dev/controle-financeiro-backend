@@ -39,15 +39,102 @@ public sealed class ImportacaoWhatsappQueryService(
                 (x.NomeArquivo != null && EF.Functions.Like(x.NomeArquivo, termo)));
         }
 
+        if (!string.IsNullOrWhiteSpace(query.TipoOrigemCodigo))
+        {
+            var tipoOrigem = NormalizarTipoOrigem(query.TipoOrigemCodigo);
+            consulta = consulta.Where(x => x.TipoOrigem == tipoOrigem);
+        }
+
         if (!string.IsNullOrWhiteSpace(query.StatusCodigo))
         {
             var status = NormalizarStatus(query.StatusCodigo);
             consulta = consulta.Where(x => x.Status == status);
         }
 
-        consulta = query.SortDirection == SortDirection.Asc
-            ? consulta.OrderBy(x => x.RecebidoEmUtc)
-            : consulta.OrderByDescending(x => x.RecebidoEmUtc);
+        if (!string.IsNullOrWhiteSpace(query.Remetente))
+        {
+            var remetente = $"%{query.Remetente.Trim()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Remetente, remetente));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.NomeArquivo))
+        {
+            var nomeArquivo = $"%{query.NomeArquivo.Trim()}%";
+            consulta = consulta.Where(x => x.NomeArquivo != null && EF.Functions.Like(x.NomeArquivo, nomeArquivo));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.MimeType))
+        {
+            var mimeType = $"%{query.MimeType.Trim()}%";
+            consulta = consulta.Where(x => x.MimeType != null && EF.Functions.Like(x.MimeType, mimeType));
+        }
+
+        if (query.ConfiancaExtracaoMin.HasValue)
+        {
+            var min = NormalizarConfianca(query.ConfiancaExtracaoMin.Value);
+            consulta = consulta.Where(x => x.ConfiancaExtracao >= min);
+        }
+
+        if (query.ConfiancaExtracaoMax.HasValue)
+        {
+            var max = NormalizarConfianca(query.ConfiancaExtracaoMax.Value);
+            consulta = consulta.Where(x => x.ConfiancaExtracao <= max);
+        }
+
+        if (query.RecebidoEmInicial.HasValue)
+        {
+            var inicial = query.RecebidoEmInicial.Value.ToDateTime(TimeOnly.MinValue);
+            consulta = consulta.Where(x => x.RecebidoEmUtc >= inicial);
+        }
+
+        if (query.RecebidoEmFinal.HasValue)
+        {
+            var final = query.RecebidoEmFinal.Value.ToDateTime(TimeOnly.MaxValue);
+            consulta = consulta.Where(x => x.RecebidoEmUtc <= final);
+        }
+
+        if (query.ProcessadoEmInicial.HasValue)
+        {
+            var inicial = query.ProcessadoEmInicial.Value.ToDateTime(TimeOnly.MinValue);
+            consulta = consulta.Where(x => x.ProcessadoEmUtc.HasValue && x.ProcessadoEmUtc.Value >= inicial);
+        }
+
+        if (query.ProcessadoEmFinal.HasValue)
+        {
+            var final = query.ProcessadoEmFinal.Value.ToDateTime(TimeOnly.MaxValue);
+            consulta = consulta.Where(x => x.ProcessadoEmUtc.HasValue && x.ProcessadoEmUtc.Value <= final);
+        }
+
+        consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "tipoorigemnome" or "tipoorigemcodigo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.TipoOrigem).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.TipoOrigem).ThenBy(x => x.RecebidoEmUtc),
+            "remetente" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Remetente).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.Remetente).ThenBy(x => x.RecebidoEmUtc),
+            "conteudo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.TextoBruto ?? x.NomeArquivo).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.TextoBruto ?? x.NomeArquivo).ThenBy(x => x.RecebidoEmUtc),
+            "statusnome" or "statuscodigo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Status).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.Status).ThenBy(x => x.RecebidoEmUtc),
+            "confiancaextracao" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ConfiancaExtracao).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.ConfiancaExtracao).ThenBy(x => x.RecebidoEmUtc),
+            "itens" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Itens.Count).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.Itens.Count).ThenBy(x => x.RecebidoEmUtc),
+            "recebidoemutc" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.RecebidoEmUtc),
+            "processadoemutc" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.ProcessadoEmUtc).ThenByDescending(x => x.RecebidoEmUtc)
+                : consulta.OrderBy(x => x.ProcessadoEmUtc).ThenBy(x => x.RecebidoEmUtc),
+            _ => query.SortDirection == SortDirection.Asc
+                ? consulta.OrderBy(x => x.RecebidoEmUtc)
+                : consulta.OrderByDescending(x => x.RecebidoEmUtc)
+        };
 
         var totalItems = await consulta.CountAsync(cancellationToken);
 
@@ -67,7 +154,7 @@ public sealed class ImportacaoWhatsappQueryService(
                 x.Itens.Count(item => item.Status == StatusItemImportadoWhatsapp.Sugerido),
                 x.RecebidoEmUtc,
                 x.ProcessadoEmUtc))
-            .ApplyPagination(query)
+            .ApplyPagination(query with { SortBy = null })
             .ToArrayAsync(cancellationToken);
 
         return PagedResult<ImportacaoWhatsappResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -176,7 +263,6 @@ public sealed class ImportacaoWhatsappQueryService(
                             ? responsavelNome
                             : null,
                         item.ContaReceberId,
-                        item.MovimentacaoFinanceiraId,
                         statusPrevisao?.StatusCodigo,
                         statusPrevisao?.StatusNome,
                         item.Observacao,
@@ -215,6 +301,23 @@ public sealed class ImportacaoWhatsappQueryService(
             "ERRO_EXTRACAO" => StatusImportacaoWhatsapp.ErroExtracao,
             _ => throw ValidationExceptionFactory.Create("StatusCodigo", "Status de importação inválido.")
         };
+    }
+
+    private static TipoOrigemImportacaoWhatsapp NormalizarTipoOrigem(string tipoOrigemCodigo)
+    {
+        return tipoOrigemCodigo.Trim().ToUpperInvariant() switch
+        {
+            "TEXTO" => TipoOrigemImportacaoWhatsapp.Texto,
+            "IMAGEM" => TipoOrigemImportacaoWhatsapp.Imagem,
+            "PDF" => TipoOrigemImportacaoWhatsapp.Pdf,
+            "ARQUIVO" => TipoOrigemImportacaoWhatsapp.Arquivo,
+            _ => throw ValidationExceptionFactory.Create("TipoOrigemCodigo", "Tipo de origem de importação inválido.")
+        };
+    }
+
+    private static decimal NormalizarConfianca(decimal value)
+    {
+        return value > 1 ? value / 100m : value;
     }
 
     private static string MapearTipoOrigemCodigo(TipoOrigemImportacaoWhatsapp tipoOrigem)

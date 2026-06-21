@@ -993,9 +993,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateOnly?>("DataConciliacao")
-                        .HasColumnType("date");
-
                     b.Property<DateOnly>("DataMovimentacao")
                         .HasColumnType("date");
 
@@ -1272,12 +1269,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
                             Codigo = "EFETIVADA",
                             Nome = "Efetivada"
-                        },
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"),
-                            Codigo = "CONCILIADA",
-                            Nome = "Conciliada"
                         },
                         new
                         {
@@ -1634,9 +1625,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.Property<bool>("MarcarComoRecorrente")
                         .HasColumnType("bit");
 
-                    b.Property<Guid?>("MovimentacaoFinanceiraId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Observacao")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -1678,8 +1666,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasIndex("FamiliaId");
 
                     b.HasIndex("ImportacaoWhatsappId");
-
-                    b.HasIndex("MovimentacaoFinanceiraId");
 
                     b.HasIndex("ResponsavelId");
 
@@ -2097,11 +2083,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ImportacaoWhatsappId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("ControleFinanceiro.Domain.Financeiro.MovimentacaoFinanceira", null)
-                        .WithMany()
-                        .HasForeignKey("MovimentacaoFinanceiraId")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()

@@ -105,6 +105,80 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
             item.ResponsavelNome == "Responsavel Fase 3");
     }
 
+    [Fact]
+    public async Task Get_DeveAplicarFiltrosDeTipoEBuscaNoBanco()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-08",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 450m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Aluguel da sede",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 450m } },
+            recorrencia = new
+            {
+                tipoPeriodicidade = "Mensal",
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 8,
+                dataInicio = (string?)null,
+                dataFim = "2026-08-01",
+                permiteEdicaoOcorrenciaIndividual = true,
+                observacao = (string?)null
+            }
+        });
+
+        await client.PostAsJsonAsync("/api/v1/contas-receber", new
+        {
+            dataEmissao = "2026-04-05",
+            responsavelId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
+            dataVencimento = "2026-04-15",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 1200m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Mensalidade de consultoria",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 1200m } },
+            recorrencia = new
+            {
+                tipoPeriodicidade = "Mensal",
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 15,
+                dataInicio = (string?)null,
+                dataFim = "2026-09-01",
+                permiteEdicaoOcorrenciaIndividual = false,
+                observacao = (string?)null
+            }
+        });
+
+        var apenasPagar = await client.GetFromJsonAsync<RecorrenciaListResponse>("/api/v1/recorrencias?tipo=Pagar");
+        apenasPagar!.Items.Should().ContainSingle(item => item.ContaOrigemTipo == "ContaPagar");
+        apenasPagar.Summary.TotalRegistros.Should().Be(1);
+        apenasPagar.Summary.ValorTotal.Should().Be(450m);
+
+        var apenasReceber = await client.GetFromJsonAsync<RecorrenciaListResponse>("/api/v1/recorrencias?tipo=Receber");
+        apenasReceber!.Items.Should().ContainSingle(item => item.ContaOrigemTipo == "ContaReceber");
+
+        var busca = await client.GetFromJsonAsync<RecorrenciaListResponse>("/api/v1/recorrencias?search=consultoria");
+        busca!.Items.Should().ContainSingle(item => item.Descricao == "Mensalidade de consultoria");
+
+        var paginaVazia = await client.GetFromJsonAsync<RecorrenciaListResponse>("/api/v1/recorrencias?page=2&pageSize=10");
+        paginaVazia!.Items.Should().BeEmpty();
+    }
+
     private sealed record ContaDetalheResponse(Guid Id, RecorrenciaResponse? Recorrencia);
 
     private sealed record RecorrenciaResponse(Guid Id);

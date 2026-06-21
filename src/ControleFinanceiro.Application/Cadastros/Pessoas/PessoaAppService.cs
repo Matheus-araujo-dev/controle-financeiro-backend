@@ -11,7 +11,7 @@ namespace ControleFinanceiro.Application.Cadastros.Pessoas;
 
 public sealed class PessoaAppService(IAppDbContext dbContext)
 {
-    public async Task<PagedResult<PessoaResumoResponse>> ListarAsync(PessoaListQueryRequest query, CancellationToken cancellationToken)
+    public async Task<PessoaListResponse> ListarAsync(PessoaListQueryRequest query, CancellationToken cancellationToken)
     {
         var consulta = dbContext.Pessoas.AsNoTracking();
 
@@ -24,9 +24,10 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 (x.Email != null && EF.Functions.Like(x.Email, termo)));
         }
 
-        if (query.TipoPessoa.HasValue)
+        var tipos = MapearTiposFiltro(query);
+        if (tipos.Count > 0)
         {
-            consulta = consulta.Where(x => x.TipoPessoa == MapearTipoPessoa(query.TipoPessoa.Value));
+            consulta = consulta.Where(x => tipos.Contains(x.TipoPessoa));
         }
 
         if (query.Ativo.HasValue)
@@ -34,17 +35,67 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.Documento))
+        {
+            var termoDoc = $"%{query.Documento.Trim()}%";
+            consulta = consulta.Where(x => x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj, termoDoc));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Email))
+        {
+            var termoEmail = $"%{query.Email.Trim()}%";
+            consulta = consulta.Where(x => x.Email != null && EF.Functions.Like(x.Email, termoEmail));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Telefone))
+        {
+            var termoTelefone = $"%{query.Telefone.Trim()}%";
+            consulta = consulta.Where(x => x.Telefone != null && EF.Functions.Like(x.Telefone, termoTelefone));
+        }
+
+        // Totalizadores sobre o conjunto FILTRADO (antes da paginação).
+        var summaryRaw = await consulta
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Ativos = g.Count(x => x.Ativo),
+                Fisicas = g.Count(x => x.TipoPessoa == TipoPessoa.Fisica),
+                Juridicas = g.Count(x => x.TipoPessoa == TipoPessoa.Juridica)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var summary = new PessoaListSummaryResponse(
+            summaryRaw?.Total ?? 0,
+            summaryRaw?.Ativos ?? 0,
+            (summaryRaw?.Total ?? 0) - (summaryRaw?.Ativos ?? 0),
+            summaryRaw?.Fisicas ?? 0,
+            summaryRaw?.Juridicas ?? 0);
+
+        var totalItems = summary.Total;
+
         consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
             "tipopessoa" => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.TipoPessoa).ThenByDescending(x => x.Nome)
                 : consulta.OrderBy(x => x.TipoPessoa).ThenBy(x => x.Nome),
+            "cpfcnpj" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.CpfCnpj).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.CpfCnpj).ThenBy(x => x.Nome),
+            "email" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Email).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Email).ThenBy(x => x.Nome),
+            "telefone" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Telefone).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Telefone).ThenBy(x => x.Nome),
+            "ativo" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.Ativo).ThenByDescending(x => x.Nome)
+                : consulta.OrderBy(x => x.Ativo).ThenBy(x => x.Nome),
             _ => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.Nome)
                 : consulta.OrderBy(x => x.Nome)
         };
 
-        var totalItems = await consulta.CountAsync(cancellationToken);
         var entidades = await consulta
             .ApplyPagination(query)
             .ToListAsync(cancellationToken);
@@ -60,7 +111,32 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.Ativo))
             .ToArray();
 
-        return PagedResult<PessoaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
+        var paged = PagedResult<PessoaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
+
+        return new PessoaListResponse(
+            paged.Items,
+            paged.Page,
+            paged.PageSize,
+            paged.TotalItems,
+            paged.TotalPages,
+            summary);
+    }
+
+    private static IReadOnlyCollection<TipoPessoa> MapearTiposFiltro(PessoaListQueryRequest query)
+    {
+        var tipos = new List<TipoPessoa>();
+
+        if (query.TiposPessoa is { Count: > 0 })
+        {
+            tipos.AddRange(query.TiposPessoa.Select(MapearTipoPessoa));
+        }
+
+        if (query.TipoPessoa.HasValue)
+        {
+            tipos.Add(MapearTipoPessoa(query.TipoPessoa.Value));
+        }
+
+        return tipos.Distinct().ToArray();
     }
 
     public async Task<PessoaDetalheResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken)

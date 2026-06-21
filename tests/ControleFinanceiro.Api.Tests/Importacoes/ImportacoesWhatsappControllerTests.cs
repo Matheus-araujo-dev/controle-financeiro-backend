@@ -527,7 +527,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             $"/api/v1/importacoes-whatsapp/itens/{itemId}/confirmar",
             new
             {
-                observacao = "Revisao ajustada antes da conciliacao"
+                observacao = "Revisao ajustada antes da aprovacao"
             });
 
         segundaConfirmacao.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -535,8 +535,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         detalheAtualizado.Should().NotBeNull();
         detalheAtualizado!.Itens.Single().StatusCodigo.Should().Be("CONFIRMADO");
-        detalheAtualizado.Itens.Single().Observacao.Should().Be("Revisao ajustada antes da conciliacao");
-        detalheAtualizado.Itens.Single().MovimentacaoFinanceiraId.Should().BeNull();
+        detalheAtualizado.Itens.Single().Observacao.Should().Be("Revisao ajustada antes da aprovacao");
         detalheAtualizado.StatusCodigo.Should().Be("PENDENTE_REVISAO");
     }
 
@@ -1607,7 +1606,6 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         Guid? ResponsavelId,
         string? ResponsavelNome,
         Guid? ContaReceberId,
-        Guid? MovimentacaoFinanceiraId,
         string? StatusPrevisaoCodigo,
         string? StatusPrevisaoNome,
         string? Observacao,

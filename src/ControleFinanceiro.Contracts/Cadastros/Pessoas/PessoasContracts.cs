@@ -18,10 +18,38 @@ public enum PessoaChavePixTipo
 
 public sealed record PessoaListQueryRequest : ListQueryRequest
 {
+    /// <summary>Filtro de tipo único (mantido por compatibilidade). Prefira <see cref="TiposPessoa"/>.</summary>
     public PessoaTipo? TipoPessoa { get; init; }
 
+    /// <summary>Filtro multi-select por tipo de pessoa.</summary>
+    public IReadOnlyList<PessoaTipo>? TiposPessoa { get; init; }
+
     public bool? Ativo { get; init; }
+
+    /// <summary>Filtro por documento (CPF/CNPJ), busca parcial.</summary>
+    public string? Documento { get; init; }
+
+    /// <summary>Filtro por e-mail, busca parcial.</summary>
+    public string? Email { get; init; }
+
+    /// <summary>Filtro por telefone, busca parcial.</summary>
+    public string? Telefone { get; init; }
 }
+
+public sealed record PessoaListSummaryResponse(
+    int Total,
+    int Ativos,
+    int Inativos,
+    int Fisicas,
+    int Juridicas);
+
+public sealed record PessoaListResponse(
+    IReadOnlyCollection<PessoaResumoResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages,
+    PessoaListSummaryResponse Summary);
 
 public sealed record CriarPessoaRequest(
     string Nome,

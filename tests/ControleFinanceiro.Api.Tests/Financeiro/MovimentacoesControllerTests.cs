@@ -59,13 +59,17 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         var liquidarSaidaResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{contaPagar!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-07",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 81m,
+            atualizarValorConta = true
         });
 
         var liquidarEntradaResponse = await client.PostAsJsonAsync($"/api/v1/contas-receber/{contaReceber!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-08",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 200m,
+            atualizarValorConta = true
         });
 
         var listResponse = await client.GetFromJsonAsync<MovimentacaoListResponse>("/api/v1/movimentacoes?tipo=Saida");
@@ -111,7 +115,9 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         var liquidarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-06",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = true
         });
 
         var estornarResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created.Id}/estornar", new { });
@@ -178,13 +184,17 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         var liquidarPrimeiraResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{primeiraConta!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-07",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 90m,
+            atualizarValorConta = true
         });
 
         var liquidarSegundaResponse = await client.PostAsJsonAsync($"/api/v1/contas-receber/{segundaConta!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-08",
-            contaBancariaId = contaBancariaSecundariaId
+            contaBancariaId = contaBancariaSecundariaId,
+            valorLiquidacao = 140m,
+            atualizarValorConta = true
         });
 
         var listResponse = await client.GetFromJsonAsync<MovimentacaoListResponse>(
@@ -253,13 +263,17 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         var liquidarSaidaResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{contaPagar!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-07",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 90m,
+            atualizarValorConta = true
         });
 
         var liquidarEntradaResponse = await client.PostAsJsonAsync($"/api/v1/contas-receber/{contaReceber!.Id}/liquidar", new
         {
             dataLiquidacao = "2026-04-08",
-            contaBancariaId = fixture.ContaBancariaId
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 140m,
+            atualizarValorConta = true
         });
 
         var listResponse = await client.GetFromJsonAsync<MovimentacaoListResponse>(

@@ -160,11 +160,6 @@ public sealed class ImportacaoWhatsapp : TenantEntity
             throw new InvalidOperationException("Somente importações aprovadas podem ser reabertas.");
         }
 
-        foreach (var item in _itens)
-        {
-            item.HabilitarEdicaoAposReabertura();
-        }
-
         Status = StatusImportacaoWhatsapp.PendenteRevisao;
         ConfirmadoEmUtc = null;
         RejeitadoEmUtc = null;

@@ -77,6 +77,9 @@ jobs:
       DOTNET_VERSION: 9.0.x
       SONAR_PROJECT_KEY: controle-financeiro-backend
       SONAR_PROJECT_NAME: controle-financeiro-backend
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
 
     steps:
       - uses: actions/checkout@v4
@@ -107,41 +110,41 @@ jobs:
           }
 
       - name: Setup Java
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Install SonarScanner
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         run: dotnet tool install --global dotnet-sonarscanner
 
       - name: Sonar Begin
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         shell: bash
         run: |
           EXTRA_ARGS=""
-          if [ -n "${{ secrets.SONAR_ORGANIZATION }}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS /o:${{ secrets.SONAR_ORGANIZATION }}"
+          if [ -n "${SONAR_ORGANIZATION}" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS /o:${SONAR_ORGANIZATION}"
           fi
           dotnet-sonarscanner begin \
             /k:"${SONAR_PROJECT_KEY}" \
             /n:"${SONAR_PROJECT_NAME}" \
-            /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
-            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" \
+            /d:sonar.host.url="${SONAR_HOST_URL}" \
+            /d:sonar.token="${SONAR_TOKEN}" \
             /d:sonar.qualitygate.wait=true \
             /d:sonar.cs.opencover.reportsPaths="**/coverage-collector/**/coverage.opencover.xml" \
             ${EXTRA_ARGS}
 
       - name: Sonar Build
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         run: dotnet build --configuration Release --no-restore
 
       - name: Sonar End
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
-        run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
+        run: dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
 
       - name: Require Sonar configuration
-        if: ${{ secrets.SONAR_TOKEN == '' || secrets.SONAR_HOST_URL == '' }}
+        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
         run: echo "Sonar disabled in CI because SONAR_TOKEN or SONAR_HOST_URL is missing. Configure secrets to enforce the quality gate."

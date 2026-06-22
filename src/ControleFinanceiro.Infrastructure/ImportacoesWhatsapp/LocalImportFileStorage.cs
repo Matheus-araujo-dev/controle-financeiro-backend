@@ -6,6 +6,11 @@ namespace ControleFinanceiro.Infrastructure.ImportacoesWhatsapp;
 public sealed class LocalImportFileStorage(IWebHostEnvironment environment) : IFileStorage
 {
     private const int MaxFileBytes = 10 * 1024 * 1024;
+    private static readonly char[] UnsafeFileNameChars =
+        Path.GetInvalidFileNameChars()
+            .Concat(['<', '>', ':', '"', '/', '\\', '|', '?', '*'])
+            .Distinct()
+            .ToArray();
 
     public async Task<FileStorageResult> SaveAsync(FileStorageRequest request, CancellationToken cancellationToken)
     {
@@ -40,7 +45,6 @@ public sealed class LocalImportFileStorage(IWebHostEnvironment environment) : IF
 
     private static string SanitizeFileName(string fileName)
     {
-        var invalidChars = Path.GetInvalidFileNameChars();
-        return new string(fileName.Select(character => invalidChars.Contains(character) ? '_' : character).ToArray());
+        return new string(fileName.Select(character => UnsafeFileNameChars.Contains(character) ? '_' : character).ToArray());
     }
 }

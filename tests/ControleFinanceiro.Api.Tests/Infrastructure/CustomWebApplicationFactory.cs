@@ -71,6 +71,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         // AddInfrastructure exige uma connection string; o DbContext real é substituído abaixo.
         builder.UseSetting("ConnectionStrings:SqlServer", _sqlConnectionString ?? "Server=unused;Database=unused;");
+        builder.UseSetting("Auth:Mode", "Development");
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();

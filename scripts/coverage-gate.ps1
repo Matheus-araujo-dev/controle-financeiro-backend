@@ -33,8 +33,9 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+$coverageReportPattern = Join-Path (Join-Path $results '**') 'coverage.cobertura.xml'
 dotnet tool run reportgenerator -- `
-    "-reports:$results\**\coverage.cobertura.xml" `
+    "-reports:$coverageReportPattern" `
     "-targetdir:$report" `
     "-reporttypes:Cobertura;TextSummary;JsonSummary;HtmlSummary"
 if ($LASTEXITCODE -ne 0) {

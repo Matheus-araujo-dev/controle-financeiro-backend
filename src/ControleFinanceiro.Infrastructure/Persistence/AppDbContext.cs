@@ -5,6 +5,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
+using ControleFinanceiro.Domain.Anexos;
 using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.Identidade;
@@ -43,6 +44,10 @@ public sealed class AppDbContext(
     }
 
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
+
+    public DbSet<Anexo> Anexos => Set<Anexo>();
+
+    public DbSet<AnexoVinculo> AnexoVinculos => Set<AnexoVinculo>();
 
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
 
@@ -117,6 +122,8 @@ public sealed class AppDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new AuditTrailEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new AnexoConfiguration());
+        modelBuilder.ApplyConfiguration(new AnexoVinculoConfiguration());
         modelBuilder.ApplyConfiguration(new PessoaConfiguration());
         modelBuilder.ApplyConfiguration(new PessoaChavePixConfiguration());
         modelBuilder.ApplyConfiguration(new FormaPagamentoConfiguration());

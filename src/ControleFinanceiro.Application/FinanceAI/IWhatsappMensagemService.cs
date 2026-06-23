@@ -6,6 +6,7 @@ public sealed record WhatsappMensagemRequest(
     string? Texto,
     string? MidiaBase64,
     string? MimeType,
+    string? NomeArquivo,
     string MessageId,
     DateTimeOffset Timestamp);
 

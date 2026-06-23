@@ -1,3 +1,4 @@
+using ControleFinanceiro.Application.Anexos;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.FinanceAI.Tools;
 using ControleFinanceiro.Domain.FinanceAI;
@@ -13,7 +14,8 @@ public sealed class FinanceAgentService(
     IAppDbContext db,
     ICurrentUser currentUser,
     IEnumerable<IFinanceTool> tools,
-    ILogger<FinanceAgentService> logger) : IFinanceAgentService
+    ILogger<FinanceAgentService> logger,
+    AnexoAppService? anexoAppService = null) : IFinanceAgentService
 {
     private const int MaxToolRounds = 5;
 
@@ -27,7 +29,6 @@ public sealed class FinanceAgentService(
 
         var (usuarioId, papel, nomeFamilia) = await ResolverContextoAsync(familiaId, request.UsuarioId, cancellationToken);
 
-        var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia);
         var toolMap = tools.ToDictionary(t => t.Name);
         var toolDefs = tools.Select(t => new LlmToolDefinition(t.Name, t.Description, t.InputSchema)).ToList();
         var systemPrompt = FinanceAgentSystemPrompt.Build(nomeFamilia, papel.ToString(), DateOnly.FromDateTime(DateTime.UtcNow));
@@ -48,6 +49,20 @@ public sealed class FinanceAgentService(
         }
 
         conversa.AdicionarMensagem("user", request.Mensagem, request.ExternalMessageId);
+
+        if (request.Anexo is not null && anexoAppService is not null)
+        {
+            await anexoAppService.CriarPendenteAsync(
+                familiaId,
+                conversa.Id,
+                request.Anexo.NomeArquivo,
+                request.Anexo.MimeType,
+                request.Anexo.ArquivoBase64,
+                cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia, conversa.Id);
 
         // Monta histórico de mensagens
         var messages = conversa.Mensagens

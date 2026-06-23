@@ -6,7 +6,8 @@ public sealed record ToolContext(
     Guid FamiliaId,
     Guid UsuarioId,
     PapelFamilia Papel,
-    string NomeFamilia);
+    string NomeFamilia,
+    Guid? ConversaId = null);
 
 public interface IFinanceTool
 {

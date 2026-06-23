@@ -19,6 +19,7 @@ public sealed class WhatsappWebhookInternalApiKeyTests(CustomWebApplicationFacto
         MidiaBase64: null,
         MimeType: null,
         MessageId: "msg-1",
+        NomeArquivo: null,
         Timestamp: DateTimeOffset.UtcNow);
 
     [Fact]

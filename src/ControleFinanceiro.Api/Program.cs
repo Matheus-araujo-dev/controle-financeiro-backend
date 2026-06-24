@@ -36,8 +36,12 @@ if (connectionString?.Contains("${DB_PASSWORD}") == true)
     builder.Configuration["ConnectionStrings:SqlServer"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
 }
 
+var defaultLogLevel = builder.Configuration.GetValue(
+    "Serilog:MinimumLevel:Default",
+    builder.Environment.IsDevelopment() ? LogEventLevel.Debug : LogEventLevel.Information);
+
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
+    .MinimumLevel.Is(defaultLogLevel)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)

@@ -228,13 +228,17 @@ public sealed class AppDbContext(
         string? userId)
     {
         var entityName = entry.Entity.GetType().Name;
+        var modifiedProperties = entry.State == EntityState.Modified
+            ? entry.Properties.Where(property => property.IsModified).Select(property => property.Metadata).ToArray()
+            : entry.CurrentValues.Properties.ToArray();
+
         var beforeJson = entry.State == EntityState.Modified
-            ? JsonSerializer.Serialize(entry.OriginalValues.Properties.ToDictionary(
+            ? JsonSerializer.Serialize(modifiedProperties.ToDictionary(
                 property => property.Name,
                 property => entry.OriginalValues[property]))
             : null;
 
-        var afterJson = JsonSerializer.Serialize(entry.CurrentValues.Properties.ToDictionary(
+        var afterJson = JsonSerializer.Serialize(modifiedProperties.ToDictionary(
             property => property.Name,
             property => entry.CurrentValues[property]));
 

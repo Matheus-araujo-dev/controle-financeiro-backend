@@ -34,9 +34,10 @@ public sealed class AnexosController(AnexoAppService service) : ApiControllerBas
     public async Task<ActionResult<AnexoResponse>> Adicionar(
         string tipoEntidade,
         Guid entidadeId,
-        [FromForm] IFormFile arquivo,
+        [FromForm] UploadAnexoRequest request,
         CancellationToken cancellationToken)
     {
+        var arquivo = request.Arquivo;
         if (arquivo is null) return BadRequest("Nenhum arquivo enviado.");
 
         await using var stream = arquivo.OpenReadStream();
@@ -78,4 +79,10 @@ public sealed class AnexosController(AnexoAppService service) : ApiControllerBas
             ? NoContent()
             : NotFoundResponse();
     }
+}
+
+public sealed class UploadAnexoRequest
+{
+    [FromForm(Name = "arquivo")]
+    public IFormFile? Arquivo { get; init; }
 }

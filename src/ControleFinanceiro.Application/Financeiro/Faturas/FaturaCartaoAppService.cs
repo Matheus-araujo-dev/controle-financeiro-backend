@@ -313,8 +313,17 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             .AsNoTracking()
             .SingleAsync(x => x.Id == fatura.CartaoId, cancellationToken);
 
+        var (vencimentoInicial, vencimentoFinal) = ResolverJanelaVencimentoCompetencia(
+            fatura.Competencia,
+            cartao.DiaFechamentoFatura,
+            cartao.DiaVencimentoFatura);
+
         var comprasCartao = await dbContext.ContasPagar
-            .Where(x => x.CartaoId == fatura.CartaoId && x.StatusContaId != StatusConta.CanceladaId)
+            .Where(x =>
+                x.CartaoId == fatura.CartaoId &&
+                x.StatusContaId != StatusConta.CanceladaId &&
+                x.DataVencimento >= vencimentoInicial &&
+                x.DataVencimento <= vencimentoFinal)
             .ToListAsync(cancellationToken);
 
         var itensDaFatura = comprasCartao
@@ -419,8 +428,17 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             .AsNoTracking()
             .SingleAsync(x => x.Id == fatura.CartaoId, cancellationToken);
 
+        var (vencimentoInicial, vencimentoFinal) = ResolverJanelaVencimentoCompetencia(
+            fatura.Competencia,
+            cartao.DiaFechamentoFatura,
+            cartao.DiaVencimentoFatura);
+
         var comprasCartao = await dbContext.ContasPagar
-            .Where(x => x.CartaoId == fatura.CartaoId && x.StatusContaId != StatusConta.CanceladaId)
+            .Where(x =>
+                x.CartaoId == fatura.CartaoId &&
+                x.StatusContaId != StatusConta.CanceladaId &&
+                x.DataVencimento >= vencimentoInicial &&
+                x.DataVencimento <= vencimentoFinal)
             .ToListAsync(cancellationToken);
 
         var itensDaFatura = comprasCartao
@@ -555,11 +573,19 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             .AsNoTracking()
             .SingleAsync(x => x.Id == cartaoId, cancellationToken);
 
+        var (vencimentoInicial, vencimentoFinal) = ResolverJanelaVencimentoCompetencia(
+            competencia,
+            cartao.DiaFechamentoFatura,
+            cartao.DiaVencimentoFatura);
+
         var contas = await (
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where conta.CartaoId == cartaoId && conta.StatusContaId != StatusConta.CanceladaId
+            where conta.CartaoId == cartaoId &&
+                  conta.StatusContaId != StatusConta.CanceladaId &&
+                  conta.DataVencimento >= vencimentoInicial &&
+                  conta.DataVencimento <= vencimentoFinal
             select new
             {
                 conta.Id,
@@ -630,6 +656,26 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             .Where(chaves.Contains)
             .GroupBy(x => x)
             .ToDictionary(x => x.Key, x => x.Count());
+    }
+
+    private static (DateOnly Inicial, DateOnly Final) ResolverJanelaVencimentoCompetencia(
+        string competencia,
+        int diaFechamento,
+        int diaVencimento)
+    {
+        var partes = competencia.Split('-', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length != 2 || !int.TryParse(partes[0], out var ano) || !int.TryParse(partes[1], out var mes))
+        {
+            throw ValidationExceptionFactory.Create("Competencia", "Competência de fatura inválida.");
+        }
+
+        var mesVencimento = new DateOnly(ano, mes, 1);
+        if (diaVencimento <= diaFechamento)
+        {
+            mesVencimento = mesVencimento.AddMonths(1);
+        }
+
+        return (mesVencimento, mesVencimento.AddMonths(1).AddDays(-1));
     }
 
     private static StatusFaturaCartao NormalizarStatus(string statusCodigo)

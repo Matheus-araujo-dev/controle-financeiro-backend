@@ -94,7 +94,12 @@ public sealed class DashboardAppService
 
         var contasPagar = await dbContext.ContasPagar
             .AsNoTracking()
-            .Where(c => c.StatusContaId != StatusConta.LiquidadaId && c.StatusContaId != StatusConta.CanceladaId)
+            .Where(c =>
+                c.StatusContaId != StatusConta.LiquidadaId &&
+                c.StatusContaId != StatusConta.CanceladaId &&
+                (usarDataVencimento
+                    ? c.DataVencimento >= dataInicial && c.DataVencimento <= dataFinal
+                    : c.DataEmissao >= dataInicial && c.DataEmissao <= dataFinal))
             .Select(c => new { c.DataEmissao, c.DataVencimento, c.ValorLiquido })
             .ToListAsync(cancellationToken);
 
@@ -109,7 +114,12 @@ public sealed class DashboardAppService
 
         var contasReceber = await dbContext.ContasReceber
             .AsNoTracking()
-            .Where(c => c.StatusContaId != StatusConta.LiquidadaId && c.StatusContaId != StatusConta.CanceladaId)
+            .Where(c =>
+                c.StatusContaId != StatusConta.LiquidadaId &&
+                c.StatusContaId != StatusConta.CanceladaId &&
+                (usarDataVencimento
+                    ? c.DataVencimento >= dataInicial && c.DataVencimento <= dataFinal
+                    : c.DataEmissao >= dataInicial && c.DataEmissao <= dataFinal))
             .Select(c => new { c.DataEmissao, c.DataVencimento, c.ValorLiquido })
             .ToListAsync(cancellationToken);
 

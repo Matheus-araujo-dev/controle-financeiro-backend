@@ -598,9 +598,14 @@ public sealed class DashboardAppService
             return [];
         }
 
+        var regraIds = regras.Select(r => r.Id).ToArray();
+
         var contasPagarRegra = await dbContext.ContasPagar
             .AsNoTracking()
-            .Where(c => c.RegraRecorrenciaId != null && c.StatusContaId != StatusConta.CanceladaId)
+            .Where(c =>
+                c.RegraRecorrenciaId != null &&
+                regraIds.Contains(c.RegraRecorrenciaId.Value) &&
+                c.StatusContaId != StatusConta.CanceladaId)
             .Select(c => new ContaRecorrenciaInfo(
                 c.Id,
                 c.RegraRecorrenciaId!.Value,
@@ -614,7 +619,10 @@ public sealed class DashboardAppService
 
         var contasReceberRegra = await dbContext.ContasReceber
             .AsNoTracking()
-            .Where(c => c.RegraRecorrenciaId != null && c.StatusContaId != StatusConta.CanceladaId)
+            .Where(c =>
+                c.RegraRecorrenciaId != null &&
+                regraIds.Contains(c.RegraRecorrenciaId.Value) &&
+                c.StatusContaId != StatusConta.CanceladaId)
             .Select(c => new ContaRecorrenciaInfo(
                 c.Id,
                 c.RegraRecorrenciaId!.Value,

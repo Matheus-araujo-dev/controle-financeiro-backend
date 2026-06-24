@@ -24,7 +24,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         FaturaListQueryRequest query,
         CancellationToken cancellationToken)
     {
-        await SincronizarFaturasAsync(cancellationToken);
+        await SincronizarFaturasAsync(query, cancellationToken);
 
         var consulta =
             from fatura in dbContext.FaturasCartao.AsNoTracking()
@@ -459,18 +459,72 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         return await ObterPorIdAsync(id, cancellationToken);
     }
 
-    private async Task SincronizarFaturasAsync(CancellationToken cancellationToken)
+    private Task SincronizarFaturasAsync(CancellationToken cancellationToken)
     {
-        var cartoes = await dbContext.Cartoes
+        return SincronizarFaturasAsync(null, cancellationToken);
+    }
+
+    private async Task SincronizarFaturasAsync(
+        FaturaListQueryRequest? query,
+        CancellationToken cancellationToken)
+    {
+        var cartaoIdsFiltro = query is null
+            ? new HashSet<Guid>()
+            : query.CartaoIds?
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToHashSet() ?? [];
+
+        if (query?.CartaoId is { } cartaoId && cartaoId != Guid.Empty)
+        {
+            cartaoIdsFiltro.Add(cartaoId);
+        }
+
+        var competenciaFiltro = string.IsNullOrWhiteSpace(query?.Competencia)
+            ? null
+            : query.Competencia.Trim();
+
+        var cartoesConsulta = dbContext.Cartoes
             .AsNoTracking()
+            .AsQueryable();
+
+        if (cartaoIdsFiltro.Count > 0)
+        {
+            cartoesConsulta = cartoesConsulta.Where(x => cartaoIdsFiltro.Contains(x.Id));
+        }
+
+        var cartoes = await cartoesConsulta
             .Select(x => new CartaoProjection(x.Id, x.DiaFechamentoFatura, x.DiaVencimentoFatura))
             .ToDictionaryAsync(x => x.Id, cancellationToken);
 
-        var comprasCartao = await dbContext.ContasPagar
-            .Where(x => x.CartaoId.HasValue && x.StatusContaId != StatusConta.CanceladaId)
-            .ToListAsync(cancellationToken);
+        var comprasCartaoQuery = dbContext.ContasPagar
+            .Where(x => x.CartaoId.HasValue && x.StatusContaId != StatusConta.CanceladaId);
+
+        if (cartaoIdsFiltro.Count > 0)
+        {
+            comprasCartaoQuery = comprasCartaoQuery.WhereIn(x => x.CartaoId!.Value, cartaoIdsFiltro);
+        }
+
+        if (competenciaFiltro is not null && cartoes.Count > 0)
+        {
+            var janelas = cartoes.Values
+                .Select(cartao => ResolverJanelaVencimentoCompetencia(
+                    competenciaFiltro,
+                    cartao.DiaFechamentoFatura,
+                    cartao.DiaVencimentoFatura))
+                .ToArray();
+            var vencimentoInicial = janelas.Min(janela => janela.Inicial);
+            var vencimentoFinal = janelas.Max(janela => janela.Final);
+
+            comprasCartaoQuery = comprasCartaoQuery.Where(x =>
+                x.DataVencimento >= vencimentoInicial &&
+                x.DataVencimento <= vencimentoFinal);
+        }
+
+        var comprasCartao = await comprasCartaoQuery.ToListAsync(cancellationToken);
 
         var grupos = comprasCartao
+            .Where(conta => cartoes.ContainsKey(conta.CartaoId!.Value))
             .Select(conta =>
             {
                 var cartao = cartoes[conta.CartaoId!.Value];
@@ -487,6 +541,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                     competencia.DataVencimento,
                     conta.ValorLiquido);
             })
+            .Where(x => competenciaFiltro is null || x.Competencia == competenciaFiltro)
             .GroupBy(x => new FaturaLookupKey(x.CartaoId, x.Competencia))
             .Select(group => new FaturaSyncProjection(
                 group.Key.CartaoId,
@@ -496,7 +551,19 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                 group.Sum(x => x.ValorLiquido)))
             .ToArray();
 
-        var faturasExistentes = await dbContext.FaturasCartao
+        var faturasExistentesQuery = dbContext.FaturasCartao.AsQueryable();
+
+        if (cartaoIdsFiltro.Count > 0)
+        {
+            faturasExistentesQuery = faturasExistentesQuery.Where(x => cartaoIdsFiltro.Contains(x.CartaoId));
+        }
+
+        if (competenciaFiltro is not null)
+        {
+            faturasExistentesQuery = faturasExistentesQuery.Where(x => x.Competencia == competenciaFiltro);
+        }
+
+        var faturasExistentes = await faturasExistentesQuery
             .ToDictionaryAsync(x => new FaturaLookupKey(x.CartaoId, x.Competencia), cancellationToken);
 
         var houveMudanca = false;

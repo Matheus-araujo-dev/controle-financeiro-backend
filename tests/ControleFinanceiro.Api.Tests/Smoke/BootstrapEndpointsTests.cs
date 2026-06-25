@@ -19,7 +19,7 @@ public sealed class BootstrapEndpointsTests(CustomWebApplicationFactory factory)
         var response = await _client.GetAsync("/health");
         var payload = await response.Content.ReadAsStringAsync();
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.OK, payload);
         payload.Should().Contain("Healthy");
     }
 
@@ -29,7 +29,7 @@ public sealed class BootstrapEndpointsTests(CustomWebApplicationFactory factory)
         var response = await _client.GetAsync("/swagger/index.html");
         var payload = await response.Content.ReadAsStringAsync();
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.OK, payload);
         payload.Should().Contain("Swagger UI");
     }
 
@@ -38,9 +38,9 @@ public sealed class BootstrapEndpointsTests(CustomWebApplicationFactory factory)
     {
         var response = await _client.GetAsync("/swagger/v1/swagger.json");
         var payload = await response.Content.ReadAsStringAsync();
-        var document = JsonNode.Parse(payload);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.OK, payload);
+        var document = JsonNode.Parse(payload);
         document.Should().NotBeNull();
         document!["components"]?["securitySchemes"]?["Bearer"]?["type"]?.GetValue<string>().Should().Be("http");
         document["components"]?["securitySchemes"]?["Bearer"]?["scheme"]?.GetValue<string>().Should().Be("bearer");

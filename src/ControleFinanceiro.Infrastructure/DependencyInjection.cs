@@ -1,3 +1,4 @@
+using ControleFinanceiro.Application.Anexos;
 using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
@@ -5,6 +6,7 @@ using ControleFinanceiro.Application.Identidade;
 using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Events;
+using ControleFinanceiro.Infrastructure.Anexos;
 using ControleFinanceiro.Infrastructure.FinanceAI;
 using ControleFinanceiro.Infrastructure.ImportacoesWhatsapp;
 using ControleFinanceiro.Infrastructure.Persistence;
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IStatusDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<ICadastrosDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFileStorage, LocalImportFileStorage>();
+        services.AddScoped<IAnexoFileStorage, LocalAnexoFileStorage>();
         services.AddScoped<IDocumentExtractor, DefaultDocumentExtractor>();
         services.AddScoped<IImportSuggestionService, HeuristicImportSuggestionService>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();

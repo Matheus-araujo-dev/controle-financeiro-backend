@@ -27,6 +27,7 @@ public sealed class WhatsappController(IWhatsappMensagemService mensagemService)
             request.Texto,
             request.MidiaBase64,
             request.MimeType,
+            request.NomeArquivo,
             request.MessageId,
             request.Timestamp);
 

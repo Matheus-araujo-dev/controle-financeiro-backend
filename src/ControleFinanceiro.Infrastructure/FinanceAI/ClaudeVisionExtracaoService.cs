@@ -21,13 +21,23 @@ public sealed class ClaudeVisionExtracaoService(
         Se não conseguir extrair dados confiáveis: {"sucesso": false}
         """;
 
+    private const string PaymentFieldsPrompt = """
+
+        Inclua tambem, quando identificavel:
+        - "meioPagamento": Pix, CartaoCredito, CartaoDebito, Dinheiro, Boleto ou Outro
+        - "quantidadeParcelas": inteiro positivo; use 1 para pagamento unico
+        - "finalCartao": quatro ultimos digitos visiveis
+        - "bandeiraCartao": bandeira inferida por texto ou logotipo
+        Use texto e logotipos para identificar o estabelecimento, sem inventar dados ausentes.
+        """;
+
     public async Task<ExtracaoImagemResultado> ExtrairAsync(
         string imagemBase64, string mimeType, CancellationToken cancellationToken)
     {
         try
         {
             var raw = await vision.AnalisarImagemAsync(
-                SystemPrompt,
+                SystemPrompt + PaymentFieldsPrompt,
                 "Extraia os dados financeiros desta imagem de comprovante ou nota fiscal.",
                 imagemBase64,
                 mimeType,
@@ -55,12 +65,28 @@ public sealed class ClaudeVisionExtracaoService(
                 catch { /* ignora valor malformado */ }
             }
 
+            int? quantidadeParcelas = null;
+            var parcelasNode = node["quantidadeParcelas"];
+            if (parcelasNode != null)
+            {
+                try
+                {
+                    var parsed = parcelasNode.GetValue<int>();
+                    quantidadeParcelas = parsed > 0 ? parsed : null;
+                }
+                catch { }
+            }
+
             return new ExtracaoImagemResultado(
                 Sucesso: true,
                 Estabelecimento: node["estabelecimento"]?.GetValue<string>(),
                 Valor: valor,
                 Data: data,
-                Descricao: node["descricao"]?.GetValue<string>());
+                Descricao: node["descricao"]?.GetValue<string>(),
+                MeioPagamento: node["meioPagamento"]?.GetValue<string>(),
+                QuantidadeParcelas: quantidadeParcelas,
+                FinalCartao: node["finalCartao"]?.GetValue<string>(),
+                BandeiraCartao: node["bandeiraCartao"]?.GetValue<string>());
         }
         catch (Exception ex)
         {

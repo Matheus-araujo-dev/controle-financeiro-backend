@@ -19,6 +19,7 @@ public interface IAppDbContext :
     IIdentidadeDbContext,
     IFinanceAiDbContext,
     IWhatsappDbContext,
+    IAnexosDbContext,
     IUnitOfWork
 {
     /// <summary>

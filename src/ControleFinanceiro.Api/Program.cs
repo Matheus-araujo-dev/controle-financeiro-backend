@@ -36,8 +36,12 @@ if (connectionString?.Contains("${DB_PASSWORD}") == true)
     builder.Configuration["ConnectionStrings:SqlServer"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
 }
 
+var defaultLogLevel = builder.Configuration.GetValue(
+    "Serilog:MinimumLevel:Default",
+    builder.Environment.IsDevelopment() ? LogEventLevel.Debug : LogEventLevel.Information);
+
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
+    .MinimumLevel.Is(defaultLogLevel)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
@@ -181,13 +185,17 @@ app.Use(async (context, next) =>
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+    var styleSrc = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing")
+        ? "'self' 'unsafe-inline'"
+        : "'self'";
     // CSP permite Google Sign-In e comunicação com Anthropic (usados pelo frontend e backend)
     context.Response.Headers.Append("Content-Security-Policy",
         "default-src 'self'; " +
         "script-src 'self' https://accounts.google.com/gsi/client; " +
         "frame-src https://accounts.google.com; " +
         "connect-src 'self' https://apis.google.com; " +
-        "style-src 'self' 'unsafe-inline'; " +
+        $"style-src {styleSrc}; " +
         "img-src 'self' data: https://lh3.googleusercontent.com;");
     await next();
 });

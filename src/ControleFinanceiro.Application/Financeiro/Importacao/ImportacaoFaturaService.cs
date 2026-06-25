@@ -226,6 +226,74 @@ public sealed class ImportacaoFaturaService(
 
     // ─── Fallback: extração via IA quando regex falha ────────────────────────
 
+    private static JsonNode? ParseJsonFromLlmResponse(string response)
+    {
+        var json = ExtractJsonObject(response);
+        return json is null ? null : JsonNode.Parse(json);
+    }
+
+    private static string? ExtractJsonObject(string response)
+    {
+        if (string.IsNullOrWhiteSpace(response)) return null;
+
+        var start = response.IndexOf('{');
+        while (start >= 0)
+        {
+            var depth = 0;
+            var inString = false;
+            var escaped = false;
+
+            for (var i = start; i < response.Length; i++)
+            {
+                var current = response[i];
+
+                if (inString)
+                {
+                    if (escaped)
+                    {
+                        escaped = false;
+                        continue;
+                    }
+
+                    if (current == '\\')
+                    {
+                        escaped = true;
+                        continue;
+                    }
+
+                    if (current == '"') inString = false;
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    inString = true;
+                    continue;
+                }
+
+                if (current == '{') depth++;
+                if (current != '}') continue;
+
+                depth--;
+                if (depth != 0) continue;
+
+                var candidate = response[start..(i + 1)];
+                try
+                {
+                    using var _ = JsonDocument.Parse(candidate);
+                    return candidate;
+                }
+                catch (JsonException)
+                {
+                    break;
+                }
+            }
+
+            start = response.IndexOf('{', start + 1);
+        }
+
+        return null;
+    }
     private async Task<CsvFaturaParser.ParseResult> ExtrairComIaAsync(
         Stream pdfStream, CancellationToken cancellationToken)
     {
@@ -267,7 +335,7 @@ public sealed class ImportacaoFaturaService(
                 json = string.Join('\n', lines[1..^1]);
             }
 
-            var node = JsonNode.Parse(json);
+            var node = ParseJsonFromLlmResponse(json);
             var array = node?["transacoes"]?.AsArray() ?? [];
             var itens = new List<CsvFaturaItem>();
 

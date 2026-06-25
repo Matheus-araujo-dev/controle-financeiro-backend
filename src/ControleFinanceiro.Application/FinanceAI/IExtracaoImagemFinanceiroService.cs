@@ -5,7 +5,11 @@ public sealed record ExtracaoImagemResultado(
     string? Estabelecimento,
     decimal? Valor,
     DateOnly? Data,
-    string? Descricao);
+    string? Descricao,
+    string? MeioPagamento = null,
+    int? QuantidadeParcelas = null,
+    string? FinalCartao = null,
+    string? BandeiraCartao = null);
 
 public interface IExtracaoImagemFinanceiroService
 {

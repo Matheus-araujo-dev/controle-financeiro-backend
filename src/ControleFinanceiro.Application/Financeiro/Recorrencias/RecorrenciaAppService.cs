@@ -130,14 +130,19 @@ public sealed class RecorrenciaAppService(
         var dataInicial = query.DataReferenciaInicial;
         var dataFinal = query.DataReferenciaFinal;
 
+        var primeiraOrigemPorRegra = dbContext.ContasPagar
+            .AsNoTracking()
+            .Where(conta => conta.RegraRecorrenciaId.HasValue && conta.Origem != DomainOrigemLancamento.Recorrencia)
+            .GroupBy(conta => conta.RegraRecorrenciaId!.Value)
+            .Select(group => new { RegraId = group.Key, CreatedAtUtc = group.Min(conta => conta.CreatedAtUtc) });
+
         var consulta =
             from conta in dbContext.ContasPagar.AsNoTracking()
+            join primeiraOrigem in primeiraOrigemPorRegra
+                on new { RegraId = conta.RegraRecorrenciaId!.Value, conta.CreatedAtUtc }
+                equals new { primeiraOrigem.RegraId, primeiraOrigem.CreatedAtUtc }
             where conta.RegraRecorrenciaId.HasValue
                   && conta.Origem != DomainOrigemLancamento.Recorrencia
-                  && !dbContext.ContasPagar.Any(outra =>
-                      outra.RegraRecorrenciaId == conta.RegraRecorrenciaId
-                      && outra.Origem != DomainOrigemLancamento.Recorrencia
-                      && outra.CreatedAtUtc < conta.CreatedAtUtc)
             join regra in dbContext.RegrasRecorrencia.AsNoTracking() on conta.RegraRecorrenciaId!.Value equals regra.Id
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
@@ -165,14 +170,19 @@ public sealed class RecorrenciaAppService(
         var dataInicial = query.DataReferenciaInicial;
         var dataFinal = query.DataReferenciaFinal;
 
+        var primeiraOrigemPorRegra = dbContext.ContasReceber
+            .AsNoTracking()
+            .Where(conta => conta.RegraRecorrenciaId.HasValue && conta.Origem != DomainOrigemLancamento.Recorrencia)
+            .GroupBy(conta => conta.RegraRecorrenciaId!.Value)
+            .Select(group => new { RegraId = group.Key, CreatedAtUtc = group.Min(conta => conta.CreatedAtUtc) });
+
         var consulta =
             from conta in dbContext.ContasReceber.AsNoTracking()
+            join primeiraOrigem in primeiraOrigemPorRegra
+                on new { RegraId = conta.RegraRecorrenciaId!.Value, conta.CreatedAtUtc }
+                equals new { primeiraOrigem.RegraId, primeiraOrigem.CreatedAtUtc }
             where conta.RegraRecorrenciaId.HasValue
                   && conta.Origem != DomainOrigemLancamento.Recorrencia
-                  && !dbContext.ContasReceber.Any(outra =>
-                      outra.RegraRecorrenciaId == conta.RegraRecorrenciaId
-                      && outra.Origem != DomainOrigemLancamento.Recorrencia
-                      && outra.CreatedAtUtc < conta.CreatedAtUtc)
             join regra in dbContext.RegrasRecorrencia.AsNoTracking() on conta.RegraRecorrenciaId!.Value equals regra.Id
             join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
             join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis

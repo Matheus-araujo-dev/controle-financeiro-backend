@@ -27,6 +27,7 @@ public sealed class WhatsappMensagemService(
             logger.LogDebug("Telefone {Telefone} não cadastrado ou inativo — mensagem ignorada.", telefone);
             return null;
         }
+        AgentAttachment? anexo = null;
 
         var jaProcessado = await db.AiMensagens
             .AsNoTracking()
@@ -59,6 +60,7 @@ public sealed class WhatsappMensagemService(
                 if (textoImagem is null)
                     return RespostaTexto("Recebi sua imagem, mas não consegui extrair os dados. Descreva o lançamento em texto para eu registrar.");
                 textoFinal = textoImagem;
+                anexo = CriarAnexoDaMensagem(request);
                 break;
 
             default:
@@ -73,7 +75,8 @@ public sealed class WhatsappMensagemService(
             UsuarioId = wup.UsuarioId,
             FamiliaId = wup.FamiliaId,
             Canal = CanalAi.WhatsApp,
-            ContatoExterno = wup.Telefone
+            ContatoExterno = wup.Telefone,
+            Anexo = anexo
         };
 
         var agentResponse = await agentService.ProcessarAsync(agentRequest, cancellationToken);
@@ -124,6 +127,15 @@ public sealed class WhatsappMensagemService(
             sb.AppendLine($"- Data: {resultado.Data.Value:dd/MM/yyyy}");
         if (!string.IsNullOrEmpty(resultado.Descricao))
             sb.AppendLine($"- Descrição: {resultado.Descricao}");
+        if (!string.IsNullOrEmpty(resultado.MeioPagamento))
+            sb.AppendLine($"- Meio de pagamento: {resultado.MeioPagamento}");
+        if (resultado.QuantidadeParcelas.HasValue)
+            sb.AppendLine($"- Parcelas: {resultado.QuantidadeParcelas.Value}");
+        if (!string.IsNullOrEmpty(resultado.FinalCartao))
+            sb.AppendLine($"- Final do cartao: {resultado.FinalCartao}");
+        if (!string.IsNullOrEmpty(resultado.BandeiraCartao))
+            sb.AppendLine($"- Bandeira: {resultado.BandeiraCartao}");
+
 
         sb.Append("Por favor, crie um lançamento com esses dados. Se precisar de mais informações (como categoria), me pergunte.");
 
@@ -157,6 +169,30 @@ public sealed class WhatsappMensagemService(
         }
 
         return conversaId;
+    }
+
+    private static AgentAttachment CriarAnexoDaMensagem(WhatsappMensagemRequest request)
+    {
+        return new AgentAttachment(
+            string.IsNullOrWhiteSpace(request.NomeArquivo)
+                ? CriarNomeArquivoPadrao(request.MessageId, request.MimeType)
+                : request.NomeArquivo.Trim(),
+            request.MimeType ?? "image/jpeg",
+            request.MidiaBase64!);
+    }
+
+    private static string CriarNomeArquivoPadrao(string messageId, string? mimeType)
+    {
+        var extension = mimeType?.ToLowerInvariant() switch
+        {
+            "image/png" => ".png",
+            "image/webp" => ".webp",
+            "application/pdf" => ".pdf",
+            _ => ".jpg"
+        };
+        var safeMessageId = new string(messageId.Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray());
+        if (string.IsNullOrWhiteSpace(safeMessageId)) safeMessageId = Guid.NewGuid().ToString("N");
+        return $"comprovante-{safeMessageId}{extension}";
     }
 
     private static WhatsappMensagemResponse RespostaTexto(string texto) =>

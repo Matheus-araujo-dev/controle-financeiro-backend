@@ -5,6 +5,7 @@ using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
+using ControleFinanceiro.Domain.Anexos;
 using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.Identidade;
@@ -43,6 +44,10 @@ public sealed class AppDbContext(
     }
 
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
+
+    public DbSet<Anexo> Anexos => Set<Anexo>();
+
+    public DbSet<AnexoVinculo> AnexoVinculos => Set<AnexoVinculo>();
 
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
 
@@ -117,6 +122,8 @@ public sealed class AppDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new AuditTrailEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new AnexoConfiguration());
+        modelBuilder.ApplyConfiguration(new AnexoVinculoConfiguration());
         modelBuilder.ApplyConfiguration(new PessoaConfiguration());
         modelBuilder.ApplyConfiguration(new PessoaChavePixConfiguration());
         modelBuilder.ApplyConfiguration(new FormaPagamentoConfiguration());
@@ -221,13 +228,17 @@ public sealed class AppDbContext(
         string? userId)
     {
         var entityName = entry.Entity.GetType().Name;
+        var modifiedProperties = entry.State == EntityState.Modified
+            ? entry.Properties.Where(property => property.IsModified).Select(property => property.Metadata).ToArray()
+            : entry.CurrentValues.Properties.ToArray();
+
         var beforeJson = entry.State == EntityState.Modified
-            ? JsonSerializer.Serialize(entry.OriginalValues.Properties.ToDictionary(
+            ? JsonSerializer.Serialize(modifiedProperties.ToDictionary(
                 property => property.Name,
                 property => entry.OriginalValues[property]))
             : null;
 
-        var afterJson = JsonSerializer.Serialize(entry.CurrentValues.Properties.ToDictionary(
+        var afterJson = JsonSerializer.Serialize(modifiedProperties.ToDictionary(
             property => property.Name,
             property => entry.CurrentValues[property]));
 

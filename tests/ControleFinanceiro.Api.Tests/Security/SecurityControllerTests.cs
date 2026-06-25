@@ -34,5 +34,19 @@ public sealed class SecurityControllerTests(CustomWebApplicationFactory factory)
         payload.AuthMode.Should().Be("Development");
     }
 
+    [Fact]
+    public async Task Responses_ShouldIncludeSecurityHeaders()
+    {
+        using var client = _factory.CreateAuthenticatedClient("codex-user");
+
+        var response = await client.GetAsync("/api/v1/security/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.GetValues("X-Content-Type-Options").Should().Contain("nosniff");
+        response.Headers.GetValues("X-Frame-Options").Should().Contain("DENY");
+        response.Headers.GetValues("Referrer-Policy").Should().Contain("strict-origin-when-cross-origin");
+        response.Headers.GetValues("Permissions-Policy").Should().Contain("camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+    }
+
     private sealed record CurrentUserResponse(bool IsAuthenticated, string? UserId, string AuthMode);
 }

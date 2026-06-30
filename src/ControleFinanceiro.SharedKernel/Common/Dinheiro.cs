@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace ControleFinanceiro.SharedKernel.Common;
 
 /// <summary>
@@ -47,5 +49,5 @@ public readonly struct Dinheiro : IEquatable<Dinheiro>, IComparable<Dinheiro>
     public override bool Equals(object? obj) => obj is Dinheiro other && Equals(other);
     public override int GetHashCode() => Valor.GetHashCode();
     public int CompareTo(Dinheiro other) => Valor.CompareTo(other.Valor);
-    public override string ToString() => Valor.ToString("N2");
+    public override string ToString() => Valor.ToString("N2", CultureInfo.GetCultureInfo("pt-BR"));
 }

@@ -65,4 +65,17 @@ public sealed class Usuario : AuditableEntity
     }
 
     public void Desativar() => Ativo = false;
+
+    /// <summary>
+    /// Anonimiza dados pessoais identificáveis conforme Art. 18 da LGPD (direito ao esquecimento).
+    /// Preserva o registro para obrigações legais de auditoria mas remove PII.
+    /// </summary>
+    public void AnonimizarDados(string emailAnonimizado)
+    {
+        Email = emailAnonimizado;
+        Nome = "Usuário Removido";
+        AvatarUrl = null;
+        GoogleSubject = string.Empty;
+        Ativo = false;
+    }
 }

@@ -1,4 +1,5 @@
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 
@@ -15,6 +16,11 @@ public sealed class ContaPagarAppService(
         ContaPagarListQueryRequest query,
         CancellationToken cancellationToken)
         => _queryService.ListarAsync(query, cancellationToken);
+
+    public Task<CursorPagedResult<ContaPagarResumoResponse>> ListarCursorAsync(
+        ContaPagarCursorQueryRequest query,
+        CancellationToken cancellationToken)
+        => _queryService.ListarCursorAsync(query, cancellationToken);
 
     public Task<ContaPagarDetalheResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken)
         => _queryService.ObterPorIdAsync(id, cancellationToken);

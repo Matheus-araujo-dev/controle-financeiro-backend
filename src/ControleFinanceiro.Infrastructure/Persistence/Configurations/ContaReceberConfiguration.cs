@@ -40,6 +40,10 @@ public sealed class ContaReceberConfiguration : IEntityTypeConfiguration<ContaRe
         builder.Ignore(x => x.Rateios);
 
         builder.HasIndex(x => x.DataVencimento);
+        builder.HasIndex(x => x.DataEmissao);
+        builder.HasIndex("StatusContaId", "DataVencimento");
+        builder.HasIndex("PagadorId", "StatusContaId");
+        builder.HasIndex(x => x.RegraRecorrenciaId);
 
         builder.HasOne<Pessoa>()
             .WithMany()

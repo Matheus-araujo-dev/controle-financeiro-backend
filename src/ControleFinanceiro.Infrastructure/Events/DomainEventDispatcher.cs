@@ -1,11 +1,12 @@
 using ControleFinanceiro.Domain.Events;
+using ControleFinanceiro.SharedKernel.Common;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ControleFinanceiro.Infrastructure.Events;
 
 public sealed class DomainEventDispatcher(IServiceProvider serviceProvider) : IDomainEventDispatcher
 {
-    public async Task DispatchAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    public async Task DispatchAsync(SharedKernel.Common.IDomainEvent domainEvent, CancellationToken cancellationToken = default)
     {
         var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(domainEvent.GetType());
         var handlers = serviceProvider.GetServices(handlerType);
@@ -22,7 +23,7 @@ public sealed class DomainEventDispatcher(IServiceProvider serviceProvider) : ID
         }
     }
 
-    public async Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default)
+    public async Task DispatchAsync(IEnumerable<SharedKernel.Common.IDomainEvent> domainEvents, CancellationToken cancellationToken = default)
     {
         foreach (var domainEvent in domainEvents)
         {

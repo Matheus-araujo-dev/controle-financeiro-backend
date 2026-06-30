@@ -31,6 +31,9 @@ public sealed class MovimentacaoFinanceiraConfiguration : IEntityTypeConfigurati
             .HasMaxLength(1000);
 
         builder.HasIndex(x => x.DataMovimentacao);
+        builder.HasIndex(x => x.ContaPagarId);
+        builder.HasIndex(x => x.ContaReceberId);
+        builder.HasIndex("Natureza", "StatusMovimentacaoId", "DataMovimentacao");
 
         builder.HasIndex("StatusMovimentacaoId", "DataMovimentacao");
         builder.HasIndex("ContaBancariaId", "DataMovimentacao");

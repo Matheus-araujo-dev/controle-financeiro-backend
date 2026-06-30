@@ -1,3 +1,4 @@
+using ControleFinanceiro.Api.Filters;
 using ControleFinanceiro.Application.Financeiro.Faturas;
 using ControleFinanceiro.Application.Financeiro.Importacao;
 using ControleFinanceiro.Contracts.Common;
@@ -62,8 +63,11 @@ public sealed class FaturasController(
     // ── Importação de fatura CSV ──────────────────────────────────────────────
 
     [HttpPost("importar/preview")]
+    [RequireFamiliaId]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ImportacaoFaturaPreviewResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [RequestSizeLimit(5 * 1024 * 1024)] // 5 MB
     public async Task<ActionResult<ImportacaoFaturaPreviewResponse>> Preview(
         [FromQuery] Guid cartaoId,
@@ -71,33 +75,29 @@ public sealed class FaturasController(
         CancellationToken cancellationToken)
     {
         if (arquivo is null || arquivo.Length == 0)
-            return BadRequest("Nenhum arquivo enviado.");
+            return BadRequestResponse("Nenhum arquivo enviado.", "arquivo");
 
         var ext = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
         if (ext != ".csv" && ext != ".txt" && ext != ".pdf")
-            return BadRequest("Apenas arquivos PDF ou CSV são suportados (.pdf, .csv, .txt).");
+            return BadRequestResponse("Apenas arquivos PDF ou CSV são suportados (.pdf, .csv, .txt).", "arquivo");
 
-        var familiaId = currentUser.FamiliaId;
-        if (familiaId is null) return Unauthorized();
-
-        var preview = await importacao.GerarPreviewAsync(cartaoId, arquivo.OpenReadStream(), arquivo.FileName, familiaId.Value, cancellationToken);
+        var preview = await importacao.GerarPreviewAsync(cartaoId, arquivo.OpenReadStream(), arquivo.FileName, currentUser.FamiliaId!.Value, cancellationToken);
         return Ok(preview);
     }
 
     [HttpPost("importar/confirmar")]
+    [RequireFamiliaId]
     [ProducesResponseType(typeof(ConfirmarImportacaoFaturaResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ConfirmarImportacaoFaturaResponse>> Confirmar(
         [FromBody] ConfirmarImportacaoFaturaRequest request,
         CancellationToken cancellationToken)
     {
         if (request.Itens.Count == 0)
-            return BadRequest("Nenhum item para importar.");
+            return BadRequestResponse("Nenhum item para importar.", "itens");
 
-        var familiaId = currentUser.FamiliaId;
-        if (familiaId is null) return Unauthorized();
-
-        var resultado = await importacao.ConfirmarAsync(request, familiaId.Value, cancellationToken);
+        var resultado = await importacao.ConfirmarAsync(request, currentUser.FamiliaId!.Value, cancellationToken);
         return Ok(resultado);
     }
 }

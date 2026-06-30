@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ControleFinanceiro.Api.Tests.Infrastructure;
@@ -54,7 +54,9 @@ public sealed class AuthFlowTests : IDisposable
         var payload = await response.Content.ReadFromJsonAsync<AuthTokenResponse>();
         payload.Should().NotBeNull();
         payload!.AccessToken.Should().NotBeNullOrWhiteSpace();
-        payload.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        // Refresh token is no longer returned in the body — it's set as an HttpOnly cookie.
+        payload.RefreshToken.Should().BeNullOrEmpty();
+        GetRefreshTokenFromSetCookie(response).Should().NotBeNullOrWhiteSpace();
         payload.Usuario.Email.Should().Be("maria@example.com");
         payload.Usuario.Familia.Nome.Should().Be("Família de Maria");
         payload.Usuario.Familia.Papel.Should().Be("Administrador");
@@ -158,21 +160,25 @@ public sealed class AuthFlowTests : IDisposable
     public async Task Refresh_DeveRotacionarTokenEInvalidarAnterior()
     {
         using var client = _selfJwtFactory.CreateClient();
-        var login = await LoginAsync(client, "token-maria");
 
-        var refreshResponse = await client.PostAsJsonAsync(
-            "/api/v1/auth/refresh",
-            new RefreshTokenRequest(login.RefreshToken));
+        // Login — capture old token from Set-Cookie header
+        var loginResponse = await client.PostAsJsonAsync("/api/v1/auth/google", new GoogleLoginRequest("token-maria"));
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var oldToken = GetRefreshTokenFromSetCookie(loginResponse);
+        oldToken.Should().NotBeNullOrWhiteSpace();
 
+        // Refresh — old cookie sent automatically from the client's CookieContainer
+        var refreshResponse = await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(null));
         refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var renovado = await refreshResponse.Content.ReadFromJsonAsync<AuthTokenResponse>();
-        renovado!.RefreshToken.Should().NotBe(login.RefreshToken);
 
-        // Reuso do refresh token antigo deve falhar
-        var reuso = await client.PostAsJsonAsync(
-            "/api/v1/auth/refresh",
-            new RefreshTokenRequest(login.RefreshToken));
+        // Verify the cookie was rotated (new Set-Cookie issued)
+        var newToken = GetRefreshTokenFromSetCookie(refreshResponse);
+        newToken.Should().NotBeNullOrWhiteSpace();
+        newToken.Should().NotBe(oldToken);
 
+        // Reuso do token antigo deve falhar — fresh client has no cookie, sends old value via body
+        using var freshClient = _selfJwtFactory.CreateClient();
+        var reuso = await freshClient.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(oldToken));
         reuso.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -182,17 +188,33 @@ public sealed class AuthFlowTests : IDisposable
         using var client = _selfJwtFactory.CreateClient();
         var login = await LoginAsync(client, "token-maria");
 
+        // Cookie is sent automatically from the container; body token is ignored since cookie takes priority.
         var logoutResponse = await client.PostAsJsonAsync(
             "/api/v1/auth/logout",
             new LogoutRequest(login.RefreshToken));
 
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
+        // After logout the cookie is cleared — subsequent refresh must fail.
         var refreshAposLogout = await client.PostAsJsonAsync(
             "/api/v1/auth/refresh",
-            new RefreshTokenRequest(login.RefreshToken));
+            new RefreshTokenRequest(null));
 
         refreshAposLogout.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>Extracts the refreshToken cookie value from the Set-Cookie response header.</summary>
+    private static string? GetRefreshTokenFromSetCookie(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Set-Cookie", out var cookies)) return null;
+        foreach (var cookie in cookies)
+        {
+            if (!cookie.StartsWith("refreshToken=", StringComparison.OrdinalIgnoreCase)) continue;
+            var nameValue = cookie.Split(';')[0];
+            var eq = nameValue.IndexOf('=');
+            return eq >= 0 ? nameValue[(eq + 1)..] : null;
+        }
+        return null;
     }
 
     private static async Task<AuthTokenResponse> LoginAsync(HttpClient client, string idToken)
@@ -219,6 +241,8 @@ public sealed class AuthFlowTests : IDisposable
 
         return await client.SendAsync(request);
     }
+
+    private sealed record IdResponse(Guid Id);
 
     private sealed class FakeGoogleTokenValidator : IGoogleTokenValidator
     {

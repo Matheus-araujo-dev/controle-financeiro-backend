@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using ControleFinanceiro.Domain.Financeiro.Events;
 using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
@@ -121,6 +122,18 @@ public sealed class ContaPagar : TenantEntity
             regraRecorrenciaId,
             origem);
         conta.SubstituirRateios(rateios);
+        conta.AddDomainEvent(new ContaPagarCriadaEvent(
+            conta.Id,
+            conta.NumeroDocumento,
+            conta.RecebedorId,
+            conta.Descricao,
+            conta.ValorLiquido,
+            conta.DataVencimento,
+            conta.QuantidadeParcelas,
+            conta.NumeroParcela,
+            conta.GrupoParcelamentoId,
+            conta.EhRecorrente,
+            conta.RegraRecorrenciaId));
         return conta;
     }
 
@@ -391,12 +404,12 @@ public sealed class ContaPagar : TenantEntity
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
         {
-            throw new InvalidOperationException("NÃ£o Ã© permitido editar contas liquidadas ou canceladas.");
+            throw new InvalidOperationException("Não é permitido editar contas liquidadas ou canceladas.");
         }
 
         if (regraRecorrenciaId == Guid.Empty)
         {
-            throw new ArgumentException("Regra de recorrÃªncia Ã© obrigatÃ³ria.", nameof(regraRecorrenciaId));
+            throw new ArgumentException("Regra de recorrência é obrigatória.", nameof(regraRecorrenciaId));
         }
 
         EhRecorrente = true;
@@ -413,6 +426,7 @@ public sealed class ContaPagar : TenantEntity
         DataLiquidacao = dataLiquidacao;
         ContaBancariaId = contaBancariaId;
         StatusContaId = statusContaLiquidadaId;
+        AddDomainEvent(new ContaPagarLiquidadaEvent(Id, ValorLiquido, dataLiquidacao, contaBancariaId, Descricao));
     }
 
     public void AtualizarValorLiquido(decimal novoValorLiquido, IReadOnlyCollection<RateioPlano> rateios)

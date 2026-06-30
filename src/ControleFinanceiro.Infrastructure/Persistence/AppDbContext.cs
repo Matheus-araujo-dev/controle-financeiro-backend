@@ -1,6 +1,8 @@
 using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
+using ControleFinanceiro.Domain.Events;
+using SharedKernelEvent = ControleFinanceiro.SharedKernel.Common.IDomainEvent;
 using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
@@ -20,7 +22,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence;
 public sealed class AppDbContext(
     DbContextOptions<AppDbContext> options,
     IClock? clock = null,
-    ICurrentUser? currentUser = null) : DbContext(options), IAppDbContext
+    ICurrentUser? currentUser = null,
+    IDomainEventDispatcher? eventDispatcher = null) : DbContext(options), IAppDbContext
 {
     private readonly IClock _clock = clock ?? new DefaultClock();
     private readonly ICurrentUser _currentUser = currentUser ?? new AnonymousCurrentUser();
@@ -108,10 +111,28 @@ public sealed class AppDbContext(
         return base.SaveChanges();
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         PrepareAuditableEntities();
-        return base.SaveChangesAsync(cancellationToken);
+
+        // Collect domain events before saving so no new state is added after.
+        var events = ChangeTracker.Entries<Entity>()
+            .SelectMany(e => e.Entity.DomainEvents)
+            .ToList();
+
+        foreach (var entry in ChangeTracker.Entries<Entity>())
+        {
+            entry.Entity.ClearDomainEvents();
+        }
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (eventDispatcher is not null && events.Count > 0)
+        {
+            await eventDispatcher.DispatchAsync((IEnumerable<SharedKernelEvent>)events, cancellationToken);
+        }
+
+        return result;
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

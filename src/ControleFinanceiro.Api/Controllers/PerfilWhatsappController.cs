@@ -1,5 +1,7 @@
+using ControleFinanceiro.Api.Filters;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Contracts.Agente;
+using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Authorization;
@@ -31,18 +33,19 @@ public sealed class PerfilWhatsappController(IAppDbContext db, ICurrentUser curr
     }
 
     [HttpPut]
+    [RequireFamiliaId]
     [ProducesResponseType(typeof(WhatsappPerfilResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<WhatsappPerfilResponse>> Registrar(
         [FromBody] WhatsappRegistrarRequest request,
         CancellationToken cancellationToken)
     {
         var usuarioId = ResolverUsuarioId();
-        var familiaId = currentUser.FamiliaId;
-        if (usuarioId is null || familiaId is null) return Unauthorized();
+        if (usuarioId is null) return Unauthorized();
 
         var telefone = WhatsappUsuario.NormalizarTelefone(request.Telefone);
         if (string.IsNullOrEmpty(telefone) || telefone.Length < 10)
-            return BadRequest("Número de telefone inválido.");
+            return BadRequestResponse("Número de telefone inválido.", "telefone");
 
         var wup = await db.WhatsappUsuarios
             .FirstOrDefaultAsync(w => w.UsuarioId == usuarioId.Value, cancellationToken);
@@ -50,7 +53,7 @@ public sealed class PerfilWhatsappController(IAppDbContext db, ICurrentUser curr
         var agora = DateTimeOffset.UtcNow;
         if (wup is null)
         {
-            wup = WhatsappUsuario.Criar(familiaId.Value, usuarioId.Value, telefone);
+            wup = WhatsappUsuario.Criar(currentUser.FamiliaId!.Value, usuarioId.Value, telefone);
             wup.Verificar(agora);
             db.WhatsappUsuarios.Add(wup);
         }
@@ -106,21 +109,22 @@ public sealed class PerfilWhatsappController(IAppDbContext db, ICurrentUser curr
     }
 
     [HttpPut("alertas")]
+    [RequireFamiliaId]
     [ProducesResponseType(typeof(WhatsappAlertasResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<WhatsappAlertasResponse>> AtualizarAlertas(
         [FromBody] WhatsappAlertasRequest request,
         CancellationToken cancellationToken)
     {
         var usuarioId = ResolverUsuarioId();
-        var familiaId = currentUser.FamiliaId;
-        if (usuarioId is null || familiaId is null) return Unauthorized();
+        if (usuarioId is null) return Unauthorized();
 
         var cfg = await db.WhatsappConfigAlertas
             .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId.Value, cancellationToken);
 
         if (cfg is null)
         {
-            cfg = WhatsappConfigAlerta.CriarPadrao(familiaId.Value, usuarioId.Value);
+            cfg = WhatsappConfigAlerta.CriarPadrao(currentUser.FamiliaId!.Value, usuarioId.Value);
             db.WhatsappConfigAlertas.Add(cfg);
         }
 

@@ -1,3 +1,4 @@
+using ControleFinanceiro.Domain.Financeiro.Events;
 using ControleFinanceiro.SharedKernel.Common;
 
 namespace ControleFinanceiro.Domain.Financeiro;
@@ -258,12 +259,12 @@ public sealed class ContaReceber : TenantEntity
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
         {
-            throw new InvalidOperationException("NÃ£o Ã© permitido editar contas liquidadas ou canceladas.");
+            throw new InvalidOperationException("Não é permitido editar contas liquidadas ou canceladas.");
         }
 
         if (regraRecorrenciaId == Guid.Empty)
         {
-            throw new ArgumentException("Regra de recorrÃªncia Ã© obrigatÃ³ria.", nameof(regraRecorrenciaId));
+            throw new ArgumentException("Regra de recorrência é obrigatória.", nameof(regraRecorrenciaId));
         }
 
         EhRecorrente = true;
@@ -280,6 +281,7 @@ public sealed class ContaReceber : TenantEntity
         DataLiquidacao = dataLiquidacao;
         ContaBancariaId = contaBancariaId;
         StatusContaId = statusContaLiquidadaId;
+        AddDomainEvent(new ContaReceberRecebidaEvent(Id, NumeroDocumento, PagadorId, Descricao, ValorLiquido, dataLiquidacao, contaBancariaId));
     }
 
     public void AtualizarValorLiquido(decimal novoValorLiquido, IReadOnlyCollection<RateioPlano> rateios)

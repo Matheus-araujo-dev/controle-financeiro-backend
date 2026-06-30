@@ -11,7 +11,7 @@ namespace ControleFinanceiro.Application.Financeiro.Orcamentos;
 
 public sealed class OrcamentoAppService(
     IAppDbContext dbContext,
-    DashboardAppService dashboardAppService)
+    DashboardDbHelpers dashboardDbHelpers)
 {
     private const decimal LimiteEstouroPercentual = 100m;
 
@@ -35,7 +35,7 @@ public sealed class OrcamentoAppService(
 
         var metasPorConta = metas.ToDictionary(m => m.ContaGerencialId);
 
-        var rateios = await dashboardAppService.CarregarRateiosPorEmissaoAsync(inicioMes, fimMes, cancellationToken);
+        var rateios = await dashboardDbHelpers.CarregarRateiosPorEmissaoAsync(inicioMes, fimMes, cancellationToken);
         var realizadoPorConta = rateios
             .Where(r => r.TipoLancamento == "ContaPagar")
             .GroupBy(r => r.ContaGerencialId)

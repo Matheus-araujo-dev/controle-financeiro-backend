@@ -1,5 +1,4 @@
-﻿using ControleFinanceiro.Application.Anexos;
-using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
+﻿using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Application.Cadastros.Pessoas;
 using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.FinanceAI;
@@ -11,7 +10,6 @@ using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Events;
 using ControleFinanceiro.Domain.Financeiro.Events;
-using ControleFinanceiro.Infrastructure.Anexos;
 using ControleFinanceiro.Infrastructure.Events;
 using ControleFinanceiro.Infrastructure.Events.Handlers;
 using ControleFinanceiro.Infrastructure.FinanceAI;

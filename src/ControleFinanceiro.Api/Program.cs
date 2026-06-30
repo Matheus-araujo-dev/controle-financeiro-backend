@@ -86,21 +86,31 @@ builder.Services.AddRateLimiter(options =>
 
 static string GetPartitionKey(HttpContext httpContext)
 {
-    var userId = httpContext.User.Identity?.IsAuthenticated == true
-        ? httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
-          ?? httpContext.User.FindFirstValue("sub")
-          ?? httpContext.User.FindFirstValue("userId")
-        : null;
+    if (httpContext.User.Identity?.IsAuthenticated == true)
+    {
+        var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                     ?? httpContext.User.FindFirstValue("sub")
+                     ?? httpContext.User.FindFirstValue("userId");
+        var familiaId = httpContext.User.FindFirstValue("familiaId");
 
-    return !string.IsNullOrEmpty(userId)
-        ? $"user:{userId}"
-        : httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString();
+        if (!string.IsNullOrEmpty(userId))
+        {
+            // Partition per tenant+user to isolate rate limits across families.
+            return string.IsNullOrEmpty(familiaId)
+                ? $"user:{userId}"
+                : $"familia:{familiaId}:user:{userId}";
+        }
+    }
+
+    return httpContext.Connection.RemoteIpAddress?.ToString()
+           ?? httpContext.Request.Headers.Host.ToString();
 }
-builder.Services.AddHealthChecks()
+var healthChecks = builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("database", tags: ["db", "sqlserver"])
     .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: ["self", "live"])
-    .AddCheck("cache", () => HealthCheckResult.Healthy("Memory cache is available"), tags: ["cache", "infra"])
     .AddCheck("logging", () => HealthCheckResult.Healthy("Logging is available"), tags: ["logging", "infra"]);
+
+healthChecks.AddCheck<DistributedCacheHealthCheck>("cache", tags: ["cache", "infra"]);
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker>();
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.AtualizacaoStatusContasWorker>();
 builder.Services.AddControllers()
@@ -170,6 +180,16 @@ app.UseSerilogRequestLogging(options =>
         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
         diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
         diagnosticContext.Set("CorrelationId", httpContext.Items["CorrelationId"]?.ToString() ?? string.Empty);
+
+        if (httpContext.User.Identity?.IsAuthenticated == true)
+        {
+            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? httpContext.User.FindFirstValue("sub");
+            var familiaId = httpContext.User.FindFirstValue("familiaId");
+
+            if (userId is not null) diagnosticContext.Set("UserId", userId);
+            if (familiaId is not null) diagnosticContext.Set("TenantId", familiaId);
+        }
     };
 });
 
@@ -214,6 +234,7 @@ if (!app.Environment.IsEnvironment("Testing"))
     app.UseRateLimiter();
 }
 app.UseAuthorization();
+app.UseMiddleware<TenantLoggingMiddleware>();
 
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions

@@ -1,8 +1,8 @@
+using ControleFinanceiro.SharedKernel.Common;
+
 namespace ControleFinanceiro.Domain.Events;
 
-public interface IDomainEvent
+// Alias para SharedKernel.IDomainEvent — mantém compatibilidade com usages existentes.
+public interface IDomainEvent : SharedKernel.Common.IDomainEvent
 {
-    Guid Id { get; }
-
-    DateTimeOffset OccurredAtUtc { get; }
 }

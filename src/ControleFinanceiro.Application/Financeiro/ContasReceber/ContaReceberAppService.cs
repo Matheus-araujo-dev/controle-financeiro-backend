@@ -10,9 +10,7 @@ using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 using ControleFinanceiro.Contracts.Financeiro.ContasReceber;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
-using ControleFinanceiro.Domain.Events;
 using ControleFinanceiro.Domain.Financeiro;
-using ControleFinanceiro.Domain.Financeiro.Events;
 using Microsoft.EntityFrameworkCore;
 using TipoPeriodicidadeRecorrenciaContract = ControleFinanceiro.Contracts.Financeiro.Common.TipoPeriodicidadeRecorrencia;
 using TipoPeriodicidadeRecorrenciaDomain = ControleFinanceiro.Domain.Financeiro.TipoPeriodicidadeRecorrencia;
@@ -23,7 +21,6 @@ namespace ControleFinanceiro.Application.Financeiro.ContasReceber;
 
 public sealed class ContaReceberAppService(
     IAppDbContext dbContext,
-    IDomainEventDispatcher eventDispatcher,
     ILookupCacheService lookupCache)
 {
     private readonly ILookupCacheService _lookupCache = lookupCache;
@@ -679,20 +676,6 @@ public sealed class ContaReceberAppService(
                 valorMovimentacao,
                 StatusMovimentacao.EfetivadaId,
                 conta.Descricao));
-
-        if (statusFinal == StatusConta.LiquidadaId)
-        {
-            await eventDispatcher.DispatchAsync(
-                new ContaReceberRecebidaEvent(
-                    conta.Id,
-                    conta.NumeroDocumento,
-                    conta.PagadorId,
-                    conta.Descricao,
-                    conta.ValorLiquido,
-                    request.DataLiquidacao,
-                    request.ContaBancariaId),
-                cancellationToken);
-        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await MapearDetalheAsync(conta, cancellationToken);

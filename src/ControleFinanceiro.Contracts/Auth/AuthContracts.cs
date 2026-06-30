@@ -4,7 +4,7 @@ namespace ControleFinanceiro.Contracts.Auth;
 
 public sealed record GoogleLoginRequest([Required] string IdToken);
 
-public sealed record RefreshTokenRequest([Required] string RefreshToken);
+public sealed record RefreshTokenRequest(string? RefreshToken);
 
 public sealed record LogoutRequest(string? RefreshToken);
 

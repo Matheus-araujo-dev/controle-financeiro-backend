@@ -13,4 +13,17 @@ public abstract class ApiControllerBase : ControllerBase
             new Dictionary<string, string[]>(),
             HttpContext.TraceIdentifier));
     }
+
+    protected BadRequestObjectResult BadRequestResponse(string message, string field = "")
+    {
+        var errors = string.IsNullOrEmpty(field)
+            ? new Dictionary<string, string[]>()
+            : new Dictionary<string, string[]> { [field] = [message] };
+
+        return BadRequest(new ApiErrorResponse(
+            "BAD_REQUEST",
+            message,
+            errors,
+            HttpContext.TraceIdentifier));
+    }
 }

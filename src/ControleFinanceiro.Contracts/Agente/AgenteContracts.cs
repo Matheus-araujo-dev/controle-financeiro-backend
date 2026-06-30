@@ -1,6 +1,6 @@
 namespace ControleFinanceiro.Contracts.Agente;
 
-public sealed record AgentePerquntarRequest(
+public sealed record AgentePerguntarRequest(
     string Mensagem,
     Guid? ConversaId = null);
 

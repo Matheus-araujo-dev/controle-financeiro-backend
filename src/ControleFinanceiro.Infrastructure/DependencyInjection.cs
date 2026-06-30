@@ -1,15 +1,24 @@
+﻿using ControleFinanceiro.Application.Anexos;
+using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
+using ControleFinanceiro.Application.Cadastros.Pessoas;
 using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
+using ControleFinanceiro.Application.Financeiro.ContasPagar;
+using ControleFinanceiro.Application.Financeiro.ContasReceber;
 using ControleFinanceiro.Application.Identidade;
 using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Events;
+using ControleFinanceiro.Domain.Financeiro.Events;
+using ControleFinanceiro.Infrastructure.Anexos;
+using ControleFinanceiro.Infrastructure.Events;
+using ControleFinanceiro.Infrastructure.Events.Handlers;
 using ControleFinanceiro.Infrastructure.FinanceAI;
 using ControleFinanceiro.Infrastructure.ImportacoesWhatsapp;
 using ControleFinanceiro.Infrastructure.Persistence;
+using ControleFinanceiro.Infrastructure.Persistence.Repositories;
 using ControleFinanceiro.Infrastructure.Identity;
-using ControleFinanceiro.Infrastructure.Events;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +36,20 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("SqlServer")
             ?? throw new InvalidOperationException("Connection string 'SqlServer' was not configured.");
 
+        var redisConnectionString = configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redisConnectionString))
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConnectionString;
+                options.InstanceName = "CF:";
+            });
+        }
+        else
+        {
+            services.AddDistributedMemoryCache();
+        }
+
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
@@ -38,14 +61,29 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(
                 connectionString,
-                sqlOptions => sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
+                sqlOptions =>
+                {
+                    sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(30),
+                        errorNumbersToAdd: null);
+                    sqlOptions.CommandTimeout(30);
+                }));
         services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
+        services.AddScoped<IContaReceberRepository, ContaReceberRepository>();
+        services.AddScoped<IPessoaRepository, PessoaRepository>();
+        services.AddScoped<IContaGerencialRepository, ContaGerencialRepository>();
         services.AddScoped<IStatusDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<ICadastrosDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFileStorage, LocalImportFileStorage>();
         services.AddScoped<IDocumentExtractor, DefaultDocumentExtractor>();
         services.AddScoped<IImportSuggestionService, HeuristicImportSuggestionService>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        services.AddScoped<IDomainEventHandler<ContaPagarCriadaEvent>, ContaPagarCriadaEventHandler>();
+        services.AddScoped<IDomainEventHandler<ContaPagarLiquidadaEvent>, ContaPagarLiquidadaEventHandler>();
+        services.AddScoped<IDomainEventHandler<ContaReceberRecebidaEvent>, ContaReceberRecebidaEventHandler>();
 
         // Agente IA — ferramentas (cada IFinanceTool é resolvida por IEnumerable<IFinanceTool>)
         services.AddScoped<IFinanceTool, ListarCategoriasTool>();
@@ -88,7 +126,7 @@ public static class DependencyInjection
                 client.BaseAddress = new Uri("https://api.anthropic.com/v1/");
                 client.DefaultRequestHeaders.Add("x-api-key", llmOptions.ApiKey);
                 client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-                client.Timeout = TimeSpan.FromSeconds(120);
+                client.Timeout = TimeSpan.FromSeconds(60);
             })
                 .AddPolicyHandlerFromRegistry("Anthropic.retry")
                 .AddPolicyHandlerFromRegistry("Anthropic.cb");

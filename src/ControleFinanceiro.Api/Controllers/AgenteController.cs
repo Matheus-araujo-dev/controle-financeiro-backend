@@ -21,11 +21,11 @@ public sealed class AgenteController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<AgentePerguntarResponse>> Perguntar(
-        [FromBody] AgentePerquntarRequest request,
+        [FromBody] AgentePerguntarRequest request,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Mensagem))
-            return BadRequest("Mensagem é obrigatória.");
+            return BadRequestResponse("Mensagem é obrigatória.", "mensagem");
 
         var result = await agentService.ProcessarAsync(
             new AgentRequest(request.Mensagem, request.ConversaId),

@@ -22,6 +22,118 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ControleFinanceiro.Domain.Anexos.Anexo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CaminhoArquivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("ConversaAiId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("HashSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("ImportacaoWhatsappId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NomeArquivoOriginal")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<long>("TamanhoBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversaAiId");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("HashSha256");
+
+                    b.HasIndex("ImportacaoWhatsappId");
+
+                    b.ToTable("anexos", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Anexos.AnexoVinculo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AnexoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EntidadeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TipoEntidade")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("TipoEntidade", "EntidadeId");
+
+                    b.HasIndex("AnexoId", "TipoEntidade", "EntidadeId")
+                        .IsUnique();
+
+                    b.ToTable("anexo_vinculos", (string)null);
+                });
+
             modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Cartoes.Cartao", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1407,6 +1519,9 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<Guid?>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -1417,6 +1532,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PessoaId");
 
                     b.HasIndex("UsuarioId");
 
@@ -1819,6 +1936,15 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.ToTable("audit_trail_entries", (string)null);
                 });
 
+            modelBuilder.Entity("ControleFinanceiro.Domain.Anexos.AnexoVinculo", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Anexos.Anexo", null)
+                        .WithMany("Vinculos")
+                        .HasForeignKey("AnexoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Cartoes.Cartao", b =>
                 {
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasBancarias.ContaBancaria", null)
@@ -2070,6 +2196,11 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ControleFinanceiro.Domain.Identidade.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("UsuarioId")
@@ -2130,6 +2261,11 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ResponsavelId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Anexos.Anexo", b =>
+                {
+                    b.Navigation("Vinculos");
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", b =>

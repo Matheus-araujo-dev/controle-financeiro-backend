@@ -28,12 +28,12 @@ if (args.Length > 0)
     builder.Configuration.AddCommandLine(args);
 }
 
-var connectionString = builder.Configuration.GetConnectionString("SqlServer");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (connectionString?.Contains("${DB_PASSWORD}") == true)
 {
-    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") 
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD")
         ?? throw new InvalidOperationException("A variável de ambiente DB_PASSWORD deve estar configurada para expandir ${DB_PASSWORD} na connection string.");
-    builder.Configuration["ConnectionStrings:SqlServer"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
+    builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
 }
 
 Log.Logger = new LoggerConfiguration()
@@ -106,7 +106,7 @@ static string GetPartitionKey(HttpContext httpContext)
            ?? httpContext.Request.Headers.Host.ToString();
 }
 var healthChecks = builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("database", tags: ["db", "sqlserver"])
+    .AddDbContextCheck<AppDbContext>("database", tags: ["db", "postgres"])
     .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: ["self", "live"])
     .AddCheck("logging", () => HealthCheckResult.Healthy("Logging is available"), tags: ["logging", "infra"]);
 

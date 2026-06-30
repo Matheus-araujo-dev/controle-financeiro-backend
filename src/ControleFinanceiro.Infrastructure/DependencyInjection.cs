@@ -31,8 +31,8 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("SqlServer")
-            ?? throw new InvalidOperationException("Connection string 'SqlServer' was not configured.");
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' was not configured.");
 
         var redisConnectionString = configuration.GetConnectionString("Redis");
         if (!string.IsNullOrWhiteSpace(redisConnectionString))
@@ -57,16 +57,16 @@ public static class DependencyInjection
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(
+            options.UseNpgsql(
                 connectionString,
-                sqlOptions =>
+                npgsqlOptions =>
                 {
-                    sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    sqlOptions.EnableRetryOnFailure(
+                    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    npgsqlOptions.EnableRetryOnFailure(
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(30),
-                        errorNumbersToAdd: null);
-                    sqlOptions.CommandTimeout(30);
+                        errorCodesToAdd: null);
+                    npgsqlOptions.CommandTimeout(30);
                 }));
         services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<IContaPagarRepository, ContaPagarRepository>();

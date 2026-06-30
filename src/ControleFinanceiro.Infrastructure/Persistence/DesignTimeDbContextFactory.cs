@@ -7,7 +7,7 @@ namespace ControleFinanceiro.Infrastructure.Persistence;
 public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     private const string DefaultConnectionString =
-        "Server=localhost,1433;Database=ControleFinanceiro;User Id=sa;Password=ChangeMe123!;TrustServerCertificate=True;";
+        "Host=localhost;Port=5432;Database=ControleFinanceiro;Username=postgres;Password=ChangeMe123!";
 
     public AppDbContext CreateDbContext(string[] args)
     {
@@ -20,13 +20,13 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
             .AddEnvironmentVariables()
             .Build();
 
-        var connectionString = configuration.GetConnectionString("SqlServer")
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? DefaultConnectionString;
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseSqlServer(
+        optionsBuilder.UseNpgsql(
             connectionString,
-            sqlOptions => sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
+            npgsqlOptions => npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
 
         return new AppDbContext(optionsBuilder.Options);
     }

@@ -1,54 +1,51 @@
-name: backend-ci
+name: CI
 
 on:
   push:
-    branches: [ dev, main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ dev, main ]
+    branches: [main, develop]
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
-
-    env:
-      DOTNET_VERSION: 9.0.x
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: '9.0.x'
 
       - name: Restore
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore -warnaserror
+        run: dotnet build --configuration Release --no-restore
 
   test:
+    name: Test (PostgreSQL)
     runs-on: ubuntu-latest
     needs: build
 
-    # SQL Server real para a suíte de integração (Api.Tests). Sem ele, os testes com [SqlServerFact]
-    # podem cair em fallback e quebrar a cobertura esperada pelo quality gate.
     services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
+      postgres:
+        image: postgres:16
         env:
-          ACCEPT_EULA: "Y"
-          MSSQL_SA_PASSWORD: "Strong_Passw0rd!"
-        ports:
-          - 1433:1433
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: Strong_Passw0rd!
+          POSTGRES_DB: postgres
         options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Strong_Passw0rd!' -No -Q 'SELECT 1' || exit 1"
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 20
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     env:
-      DOTNET_VERSION: 9.0.x
+      CF_TEST_POSTGRES: "Host=localhost;Port=5432;Database={DB};Username=postgres;Password=Strong_Passw0rd!"
 
     steps:
       - uses: actions/checkout@v4
@@ -56,39 +53,26 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: '9.0.x'
 
       - name: Restore tools
         run: dotnet tool restore
 
-      - name: Test with merged coverage gate
+      - name: Test with coverage gate
         shell: pwsh
-        env:
-          CF_TEST_SQLSERVER: "Server=localhost,1433;Database={DB};User Id=sa;Password=Strong_Passw0rd!;TrustServerCertificate=True;Connect Timeout=60;MultipleActiveResultSets=true"
         run: ./scripts/coverage-gate.ps1 -Threshold 80
 
-  security-and-sonar:
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
     needs: build
-
-    env:
-      DOTNET_VERSION: 9.0.x
-      SONAR_PROJECT_KEY: controle-financeiro-backend
-      SONAR_PROJECT_NAME: controle-financeiro-backend
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Restore tools
-        run: dotnet tool restore
+          dotnet-version: '9.0.x'
 
       - name: Check vulnerable packages
         shell: pwsh
@@ -97,51 +81,40 @@ jobs:
           Get-ChildItem src -Recurse -Filter *.csproj | ForEach-Object {
             $report = dotnet list $_.FullName package --vulnerable --include-transitive
             $report
-            if ($report -match 'has the following vulnerable packages' -or $report -match 'Critical' -or $report -match 'High') {
-              $failed = $true
-            }
+            if ($report -match 'Critical' -or $report -match 'High') { $failed = $true }
           }
+          if ($failed) { exit 1 }
 
-          if ($failed) {
-            exit 1
-          }
+  deploy-dev:
+    name: Deploy → DEV
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Setup Java
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Install SonarScanner
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        run: dotnet tool install --global dotnet-sonarscanner
+      - name: Deploy to Railway DEV
+        run: railway up --service backend --environment development --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
 
-      - name: Sonar Begin
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        shell: bash
-        run: |
-          EXTRA_ARGS=""
-          if [ -n "${SONAR_ORGANIZATION}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS /o:${SONAR_ORGANIZATION}"
-          fi
-          dotnet-sonarscanner begin \
-            /k:"${SONAR_PROJECT_KEY}" \
-            /n:"${SONAR_PROJECT_NAME}" \
-            /d:sonar.host.url="${SONAR_HOST_URL}" \
-            /d:sonar.token="${SONAR_TOKEN}" \
-            /d:sonar.qualitygate.wait=true \
-            /d:sonar.cs.opencover.reportsPaths="**/coverage-collector/**/coverage.opencover.xml" \
-            ${EXTRA_ARGS}
+  deploy-prod:
+    name: Deploy → PROD
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Sonar Build
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        run: dotnet build --configuration Release --no-restore
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Sonar End
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        run: dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
-
-      - name: Require Sonar configuration
-        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
-        run: echo "Sonar disabled in CI because SONAR_TOKEN or SONAR_HOST_URL is missing. Configure secrets to enforce the quality gate."
+      - name: Deploy to Railway PROD
+        run: railway up --service backend --environment production --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}

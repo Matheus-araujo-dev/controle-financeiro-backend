@@ -454,6 +454,102 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         };
     }
 
+    public async Task<CursorPagedResult<ContaPagarResumoResponse>> ListarCursorAsync(
+        ContaPagarCursorQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        var consultaBase =
+            from conta in dbContext.ContasPagar.AsNoTracking()
+            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
+            join forma in dbContext.FormasPagamento.AsNoTracking() on conta.FormaPagamentoId equals forma.Id
+            join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
+            where !conta.CartaoId.HasValue
+            select new
+            {
+                conta.Id,
+                conta.NumeroDocumento,
+                conta.Descricao,
+                conta.RecebedorId,
+                RecebedorNome = recebedor.Nome,
+                conta.DataEmissao,
+                conta.DataVencimento,
+                conta.DataLiquidacao,
+                conta.FormaPagamentoId,
+                FormaPagamentoNome = forma.Nome,
+                conta.ValorLiquido,
+                StatusCodigo = status.Codigo,
+                StatusNome = status.Nome,
+                conta.QuantidadeParcelas,
+                conta.NumeroParcela,
+                conta.GrupoParcelamentoId,
+                conta.EhRecorrente
+            };
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var termo = $"%{query.Search.Trim()}%";
+            consultaBase = consultaBase.Where(x =>
+                EF.Functions.Like(x.Descricao, termo) ||
+                EF.Functions.Like(x.RecebedorNome, termo));
+        }
+
+        if (query.RecebedorId.HasValue)
+            consultaBase = consultaBase.Where(x => x.RecebedorId == query.RecebedorId.Value);
+
+        if (query.DataVencimentoInicial.HasValue)
+            consultaBase = consultaBase.Where(x => x.DataVencimento >= query.DataVencimentoInicial.Value);
+
+        if (query.DataVencimentoFinal.HasValue)
+            consultaBase = consultaBase.Where(x => x.DataVencimento <= query.DataVencimentoFinal.Value);
+
+        if (query.StatusCodigos is { Length: > 0 })
+            consultaBase = consultaBase.Where(x => query.StatusCodigos.Contains(x.StatusCodigo));
+
+        // Aplica cursor: WHERE (DataVencimento, Id) > (cursorDate, cursorId)
+        var cursor = CursorPaginationHelper.DecodeCursor(query.AfterCursor);
+        if (cursor is { } c)
+        {
+            var cursorDate = DateOnly.Parse(c.SortValue);
+            var cursorId = c.Id;
+            consultaBase = consultaBase.Where(x =>
+                x.DataVencimento > cursorDate ||
+                (x.DataVencimento == cursorDate && x.Id.CompareTo(cursorId) > 0));
+        }
+
+        consultaBase = consultaBase
+            .OrderBy(x => x.DataVencimento)
+            .ThenBy(x => x.Id);
+
+        var pageSize = query.NormalizedPageSize;
+        var rows = await consultaBase.Take(pageSize + 1).ToListAsync(cancellationToken);
+
+        var items = rows.Select(x => new ContaPagarResumoResponse(
+            x.Id,
+            x.NumeroDocumento,
+            x.Descricao,
+            x.RecebedorId,
+            x.RecebedorNome,
+            null,
+            x.DataEmissao,
+            x.DataVencimento,
+            x.DataLiquidacao,
+            x.FormaPagamentoId,
+            x.FormaPagamentoNome,
+            x.ValorLiquido,
+            x.StatusCodigo,
+            x.StatusNome,
+            x.QuantidadeParcelas,
+            x.NumeroParcela,
+            x.GrupoParcelamentoId,
+            x.EhRecorrente)).ToList();
+
+        return CursorPaginationHelper.FromList(
+            items,
+            pageSize,
+            item => item.DataVencimento.ToString("O"),
+            item => item.Id);
+    }
+
     private static Contracts.Financeiro.Common.TipoDiaRecorrencia MapearTipoDiaContrato(TipoDiaRecorrenciaDomain tipo)
     {
         return tipo switch

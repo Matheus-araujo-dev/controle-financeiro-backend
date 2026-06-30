@@ -1,8 +1,10 @@
 using ControleFinanceiro.Application.Financeiro.ContasPagar;
+using ControleFinanceiro.Application.Financeiro.ContasPagar.Queries;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,7 +15,7 @@ namespace ControleFinanceiro.Api.Controllers;
 [Authorize]
 [EnableRateLimiting("Relaxed")]
 [Route("api/v1/contas-pagar")]
-public sealed class ContasPagarController(ContaPagarAppService service) : ApiControllerBase
+public sealed class ContasPagarController(ContaPagarAppService service, ISender mediator) : ApiControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(ContaPagarListResponse), StatusCodes.Status200OK)]
@@ -21,7 +23,17 @@ public sealed class ContasPagarController(ContaPagarAppService service) : ApiCon
         [FromQuery] ContaPagarListQueryRequest query,
         CancellationToken cancellationToken)
     {
-        return Ok(await service.ListarAsync(query, cancellationToken));
+        return Ok(await mediator.Send(new ListarContasPagarQuery(query), cancellationToken));
+    }
+
+    [HttpGet("cursor")]
+    [ProducesResponseType(typeof(CursorPagedResult<ContaPagarResumoResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CursorPagedResult<ContaPagarResumoResponse>>> ListarCursor(
+        [FromQuery] ContaPagarCursorQueryRequest query,
+        [FromServices] IContaPagarQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await queryService.ListarCursorAsync(query, cancellationToken));
     }
 
     [HttpGet("{id:guid}")]

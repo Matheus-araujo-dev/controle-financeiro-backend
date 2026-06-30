@@ -193,11 +193,17 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Codigo")
+                        .IsUnique()
+                        .HasFilter("[Codigo] IS NOT NULL");
+
                     b.HasIndex("ContaPaiId");
 
                     b.HasIndex("FamiliaId");
 
                     b.HasIndex("ResponsavelPadraoId");
+
+                    b.HasIndex("Tipo", "Ativo");
 
                     b.ToTable("contas_gerenciais", (string)null);
                 });
@@ -306,6 +312,10 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                         .HasFilter("[CpfCnpj] IS NOT NULL");
 
                     b.HasIndex("FamiliaId");
+
+                    b.HasIndex("Nome");
+
+                    b.HasIndex("Ativo", "Nome");
 
                     b.ToTable("pessoas", (string)null);
                 });
@@ -707,6 +717,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ContaBancariaId");
 
+                    b.HasIndex("DataEmissao");
+
                     b.HasIndex("DataVencimento");
 
                     b.HasIndex("Descricao");
@@ -716,6 +728,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasIndex("FaturaCartaoId");
 
                     b.HasIndex("FormaPagamentoId");
+
+                    b.HasIndex("GrupoParcelamentoId");
 
                     b.HasIndex("NumeroDocumento");
 
@@ -844,19 +858,21 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ContaBancariaId");
 
+                    b.HasIndex("DataEmissao");
+
                     b.HasIndex("DataVencimento");
 
                     b.HasIndex("FamiliaId");
 
                     b.HasIndex("FormaPagamentoId");
 
-                    b.HasIndex("PagadorId");
-
                     b.HasIndex("RegraRecorrenciaId");
 
                     b.HasIndex("ResponsavelId");
 
-                    b.HasIndex("StatusContaId");
+                    b.HasIndex("PagadorId", "StatusContaId");
+
+                    b.HasIndex("StatusContaId", "DataVencimento");
 
                     b.ToTable("contas_receber", (string)null);
                 });
@@ -1044,6 +1060,8 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasIndex("ContaBancariaId", "DataMovimentacao");
 
                     b.HasIndex("StatusMovimentacaoId", "DataMovimentacao");
+
+                    b.HasIndex("Natureza", "StatusMovimentacaoId", "DataMovimentacao");
 
                     b.ToTable("movimentacoes_financeiras", (string)null);
                 });
@@ -1401,6 +1419,10 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("FamiliaId", "PessoaId")
+                        .IsUnique()
+                        .HasFilter("[PessoaId] IS NOT NULL");
 
                     b.HasIndex("FamiliaId", "UsuarioId")
                         .IsUnique();

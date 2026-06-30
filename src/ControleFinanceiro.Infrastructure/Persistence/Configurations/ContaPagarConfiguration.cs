@@ -45,6 +45,10 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.Ignore(x => x.Rateios);
 
         builder.HasIndex(x => x.DataVencimento);
+        builder.HasIndex(x => x.DataEmissao);
+        builder.HasIndex(x => x.RegraRecorrenciaId);
+        builder.HasIndex(x => x.ResponsavelCompraId);
+        builder.HasIndex(x => x.GrupoParcelamentoId);
 
         builder.HasIndex("StatusContaId", "DataVencimento");
         builder.HasIndex("RecebedorId", "StatusContaId");

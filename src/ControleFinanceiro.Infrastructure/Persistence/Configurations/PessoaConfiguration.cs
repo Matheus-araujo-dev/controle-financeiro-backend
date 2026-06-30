@@ -37,6 +37,9 @@ public sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
             .IsUnique()
             .HasFilter("[CpfCnpj] IS NOT NULL");
 
+        builder.HasIndex(x => x.Nome);
+        builder.HasIndex("Ativo", "Nome");
+
         builder.HasMany(x => x.ChavesPix)
             .WithOne()
             .HasForeignKey(x => x.PessoaId)

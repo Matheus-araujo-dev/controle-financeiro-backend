@@ -11,12 +11,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
         services.AddValidatorsFromAssemblyContaining<DomainValidator<object>>(ServiceLifetime.Transient);
         
         services.AddSingleton<IBootstrapCatalogService, BootstrapCatalogService>();
         services.AddSingleton<IValidationResultFactory, ValidationResultFactory>();
         services.AddScoped<ILookupCacheService, LookupCacheService>();
         services.AddScopedApplicationServices(typeof(DependencyInjection).Assembly);
+        services.AddScoped<Dashboard.DashboardDbHelpers>();
+        services.AddScoped<Financeiro.ContasPagar.ContaPagarSharedHelper>();
         return services;
     }
 

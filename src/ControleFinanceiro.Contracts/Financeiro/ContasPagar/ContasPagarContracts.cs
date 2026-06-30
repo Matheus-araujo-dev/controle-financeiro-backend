@@ -1,7 +1,20 @@
+using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 
 namespace ControleFinanceiro.Contracts.Financeiro.ContasPagar;
+
+/// <summary>
+/// Request para cursor pagination — use AfterCursor retornado pela resposta anterior.
+/// </summary>
+public sealed class ContaPagarCursorQueryRequest : CursorPageRequest
+{
+    public string? Search { get; init; }
+    public Guid? RecebedorId { get; init; }
+    public DateOnly? DataVencimentoInicial { get; init; }
+    public DateOnly? DataVencimentoFinal { get; init; }
+    public string[]? StatusCodigos { get; init; }
+}
 
 public enum LancamentoOrigem
 {

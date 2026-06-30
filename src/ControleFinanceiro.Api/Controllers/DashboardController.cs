@@ -118,6 +118,16 @@ public sealed class DashboardController(DashboardAppService service, ISender med
         return Ok(await service.ObterCentralPrevisaoItensAsync(query, cancellationToken));
     }
 
+    [HttpGet("comparativo-mensal")]
+    [ProducesResponseType(typeof(DashboardComparativoMensalResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<DashboardComparativoMensalResponse>> ObterComparativoMensal(
+        [FromQuery] DashboardComparativoMensalQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await service.ObterComparativoMensalAsync(query, cancellationToken));
+    }
+
     private BadRequestObjectResult? ValidateMesReferencia(string? mesReferencia)
     {
         if (mesReferencia is null) return null;

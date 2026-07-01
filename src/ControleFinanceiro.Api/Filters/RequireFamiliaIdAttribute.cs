@@ -1,4 +1,4 @@
-using ControleFinanceiro.Contracts.Errors;
+﻿using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace ControleFinanceiro.Api.Filters;
 
 /// <summary>
-/// Garante que a requisição possui um FamiliaId válido no token.
-/// Substitui a verificação manual "if (familiaId is null) return Unauthorized()" nos controllers.
+/// Garante que a requisicao possui um workspace ativo valido no token.
+/// O atributo manteve o nome anterior por compatibilidade durante a transicao.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
 public sealed class RequireFamiliaIdAttribute : Attribute, IFilterFactory
@@ -22,11 +22,11 @@ internal sealed class RequireFamiliaIdFilter(ICurrentUser currentUser) : IAction
 {
     public void OnActionExecuting(ActionExecutingContext context)
     {
-        if (currentUser.FamiliaId is null)
+        if (currentUser.WorkspaceId is null)
         {
             context.Result = new UnauthorizedObjectResult(new ApiErrorResponse(
-                "FAMILIA_ID_REQUIRED",
-                "FamiliaId não encontrado no token. Faça login novamente.",
+                "WORKSPACE_ID_REQUIRED",
+                "WorkspaceId nao encontrado no token. Faca login novamente.",
                 new Dictionary<string, string[]>(),
                 context.HttpContext.TraceIdentifier));
         }

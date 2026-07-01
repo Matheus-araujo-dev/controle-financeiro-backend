@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
@@ -106,8 +106,12 @@ public sealed class FinanceAgentServiceTenantTests
 
         public string? UserId => null;
 
-        public Guid? FamiliaId => null;
+        public Guid? WorkspaceId => null;
+
+        public Guid? FamiliaId => WorkspaceId;
 
         public string? Papel => null;
     }
 }
+
+

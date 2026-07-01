@@ -112,3 +112,4 @@
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.
 - ampliar a cobertura combinada das camadas com testes adicionais focados em Application e Infrastructure conforme os modulos financeiros avancarem.
+- A fase 1 do modelo de workspaces foi iniciada sem quebra de compatibilidade: o tenant continua tecnicamente como Familia, mas o backend agora lista participacoes, permite trocar o workspace ativo e aplica limite global de 3 participacoes por usuario.

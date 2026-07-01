@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Events;
@@ -27,23 +27,23 @@ public sealed class AppDbContext(
 {
     private readonly IClock _clock = clock ?? new DefaultClock();
     private readonly ICurrentUser _currentUser = currentUser ?? new AnonymousCurrentUser();
-    private Guid? _familiaCorrente = currentUser?.FamiliaId;
+    private Guid? _workspaceCorrente = currentUser?.WorkspaceId ?? currentUser?.FamiliaId;
 
-    /// <summary>
-    /// Tenant efetivo da instância. Quando nulo (workers, webhook anônimo, testes de infra),
-    /// os filtros de consulta por família ficam desativados e nada é estampado na inserção.
-    /// </summary>
-    public Guid? FamiliaCorrente => _familiaCorrente;
+    public Guid? WorkspaceCorrente => _workspaceCorrente;
 
-    public void DefinirFamiliaCorrente(Guid familiaId)
+    public Guid? FamiliaCorrente => WorkspaceCorrente;
+
+    public void DefinirWorkspaceCorrente(Guid workspaceId)
     {
-        if (familiaId == Guid.Empty)
+        if (workspaceId == Guid.Empty)
         {
-            throw new ArgumentException("Família é obrigatória.", nameof(familiaId));
+            throw new ArgumentException("Workspace e obrigatorio.", nameof(workspaceId));
         }
 
-        _familiaCorrente = familiaId;
+        _workspaceCorrente = workspaceId;
     }
+
+    public void DefinirFamiliaCorrente(Guid familiaId) => DefinirWorkspaceCorrente(familiaId);
 
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
@@ -115,7 +115,6 @@ public sealed class AppDbContext(
     {
         PrepareAuditableEntities();
 
-        // Collect domain events before saving so no new state is added after.
         var events = ChangeTracker.Entries<Entity>()
             .SelectMany(e => e.Entity.DomainEvents)
             .ToList();
@@ -194,7 +193,7 @@ public sealed class AppDbContext(
         where TEntity : class, ITenantEntity
     {
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => _familiaCorrente == null || (Guid?)entity.FamiliaId == _familiaCorrente);
+            .HasQueryFilter(entity => _workspaceCorrente == null || (Guid?)entity.FamiliaId == _workspaceCorrente);
     }
 
     private void PrepareAuditableEntities()
@@ -207,7 +206,10 @@ public sealed class AppDbContext(
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
             .ToList();
 
-        if (auditableEntries.Count == 0) return;
+        if (auditableEntries.Count == 0)
+        {
+            return;
+        }
 
         foreach (var entry in auditableEntries)
         {
@@ -217,9 +219,9 @@ public sealed class AppDbContext(
 
                 if (entry.Entity is ITenantEntity tenantEntity
                     && tenantEntity.FamiliaId == Guid.Empty
-                    && _familiaCorrente.HasValue)
+                    && _workspaceCorrente.HasValue)
                 {
-                    tenantEntity.AtribuirFamilia(_familiaCorrente.Value);
+                    tenantEntity.AtribuirFamilia(_workspaceCorrente.Value);
                 }
             }
 
@@ -274,6 +276,8 @@ public sealed class AppDbContext(
         public bool IsAuthenticated => false;
 
         public string? UserId => null;
+
+        public Guid? WorkspaceId => null;
 
         public Guid? FamiliaId => null;
 

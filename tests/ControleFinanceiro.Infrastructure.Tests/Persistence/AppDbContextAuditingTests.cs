@@ -1,4 +1,4 @@
-using ControleFinanceiro.Domain.Cadastros.Pessoas;
+﻿using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Infrastructure.Persistence;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using FluentAssertions;
@@ -64,8 +64,12 @@ public sealed class AppDbContextAuditingTests
 
         public string? UserId { get; } = userId;
 
-        public Guid? FamiliaId => null;
+        public Guid? WorkspaceId => null;
+
+        public Guid? FamiliaId => WorkspaceId;
 
         public string? Papel => null;
     }
 }
+
+

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace ControleFinanceiro.Contracts.Auth;
 
@@ -7,6 +7,11 @@ public sealed record GoogleLoginRequest([Required] string IdToken);
 public sealed record RefreshTokenRequest(string? RefreshToken);
 
 public sealed record LogoutRequest(string? RefreshToken);
+
+public sealed record WorkspaceResumoResponse(
+    Guid Id,
+    string Nome,
+    string Papel);
 
 public sealed record FamiliaResumoResponse(
     Guid Id,
@@ -18,6 +23,7 @@ public sealed record UsuarioAutenticadoResponse(
     string Email,
     string Nome,
     string? AvatarUrl,
+    WorkspaceResumoResponse Workspace,
     FamiliaResumoResponse Familia);
 
 public sealed record AuthTokenResponse(

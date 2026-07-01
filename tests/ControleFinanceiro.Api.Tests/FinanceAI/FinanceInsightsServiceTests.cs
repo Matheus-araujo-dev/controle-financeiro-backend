@@ -1,4 +1,4 @@
-using ControleFinanceiro.Api.Configuration;
+﻿using ControleFinanceiro.Api.Configuration;
 using ControleFinanceiro.Api.Tests.Financeiro;
 using ControleFinanceiro.Api.Tests.Infrastructure;
 using ControleFinanceiro.Application.Common.Persistence;
@@ -21,7 +21,8 @@ public sealed class FinanceInsightsServiceTests(CustomWebApplicationFactory fact
     {
         public bool IsAuthenticated => familiaId is not null;
         public string? UserId => Guid.NewGuid().ToString();
-        public Guid? FamiliaId => familiaId;
+        public Guid? WorkspaceId => familiaId;
+        public Guid? FamiliaId => WorkspaceId;
         public string? Papel => "Administrador";
     }
 
@@ -81,3 +82,5 @@ public sealed class FinanceInsightsServiceTests(CustomWebApplicationFactory fact
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
 }
+
+

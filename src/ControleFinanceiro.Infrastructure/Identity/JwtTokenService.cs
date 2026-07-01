@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -12,6 +12,7 @@ namespace ControleFinanceiro.Infrastructure.Identity;
 
 public sealed class JwtTokenService(IOptions<JwtOptions> options, IClock clock) : ITokenService
 {
+    public const string WorkspaceClaim = "workspaceId";
     public const string FamiliaClaim = "familiaId";
     public const string PapelClaim = "papel";
 
@@ -23,7 +24,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IClock clock) 
 
         if (string.IsNullOrWhiteSpace(jwtOptions.JwtSigningKey))
         {
-            throw new InvalidOperationException("Auth:JwtSigningKey não está configurada.");
+            throw new InvalidOperationException("Auth:JwtSigningKey nao esta configurada.");
         }
 
         var utcNow = clock.UtcNow;
@@ -35,6 +36,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IClock clock) 
             new(JwtRegisteredClaimNames.Email, usuario.Email),
             new(JwtRegisteredClaimNames.Name, usuario.Nome),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(WorkspaceClaim, familiaId.ToString()),
             new(FamiliaClaim, familiaId.ToString()),
             new(PapelClaim, papel.ToString())
         };

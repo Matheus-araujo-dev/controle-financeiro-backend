@@ -1,4 +1,4 @@
-using ControleFinanceiro.Api.Configuration;
+﻿using ControleFinanceiro.Api.Configuration;
 using ControleFinanceiro.Api.Extensions;
 using ControleFinanceiro.Api.Middleware;
 using ControleFinanceiro.Api.Swagger;
@@ -33,7 +33,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 if (connectionString?.Contains("${DB_PASSWORD}") == true)
 {
     var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD")
-        ?? throw new InvalidOperationException("A variável de ambiente DB_PASSWORD deve estar configurada para expandir ${DB_PASSWORD} na connection string.");
+        ?? throw new InvalidOperationException("A variÃ¡vel de ambiente DB_PASSWORD deve estar configurada para expandir ${DB_PASSWORD} na connection string.");
     builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
 }
 
@@ -92,14 +92,14 @@ static string GetPartitionKey(HttpContext httpContext)
         var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
                      ?? httpContext.User.FindFirstValue("sub")
                      ?? httpContext.User.FindFirstValue("userId");
-        var familiaId = httpContext.User.FindFirstValue("familiaId");
+        var workspaceId = httpContext.User.FindFirstValue("workspaceId") ?? httpContext.User.FindFirstValue("familiaId");
 
         if (!string.IsNullOrEmpty(userId))
         {
-            // Partition per tenant+user to isolate rate limits across families.
-            return string.IsNullOrEmpty(familiaId)
+            // Partition per workspace+user to isolate rate limits across workspaces.
+            return string.IsNullOrEmpty(workspaceId)
                 ? $"user:{userId}"
-                : $"familia:{familiaId}:user:{userId}";
+                : $"workspace:{workspaceId}:user:{userId}";
         }
     }
 
@@ -186,10 +186,10 @@ app.UseSerilogRequestLogging(options =>
         {
             var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
                          ?? httpContext.User.FindFirstValue("sub");
-            var familiaId = httpContext.User.FindFirstValue("familiaId");
+            var workspaceId = httpContext.User.FindFirstValue("workspaceId") ?? httpContext.User.FindFirstValue("familiaId");
 
             if (userId is not null) diagnosticContext.Set("UserId", userId);
-            if (familiaId is not null) diagnosticContext.Set("TenantId", familiaId);
+            if (workspaceId is not null) diagnosticContext.Set("TenantId", workspaceId);
         }
     };
 });
@@ -202,7 +202,7 @@ app.Use(async (context, next) =>
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    // CSP permite Google Sign-In e comunicação com Anthropic (usados pelo frontend e backend)
+    // CSP permite Google Sign-In e comunicaÃ§Ã£o com Anthropic (usados pelo frontend e backend)
     context.Response.Headers.Append("Content-Security-Policy",
         "default-src 'self'; " +
         "script-src 'self' https://accounts.google.com/gsi/client; " +
@@ -229,7 +229,7 @@ else
     });
 }
 
-// Auto-migrate on startup (Railway/cloud deployments — skipped in Testing environment)
+// Auto-migrate on startup (Railway/cloud deployments â€” skipped in Testing environment)
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
@@ -263,3 +263,6 @@ app.MapControllers();
 app.Run();
 
 public partial class Program;
+
+
+

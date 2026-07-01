@@ -1,4 +1,4 @@
-using ControleFinanceiro.Domain.Cadastros.Cartoes;
+﻿using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
@@ -21,9 +21,9 @@ public interface IAppDbContext :
     IWhatsappDbContext,
     IUnitOfWork
 {
-    /// <summary>
-    /// Define a família (tenant) corrente fora de um request autenticado
-    /// (workers em background e webhooks anônimos).
-    /// </summary>
+    Guid? WorkspaceCorrente { get; }
+
+    void DefinirWorkspaceCorrente(Guid workspaceId);
+
     void DefinirFamiliaCorrente(Guid familiaId);
 }

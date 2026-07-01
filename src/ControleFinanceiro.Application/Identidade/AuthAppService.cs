@@ -1,4 +1,4 @@
-using ControleFinanceiro.Application.Common.Exceptions;
+﻿using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Contracts.Auth;
 using ControleFinanceiro.Domain.Identidade;
@@ -31,7 +31,7 @@ public sealed class AuthAppService(
         {
             if (!usuario.Ativo)
             {
-                throw new AuthenticationFailedException("Usuário desativado.");
+                throw new AuthenticationFailedException("UsuÃ¡rio desativado.");
             }
 
             usuario.AtualizarPerfil(googleUser.Email, googleUser.Nome, googleUser.AvatarUrl);
@@ -53,15 +53,15 @@ public sealed class AuthAppService(
 
         if (tokenAtual is null || !tokenAtual.EstaAtivo(utcNow))
         {
-            throw new AuthenticationFailedException("Sessão expirada. Faça login novamente.");
+            throw new AuthenticationFailedException("SessÃ£o expirada. FaÃ§a login novamente.");
         }
 
         var usuario = await dbContext.Usuarios
             .SingleOrDefaultAsync(u => u.Id == tokenAtual.UsuarioId && u.Ativo, cancellationToken)
-            ?? throw new AuthenticationFailedException("Usuário desativado.");
+            ?? throw new AuthenticationFailedException("UsuÃ¡rio desativado.");
 
         var membro = await ObterMembroAtivoAsync(usuario, cancellationToken)
-            ?? throw new AuthenticationFailedException("Usuário sem família associada.");
+            ?? throw new AuthenticationFailedException("UsuÃ¡rio sem famÃ­lia associada.");
 
         var familia = await dbContext.Familias
             .SingleAsync(f => f.Id == membro.FamiliaId, cancellationToken);
@@ -110,15 +110,15 @@ public sealed class AuthAppService(
                 .Include(f => f.Membros)
                 .SingleOrDefaultAsync(f => f.Id == familiaPadraoId.Value, cancellationToken);
 
-            // A família padrão só absorve o primeiro usuário (dono do histórico pré-multi-tenant);
-            // demais usuários entram apenas por convite.
+            // A famÃ­lia padrÃ£o sÃ³ absorve o primeiro usuÃ¡rio (dono do histÃ³rico prÃ©-multi-tenant);
+            // demais usuÃ¡rios entram apenas por convite.
             if (familiaPadrao is not null && familiaPadrao.Membros.Count == 0)
             {
                 return (familiaPadrao.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), familiaPadrao);
             }
         }
 
-        var novaFamilia = Familia.Criar($"Família de {usuario.Nome}");
+        var novaFamilia = Familia.Criar($"Espaco de {usuario.Nome}");
         dbContext.Familias.Add(novaFamilia);
         return (novaFamilia.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), novaFamilia);
     }
@@ -173,6 +173,11 @@ public sealed class AuthAppService(
                 usuario.Email,
                 usuario.Nome,
                 usuario.AvatarUrl,
+                new WorkspaceResumoResponse(familia.Id, familia.Nome, papel.ToString()),
                 new FamiliaResumoResponse(familia.Id, familia.Nome, papel.ToString())));
     }
 }
+
+
+
+

@@ -54,11 +54,11 @@ public sealed class AuthFlowTests : IDisposable
         var payload = await response.Content.ReadFromJsonAsync<AuthTokenResponse>();
         payload.Should().NotBeNull();
         payload!.AccessToken.Should().NotBeNullOrWhiteSpace();
-        // Refresh token is no longer returned in the body — it's set as an HttpOnly cookie.
         payload.RefreshToken.Should().BeNullOrEmpty();
         GetRefreshTokenFromSetCookie(response).Should().NotBeNullOrWhiteSpace();
         payload.Usuario.Email.Should().Be("maria@example.com");
-        payload.Usuario.Familia.Nome.Should().Be("Família de Maria");
+        payload.Usuario.Workspace.Nome.Should().Be("Espaco de Maria");
+        payload.Usuario.Familia.Nome.Should().Be("Espaco de Maria");
         payload.Usuario.Familia.Papel.Should().Be("Administrador");
     }
 
@@ -119,19 +119,8 @@ public sealed class AuthFlowTests : IDisposable
         using var client = _selfJwtFactory.CreateClient();
         var loginMaria = await LoginAsync(client, "token-maria");
 
-        // Maria (admin) cria convite
-        var conviteResponse = await SendJsonAsync(
-            client,
-            HttpMethod.Post,
-            "/api/v1/familias/convites",
-            new CriarConviteFamiliaRequest("joao@example.com", "Membro"),
-            loginMaria.AccessToken);
+        var convite = await CriarConviteAsync(client, loginMaria.AccessToken, "joao@example.com");
 
-        conviteResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-        var convite = await conviteResponse.Content.ReadFromJsonAsync<ConviteCriadoResponse>();
-        convite!.Token.Should().NotBeNullOrWhiteSpace();
-
-        // João loga e aceita o convite
         var loginJoao = await LoginAsync(client, "token-joao");
         var aceitarResponse = await SendJsonAsync(
             client,
@@ -142,12 +131,10 @@ public sealed class AuthFlowTests : IDisposable
 
         aceitarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Novo login de João reflete a família de Maria
         var loginJoaoAtualizado = await LoginAsync(client, "token-joao");
         loginJoaoAtualizado.Usuario.Familia.Id.Should().Be(loginMaria.Usuario.Familia.Id);
         loginJoaoAtualizado.Usuario.Familia.Papel.Should().Be("Membro");
 
-        // Família agora tem dois membros
         using var familiaRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/familias/minha");
         familiaRequest.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", loginJoaoAtualizado.AccessToken);
@@ -157,26 +144,96 @@ public sealed class AuthFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task AceitarConvite_QuartaParticipacao_DeveFalharCom400()
+    {
+        using var client = _selfJwtFactory.CreateClient();
+
+        var maria = await LoginAsync(client, "token-maria");
+        var ana = await LoginAsync(client, "token-ana");
+        var carla = await LoginAsync(client, "token-carla");
+        var joao = await LoginAsync(client, "token-joao");
+
+        var conviteMaria = await CriarConviteAsync(client, maria.AccessToken, "joao@example.com");
+        var conviteAna = await CriarConviteAsync(client, ana.AccessToken, "joao@example.com");
+        var conviteCarla = await CriarConviteAsync(client, carla.AccessToken, "joao@example.com");
+
+        (await AceitarConviteAsync(client, joao.AccessToken, conviteMaria.Token)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await AceitarConviteAsync(client, joao.AccessToken, conviteAna.Token)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var quarta = await AceitarConviteAsync(client, joao.AccessToken, conviteCarla.Token);
+
+        quarta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var erro = await quarta.Content.ReadAsStringAsync();
+        erro.Should().Contain("Limite máximo de 3 participações atingido");
+    }
+
+    [Fact]
+    public async Task ListarFamiliasESelecionarAtiva_DeveEmitirNovaSessao()
+    {
+        using var client = _selfJwtFactory.CreateClient();
+
+        var maria = await LoginAsync(client, "token-maria");
+        var ana = await LoginAsync(client, "token-ana");
+        var joao = await LoginAsync(client, "token-joao");
+
+        var conviteMaria = await CriarConviteAsync(client, maria.AccessToken, "joao@example.com");
+        var conviteAna = await CriarConviteAsync(client, ana.AccessToken, "joao@example.com");
+
+        (await AceitarConviteAsync(client, joao.AccessToken, conviteMaria.Token)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await AceitarConviteAsync(client, joao.AccessToken, conviteAna.Token)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var joaoAtualizado = await LoginAsync(client, "token-joao");
+
+        using var listarRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/familias");
+        listarRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", joaoAtualizado.AccessToken);
+        var listarResponse = await client.SendAsync(listarRequest);
+
+        listarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var familias = await listarResponse.Content.ReadFromJsonAsync<List<ParticipacaoFamiliaResponse>>();
+        familias.Should().NotBeNull();
+        familias!.Should().HaveCount(3);
+        familias.Should().Contain(f => f.Id == joaoAtualizado.Usuario.Familia.Id && f.Ativa);
+
+        var selecionarResponse = await SendJsonAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/familias/{maria.Usuario.Familia.Id}/selecionar",
+            body: (object?)null,
+            joaoAtualizado.AccessToken);
+
+        selecionarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var sessao = await selecionarResponse.Content.ReadFromJsonAsync<SelecionarFamiliaResponse>();
+        sessao.Should().NotBeNull();
+        sessao!.Sessao.Usuario.Familia.Id.Should().Be(maria.Usuario.Familia.Id);
+        sessao.Sessao.RefreshToken.Should().BeNullOrEmpty();
+        GetRefreshTokenFromSetCookie(selecionarResponse).Should().NotBeNullOrWhiteSpace();
+
+        using var minhaFamiliaRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/familias/minha");
+        minhaFamiliaRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", sessao.Sessao.AccessToken);
+        var minhaFamiliaResponse = await client.SendAsync(minhaFamiliaRequest);
+
+        minhaFamiliaResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var familiaAtiva = await minhaFamiliaResponse.Content.ReadFromJsonAsync<FamiliaDetalheResponse>();
+        familiaAtiva!.Id.Should().Be(maria.Usuario.Familia.Id);
+    }
+
+    [Fact]
     public async Task Refresh_DeveRotacionarTokenEInvalidarAnterior()
     {
         using var client = _selfJwtFactory.CreateClient();
 
-        // Login — capture old token from Set-Cookie header
         var loginResponse = await client.PostAsJsonAsync("/api/v1/auth/google", new GoogleLoginRequest("token-maria"));
         loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var oldToken = GetRefreshTokenFromSetCookie(loginResponse);
         oldToken.Should().NotBeNullOrWhiteSpace();
 
-        // Refresh — old cookie sent automatically from the client's CookieContainer
         var refreshResponse = await client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(null));
         refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Verify the cookie was rotated (new Set-Cookie issued)
         var newToken = GetRefreshTokenFromSetCookie(refreshResponse);
         newToken.Should().NotBeNullOrWhiteSpace();
         newToken.Should().NotBe(oldToken);
 
-        // Reuso do token antigo deve falhar — fresh client has no cookie, sends old value via body
         using var freshClient = _selfJwtFactory.CreateClient();
         var reuso = await freshClient.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(oldToken));
         reuso.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -188,14 +245,12 @@ public sealed class AuthFlowTests : IDisposable
         using var client = _selfJwtFactory.CreateClient();
         var login = await LoginAsync(client, "token-maria");
 
-        // Cookie is sent automatically from the container; body token is ignored since cookie takes priority.
         var logoutResponse = await client.PostAsJsonAsync(
             "/api/v1/auth/logout",
             new LogoutRequest(login.RefreshToken));
 
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // After logout the cookie is cleared — subsequent refresh must fail.
         var refreshAposLogout = await client.PostAsJsonAsync(
             "/api/v1/auth/refresh",
             new RefreshTokenRequest(null));
@@ -203,7 +258,22 @@ public sealed class AuthFlowTests : IDisposable
         refreshAposLogout.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    /// <summary>Extracts the refreshToken cookie value from the Set-Cookie response header.</summary>
+    private static async Task<ConviteCriadoResponse> CriarConviteAsync(HttpClient client, string accessToken, string email)
+    {
+        var response = await SendJsonAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/familias/convites",
+            new CriarConviteFamiliaRequest(email, "Membro"),
+            accessToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<ConviteCriadoResponse>())!;
+    }
+
+    private static Task<HttpResponseMessage> AceitarConviteAsync(HttpClient client, string accessToken, string token) =>
+        SendJsonAsync(client, HttpMethod.Post, $"/api/v1/familias/convites/{token}/aceitar", body: (object?)null, accessToken);
+
     private static string? GetRefreshTokenFromSetCookie(HttpResponseMessage response)
     {
         if (!response.Headers.TryGetValues("Set-Cookie", out var cookies)) return null;
@@ -242,8 +312,6 @@ public sealed class AuthFlowTests : IDisposable
         return await client.SendAsync(request);
     }
 
-    private sealed record IdResponse(Guid Id);
-
     private sealed class FakeGoogleTokenValidator : IGoogleTokenValidator
     {
         public Task<GoogleUserInfo> ValidateAsync(string idToken, CancellationToken cancellationToken)
@@ -253,9 +321,15 @@ public sealed class AuthFlowTests : IDisposable
                 "token-maria" => Task.FromResult(
                     new GoogleUserInfo("google-sub-maria", "maria@example.com", "Maria", null)),
                 "token-joao" => Task.FromResult(
-                    new GoogleUserInfo("google-sub-joao", "joao@example.com", "João", null)),
+                    new GoogleUserInfo("google-sub-joao", "joao@example.com", "Joao", null)),
+                "token-ana" => Task.FromResult(
+                    new GoogleUserInfo("google-sub-ana", "ana@example.com", "Ana", null)),
+                "token-carla" => Task.FromResult(
+                    new GoogleUserInfo("google-sub-carla", "carla@example.com", "Carla", null)),
                 _ => throw new AuthenticationFailedException("Token Google inválido.")
             };
         }
     }
 }
+
+

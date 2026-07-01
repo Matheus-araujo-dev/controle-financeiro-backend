@@ -20,35 +20,35 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Nome, termo) ||
-                EF.Functions.Like(x.Banco, termo) ||
-                (x.NumeroConta != null && EF.Functions.Like(x.NumeroConta, termo)));
+                EF.Functions.Like(x.Nome.ToLower(), termo) ||
+                EF.Functions.Like(x.Banco.ToLower(), termo) ||
+                (x.NumeroConta != null && EF.Functions.Like(x.NumeroConta.ToLower(), termo)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Banco))
         {
-            var banco = $"%{query.Banco.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Banco, banco));
+            var banco = $"%{query.Banco.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Banco.ToLower(), banco));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Agencia))
         {
-            var agencia = $"%{query.Agencia.Trim()}%";
-            consulta = consulta.Where(x => x.Agencia != null && EF.Functions.Like(x.Agencia, agencia));
+            var agencia = $"%{query.Agencia.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Agencia != null && EF.Functions.Like(x.Agencia.ToLower(), agencia));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NumeroConta))
         {
-            var numeroConta = $"%{query.NumeroConta.Trim()}%";
-            consulta = consulta.Where(x => x.NumeroConta != null && EF.Functions.Like(x.NumeroConta, numeroConta));
+            var numeroConta = $"%{query.NumeroConta.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.NumeroConta != null && EF.Functions.Like(x.NumeroConta.ToLower(), numeroConta));
         }
 
         if (!string.IsNullOrWhiteSpace(query.TipoConta))
         {
-            var tipoConta = $"%{query.TipoConta.Trim()}%";
-            consulta = consulta.Where(x => x.TipoConta != null && EF.Functions.Like(x.TipoConta, tipoConta));
+            var tipoConta = $"%{query.TipoConta.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.TipoConta != null && EF.Functions.Like(x.TipoConta.ToLower(), tipoConta));
         }
 
         if (query.Ativo.HasValue)

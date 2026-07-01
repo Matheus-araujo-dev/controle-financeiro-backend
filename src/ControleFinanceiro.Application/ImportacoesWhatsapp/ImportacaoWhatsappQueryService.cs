@@ -32,11 +32,11 @@ public sealed class ImportacaoWhatsappQueryService(
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Remetente, termo) ||
-                (x.TextoBruto != null && EF.Functions.Like(x.TextoBruto, termo)) ||
-                (x.NomeArquivo != null && EF.Functions.Like(x.NomeArquivo, termo)));
+                EF.Functions.Like(x.Remetente.ToLower(), termo) ||
+                (x.TextoBruto != null && EF.Functions.Like(x.TextoBruto.ToLower(), termo)) ||
+                (x.NomeArquivo != null && EF.Functions.Like(x.NomeArquivo.ToLower(), termo)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.TipoOrigemCodigo))
@@ -53,20 +53,20 @@ public sealed class ImportacaoWhatsappQueryService(
 
         if (!string.IsNullOrWhiteSpace(query.Remetente))
         {
-            var remetente = $"%{query.Remetente.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Remetente, remetente));
+            var remetente = $"%{query.Remetente.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Remetente.ToLower(), remetente));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NomeArquivo))
         {
-            var nomeArquivo = $"%{query.NomeArquivo.Trim()}%";
-            consulta = consulta.Where(x => x.NomeArquivo != null && EF.Functions.Like(x.NomeArquivo, nomeArquivo));
+            var nomeArquivo = $"%{query.NomeArquivo.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.NomeArquivo != null && EF.Functions.Like(x.NomeArquivo.ToLower(), nomeArquivo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.MimeType))
         {
-            var mimeType = $"%{query.MimeType.Trim()}%";
-            consulta = consulta.Where(x => x.MimeType != null && EF.Functions.Like(x.MimeType, mimeType));
+            var mimeType = $"%{query.MimeType.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.MimeType != null && EF.Functions.Like(x.MimeType.ToLower(), mimeType));
         }
 
         if (query.ConfiancaExtracaoMin.HasValue)

@@ -127,9 +127,10 @@ public sealed class CriarLancamentoTool(IAppDbContext db) : IFinanceTool
             return recebedorId;
 
         var nomeTrimmed = nome.Trim();
+        var nomeLower = nomeTrimmed.ToLower();
         var existente = await db.Pessoas
             .AsNoTracking()
-            .Where(p => EF.Functions.Like(p.Nome, nomeTrimmed))
+            .Where(p => EF.Functions.Like(p.Nome.ToLower(), nomeLower))
             .Select(p => p.Id)
             .FirstOrDefaultAsync(ct);
 

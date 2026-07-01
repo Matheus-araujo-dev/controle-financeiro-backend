@@ -17,11 +17,11 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Nome, termo) ||
-                (x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj, termo)) ||
-                (x.Email != null && EF.Functions.Like(x.Email, termo)));
+                EF.Functions.Like(x.Nome.ToLower(), termo) ||
+                (x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj.ToLower(), termo)) ||
+                (x.Email != null && EF.Functions.Like(x.Email.ToLower(), termo)));
         }
 
         var tipos = MapearTiposFiltro(query);
@@ -37,20 +37,20 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Documento))
         {
-            var termoDoc = $"%{query.Documento.Trim()}%";
-            consulta = consulta.Where(x => x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj, termoDoc));
+            var termoDoc = $"%{query.Documento.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj.ToLower(), termoDoc));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Email))
         {
-            var termoEmail = $"%{query.Email.Trim()}%";
-            consulta = consulta.Where(x => x.Email != null && EF.Functions.Like(x.Email, termoEmail));
+            var termoEmail = $"%{query.Email.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Email != null && EF.Functions.Like(x.Email.ToLower(), termoEmail));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Telefone))
         {
-            var termoTelefone = $"%{query.Telefone.Trim()}%";
-            consulta = consulta.Where(x => x.Telefone != null && EF.Functions.Like(x.Telefone, termoTelefone));
+            var termoTelefone = $"%{query.Telefone.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Telefone != null && EF.Functions.Like(x.Telefone.ToLower(), termoTelefone));
         }
 
         // Totalizadores sobre o conjunto FILTRADO (antes da paginação).

@@ -42,8 +42,8 @@ public sealed class FormaPagamentoAppService
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Nome, termo));
+            var termo = $"%{query.Search.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Nome.ToLower(), termo));
         }
 
         if (query.Tipo.HasValue)

@@ -453,13 +453,16 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
         var mesAtual = new DateOnly(hoje.Year, hoje.Month, 1);
         var mesAtualLabel = mesAtual.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        var diaVencido = hoje.Day > 1 ? hoje.AddDays(-1) : hoje;
+        // Use AddDays(-1) unconditionally: if today is the 1st, this resolves to the last day of
+        // the previous month, which is still < dataReferencia (today) and satisfies the vencida filter.
+        var diaVencido = hoje.AddDays(-1);
+        var dataEmissaoVencida = diaVencido.AddDays(-30);  // 30 days before vencimento, always valid
         var diaAVencer = hoje.Day < DateTime.DaysInMonth(hoje.Year, hoje.Month) ? hoje.AddDays(1) : hoje;
 
         await CriarContaPagarAsync(
             client,
             fixture,
-            dataEmissao: mesAtual.ToString("yyyy-MM-01", CultureInfo.InvariantCulture),
+            dataEmissao: dataEmissaoVencida.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             dataVencimento: diaVencido.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             valor: 300m,
             descricao: "Conta vencida no mês atual",

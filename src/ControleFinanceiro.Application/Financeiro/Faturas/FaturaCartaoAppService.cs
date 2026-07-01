@@ -44,10 +44,10 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.CartaoNome, termo) ||
-                EF.Functions.Like(x.Competencia, termo));
+                EF.Functions.Like(x.CartaoNome.ToLower(), termo) ||
+                EF.Functions.Like(x.Competencia.ToLower(), termo));
         }
 
         var cartaoIds = query.CartaoIds?

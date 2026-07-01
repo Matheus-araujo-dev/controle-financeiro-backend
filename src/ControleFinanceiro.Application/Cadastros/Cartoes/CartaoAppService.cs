@@ -20,23 +20,23 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Nome, termo) ||
-                EF.Functions.Like(x.Bandeira, termo) ||
-                EF.Functions.Like(x.NumeroFinal, termo));
+                EF.Functions.Like(x.Nome.ToLower(), termo) ||
+                EF.Functions.Like(x.Bandeira.ToLower(), termo) ||
+                EF.Functions.Like(x.NumeroFinal.ToLower(), termo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Bandeira))
         {
-            var bandeira = $"%{query.Bandeira.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Bandeira, bandeira));
+            var bandeira = $"%{query.Bandeira.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Bandeira.ToLower(), bandeira));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NumeroFinal))
         {
-            var numeroFinal = $"%{query.NumeroFinal.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.NumeroFinal, numeroFinal));
+            var numeroFinal = $"%{query.NumeroFinal.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.NumeroFinal.ToLower(), numeroFinal));
         }
 
         if (query.DiaFechamentoFatura.HasValue)

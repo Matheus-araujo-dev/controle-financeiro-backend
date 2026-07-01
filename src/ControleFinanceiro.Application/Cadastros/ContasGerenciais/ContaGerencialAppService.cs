@@ -18,10 +18,10 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Descricao, termo) ||
-                (x.Codigo != null && EF.Functions.Like(x.Codigo, termo)));
+                EF.Functions.Like(x.Descricao.ToLower(), termo) ||
+                (x.Codigo != null && EF.Functions.Like(x.Codigo.ToLower(), termo)));
         }
 
         if (query.Tipo.HasValue)
@@ -42,12 +42,12 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.ContaPai))
         {
-            var contaPai = $"%{query.ContaPai.Trim()}%";
+            var contaPai = $"%{query.ContaPai.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
                 x.ContaPaiId.HasValue &&
                 dbContext.ContasGerenciais.Any(parent =>
                     parent.Id == x.ContaPaiId.Value &&
-                    EF.Functions.Like(parent.Descricao, contaPai)));
+                    EF.Functions.Like(parent.Descricao.ToLower(), contaPai)));
         }
 
         if (query.ResponsavelPadraoId.HasValue)
@@ -57,12 +57,12 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.ResponsavelPadrao))
         {
-            var responsavelPadrao = $"%{query.ResponsavelPadrao.Trim()}%";
+            var responsavelPadrao = $"%{query.ResponsavelPadrao.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
                 x.ResponsavelPadraoId.HasValue &&
                 dbContext.Pessoas.Any(pessoa =>
                     pessoa.Id == x.ResponsavelPadraoId.Value &&
-                    EF.Functions.Like(pessoa.Nome, responsavelPadrao)));
+                    EF.Functions.Like(pessoa.Nome.ToLower(), responsavelPadrao)));
         }
 
         if (query.Ativo.HasValue)

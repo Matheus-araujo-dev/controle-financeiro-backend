@@ -13,6 +13,8 @@ COPY ["src/ControleFinanceiro.Infrastructure/ControleFinanceiro.Infrastructure.c
 COPY ["src/ControleFinanceiro.SharedKernel/ControleFinanceiro.SharedKernel.csproj", "ControleFinanceiro.SharedKernel/"]
 COPY ["src/ControleFinanceiro.Contracts/ControleFinanceiro.Contracts.csproj", "ControleFinanceiro.Contracts/"]
 
+COPY Directory.Build.props .
+
 RUN dotnet restore "ControleFinanceiro.Api/ControleFinanceiro.Api.csproj"
 
 COPY src/ .

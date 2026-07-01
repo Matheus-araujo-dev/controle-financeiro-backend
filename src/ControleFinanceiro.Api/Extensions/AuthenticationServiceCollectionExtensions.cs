@@ -43,7 +43,8 @@ public static class AuthenticationServiceCollectionExtensions
             {
                 policy.WithOrigins(allowedOrigins)
                     .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin", "X-Debug-User")
-                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                    .AllowCredentials();
             });
         });
 

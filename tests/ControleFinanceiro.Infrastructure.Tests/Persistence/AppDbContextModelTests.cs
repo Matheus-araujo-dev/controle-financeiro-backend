@@ -10,7 +10,7 @@ public sealed class AppDbContextModelTests
     public void Model_ShouldExposeAuditTrailEntryMapping()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=ControleFinanceiroTests;Trusted_Connection=True;TrustServerCertificate=True;")
+            .UseNpgsql("Host=localhost;Database=test;Username=postgres;Password=postgres")
             .Options;
 
         using var context = new AppDbContext(options);

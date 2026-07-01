@@ -229,9 +229,10 @@ else
     });
 }
 
-// Auto-migrate on startup (Railway/cloud deployments)
-using (var scope = app.Services.CreateScope())
+// Auto-migrate on startup (Railway/cloud deployments — skipped in Testing environment)
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ControleFinanceiro.Infrastructure.Persistence.AppDbContext>();
     db.Database.Migrate();
 }

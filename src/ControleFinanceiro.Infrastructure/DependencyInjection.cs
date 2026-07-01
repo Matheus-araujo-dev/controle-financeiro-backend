@@ -175,7 +175,7 @@ public static class DependencyInjection
     }
 
     // Railway injects DATABASE_URL as a postgres:// URI; Npgsql expects key=value format.
-    private static string ResolveConnectionString(string cs)
+    internal static string ResolveConnectionString(string cs)
     {
         if (!cs.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
             !cs.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))

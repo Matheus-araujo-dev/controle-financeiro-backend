@@ -73,7 +73,7 @@ public sealed class RecorrenciaAppService(
         var tipo = query.Tipo?.Trim();
         var incluiPagar = !string.Equals(tipo, "Receber", StringComparison.OrdinalIgnoreCase);
         var incluiReceber = !string.Equals(tipo, "Pagar", StringComparison.OrdinalIgnoreCase);
-        var termo = string.IsNullOrWhiteSpace(query.Search) ? null : $"%{query.Search.Trim()}%";
+        var termo = string.IsNullOrWhiteSpace(query.Search) ? null : $"%{query.Search.Trim().ToLower()}%";
 
         var rows = new List<RecorrenciaRow>();
         if (incluiPagar)
@@ -143,9 +143,9 @@ public sealed class RecorrenciaAppService(
             join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
             from responsavel in responsaveis.DefaultIfEmpty()
             where (termo == null
-                       || EF.Functions.Like(conta.Descricao, termo)
-                       || EF.Functions.Like(recebedor.Nome, termo)
-                       || (responsavel != null && EF.Functions.Like(responsavel.Nome, termo)))
+                       || EF.Functions.Like(conta.Descricao.ToLower(), termo)
+                       || EF.Functions.Like(recebedor.Nome.ToLower(), termo)
+                       || (responsavel != null && EF.Functions.Like(responsavel.Nome.ToLower(), termo)))
                   && (ativa == null || regra.Ativa == ativa)
                   && (dataInicial == null || regra.DataInicio >= dataInicial)
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
@@ -178,9 +178,9 @@ public sealed class RecorrenciaAppService(
             join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
             from responsavel in responsaveis.DefaultIfEmpty()
             where (termo == null
-                       || EF.Functions.Like(conta.Descricao, termo)
-                       || EF.Functions.Like(pagador.Nome, termo)
-                       || (responsavel != null && EF.Functions.Like(responsavel.Nome, termo)))
+                       || EF.Functions.Like(conta.Descricao.ToLower(), termo)
+                       || EF.Functions.Like(pagador.Nome.ToLower(), termo)
+                       || (responsavel != null && EF.Functions.Like(responsavel.Nome.ToLower(), termo)))
                   && (ativa == null || regra.Ativa == ativa)
                   && (dataInicial == null || regra.DataInicio >= dataInicial)
                   && (dataFinal == null || regra.DataInicio <= dataFinal)

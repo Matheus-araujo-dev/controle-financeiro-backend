@@ -56,8 +56,8 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Observacao ?? "", termo));
+            var termo = $"%{query.Search.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like((x.Observacao ?? "").ToLower(), termo));
         }
 
         var contaBancariaIds = NormalizarGuidList(query.ContaBancariaIds);

@@ -58,23 +58,23 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Descricao, termo) ||
-                (x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento, termo)) ||
-                EF.Functions.Like(x.RecebedorNome, termo));
+                EF.Functions.Like(x.Descricao.ToLower(), termo) ||
+                (x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento.ToLower(), termo)) ||
+                EF.Functions.Like(x.RecebedorNome.ToLower(), termo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NumeroDocumento))
         {
-            var termo = $"%{query.NumeroDocumento.Trim()}%";
-            consulta = consulta.Where(x => x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento, termo));
+            var termo = $"%{query.NumeroDocumento.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento.ToLower(), termo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Descricao))
         {
-            var termo = $"%{query.Descricao.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Descricao, termo));
+            var termo = $"%{query.Descricao.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Descricao.ToLower(), termo));
         }
 
         var recebedorIds = NormalizarIds(query.RecebedorId, query.RecebedorIds);
@@ -487,10 +487,10 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consultaBase = consultaBase.Where(x =>
-                EF.Functions.Like(x.Descricao, termo) ||
-                EF.Functions.Like(x.RecebedorNome, termo));
+                EF.Functions.Like(x.Descricao.ToLower(), termo) ||
+                EF.Functions.Like(x.RecebedorNome.ToLower(), termo));
         }
 
         if (query.RecebedorId.HasValue)

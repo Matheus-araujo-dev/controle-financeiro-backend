@@ -61,23 +61,23 @@ public sealed class ContaReceberAppService(
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Descricao, termo) ||
-                (x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento, termo)) ||
-                EF.Functions.Like(x.PagadorNome, termo));
+                EF.Functions.Like(x.Descricao.ToLower(), termo) ||
+                (x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento.ToLower(), termo)) ||
+                EF.Functions.Like(x.PagadorNome.ToLower(), termo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NumeroDocumento))
         {
-            var termo = $"%{query.NumeroDocumento.Trim()}%";
-            consulta = consulta.Where(x => x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento, termo));
+            var termo = $"%{query.NumeroDocumento.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.NumeroDocumento != null && EF.Functions.Like(x.NumeroDocumento.ToLower(), termo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Descricao))
         {
-            var termo = $"%{query.Descricao.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Descricao, termo));
+            var termo = $"%{query.Descricao.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Descricao.ToLower(), termo));
         }
 
         var pagadorIds = NormalizarIds(query.PagadorId, query.PagadorIds);

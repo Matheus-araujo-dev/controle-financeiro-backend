@@ -29,7 +29,7 @@ public sealed class ContaGerencialConfiguration : IEntityTypeConfiguration<Conta
             .IsRequired();
 
         builder.HasIndex(x => x.ResponsavelPadraoId);
-        builder.HasIndex(x => x.Codigo).IsUnique().HasFilter("[Codigo] IS NOT NULL");
+        builder.HasIndex(x => x.Codigo).IsUnique().HasFilter("\"Codigo\" IS NOT NULL");
         builder.HasIndex("Tipo", "Ativo");
         builder.HasIndex(x => x.ContaPaiId);
 

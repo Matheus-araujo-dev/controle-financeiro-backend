@@ -12,7 +12,8 @@ public sealed class DashboardAppService(
     IDashboardFluxoCaixaService fluxoCaixa,
     IDashboardContasGerenciaisService contasGerenciais,
     IDashboardCentralPrevisaoService centralPrevisao,
-    IDashboardResponsavelService responsavel)
+    IDashboardResponsavelService responsavel,
+    IDashboardComparativoMensalService comparativoMensal)
 {
     public Task<DashboardResumoResponse> ObterResumoAsync(DashboardResumoQueryRequest query, CancellationToken cancellationToken) =>
         resumo.ObterResumoAsync(query, cancellationToken);
@@ -37,4 +38,7 @@ public sealed class DashboardAppService(
 
     public Task<DashboardResponsavelResumoResponse> ObterResumoPorResponsavelAsync(DashboardResponsavelQueryRequest query, CancellationToken cancellationToken) =>
         responsavel.ObterResumoPorResponsavelAsync(query, cancellationToken);
+
+    public Task<DashboardComparativoMensalResponse> ObterComparativoMensalAsync(DashboardComparativoMensalQueryRequest query, CancellationToken cancellationToken) =>
+        comparativoMensal.ObterComparativoMensalAsync(query, cancellationToken);
 }

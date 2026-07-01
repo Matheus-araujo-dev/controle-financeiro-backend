@@ -266,3 +266,20 @@ public sealed record DashboardResponsavelResumoResponse(
     decimal TotalDespesas,
     decimal TotalReceitas,
     IReadOnlyList<DashboardResponsavelItemResponse> Itens);
+
+public sealed record DashboardComparativoMensalQueryRequest
+{
+    public int Meses { get; init; } = 6;
+}
+
+public sealed record DashboardComparativoMensalItemResponse(
+    string Competencia,
+    string CompetenciaLabel,
+    decimal Receitas,
+    decimal Despesas,
+    decimal Saldo,
+    decimal? VariacaoReceitas,
+    decimal? VariacaoDespesas);
+
+public sealed record DashboardComparativoMensalResponse(
+    IReadOnlyList<DashboardComparativoMensalItemResponse> Itens);

@@ -85,36 +85,6 @@ jobs:
           }
           if ($failed) { exit 1 }
 
-  deploy-dev:
-    name: Deploy → DEV
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    environment: development
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway DEV
-        run: railway up --service backend --environment development --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
-
-  deploy-prod:
-    name: Deploy → PROD
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway PROD
-        run: railway up --service backend --environment production --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+  # Railway watches GitHub directly and deploys automatically.
+  # "Wait for CI" is enabled on Railway so it only deploys after this workflow passes.
+  # No explicit deploy step needed here.

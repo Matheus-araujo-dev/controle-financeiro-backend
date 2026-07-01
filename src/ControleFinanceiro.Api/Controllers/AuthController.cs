@@ -57,7 +57,7 @@ public sealed class AuthController(AuthAppService authAppService, IWebHostEnviro
         {
             HttpOnly = true,
             Secure = env.IsProduction(),
-            SameSite = SameSiteMode.Strict,
+            SameSite = env.IsProduction() ? SameSiteMode.None : SameSiteMode.Strict,
             Expires = DateTimeOffset.UtcNow.AddDays(30),
             Path = "/api/v1/auth"
         });
@@ -69,7 +69,7 @@ public sealed class AuthController(AuthAppService authAppService, IWebHostEnviro
         {
             HttpOnly = true,
             Secure = env.IsProduction(),
-            SameSite = SameSiteMode.Strict,
+            SameSite = env.IsProduction() ? SameSiteMode.None : SameSiteMode.Strict,
             Path = "/api/v1/auth"
         });
     }

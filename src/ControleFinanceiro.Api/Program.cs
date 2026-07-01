@@ -8,6 +8,7 @@ using ControleFinanceiro.Infrastructure;
 using ControleFinanceiro.Infrastructure.Persistence;
 using ControleFinanceiro.SharedKernel.Logging;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
@@ -226,6 +227,13 @@ else
         context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         await next();
     });
+}
+
+// Auto-migrate on startup (Railway/cloud deployments)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ControleFinanceiro.Infrastructure.Persistence.AppDbContext>();
+    db.Database.Migrate();
 }
 
 app.UseAuthentication();

@@ -14,7 +14,8 @@ public sealed class FamiliaAppService(
     ICurrentUser currentUser,
     ITokenService tokenService,
     IClock clock,
-    IOptions<IdentidadeOptions> identidadeOptions)
+    IOptions<IdentidadeOptions> identidadeOptions,
+    Cadastros.ContasGerenciais.ContasGerenciaisPadraoSeedService contasPadraoSeedService)
 {
     private const int MaxParticipacoesPorUsuario = 3;
 
@@ -92,6 +93,28 @@ public sealed class FamiliaAppService(
             currentUser.Papel ?? PapelFamilia.Membro.ToString(),
             membros,
             convitesPendentes);
+    }
+
+    public async Task<AuthTokenResponse> CriarWorkspaceAsync(string? nome, CancellationToken cancellationToken)
+    {
+        var usuario = await ExigirUsuarioAsync(cancellationToken);
+        await ExigirLimiteParticipacoesDisponivelAsync(usuario.Id, cancellationToken);
+
+        var nomeWorkspace = string.IsNullOrWhiteSpace(nome)
+            ? $"Espaco de {usuario.Nome}"
+            : nome.Trim();
+
+        var familia = Familia.Criar(nomeWorkspace);
+        dbContext.Familias.Add(familia);
+        dbContext.MembrosFamilia.Add(MembroFamilia.Criar(familia.Id, usuario.Id, PapelFamilia.Administrador));
+        usuario.DefinirFamiliaAtiva(familia.Id);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        dbContext.DefinirWorkspaceCorrente(familia.Id);
+        await contasPadraoSeedService.SeedAsync(cancellationToken);
+
+        return await EmitirSessaoAsync(usuario, familia, PapelFamilia.Administrador, cancellationToken);
     }
 
     public async Task<FamiliaDetalheResponse?> RenomearAsync(string nome, CancellationToken cancellationToken)

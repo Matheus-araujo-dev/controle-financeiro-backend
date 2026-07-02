@@ -114,6 +114,43 @@ public sealed class AuthFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task ObterConvite_Publico_DevePermitirAcessoSemLogin()
+    {
+        using var client = _selfJwtFactory.CreateClient();
+        var loginMaria = await LoginAsync(client, "token-maria");
+        var convite = await CriarConviteAsync(client, loginMaria.AccessToken, "joao@example.com");
+
+        var response = await client.GetAsync($"/api/v1/familias/convites/{convite.Token}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<ConviteDetalhePublicoResponse>();
+        payload.Should().NotBeNull();
+        payload!.EmailConvidado.Should().Be("joao@example.com");
+        payload.Valido.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CriarWorkspace_DentroDoLimite_DeveCriarESetarSessaoNova()
+    {
+        using var client = _selfJwtFactory.CreateClient();
+        var maria = await LoginAsync(client, "token-maria");
+
+        var response = await SendJsonAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/familias",
+            new CriarWorkspaceRequest(null),
+            maria.AccessToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var payload = await response.Content.ReadFromJsonAsync<SelecionarFamiliaResponse>();
+        payload.Should().NotBeNull();
+        payload!.Sessao.Usuario.Workspace.Id.Should().NotBe(maria.Usuario.Workspace.Id);
+        payload.Sessao.Usuario.Workspace.Papel.Should().Be("Administrador");
+        GetRefreshTokenFromSetCookie(response).Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
     public async Task Convite_FluxoCompleto_DeveAdicionarSegundoUsuarioNaFamilia()
     {
         using var client = _selfJwtFactory.CreateClient();

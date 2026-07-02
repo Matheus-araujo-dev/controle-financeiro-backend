@@ -34,46 +34,123 @@ public sealed class OrcamentoAppService(
             .ToListAsync(cancellationToken);
 
         var metasPorConta = metas.ToDictionary(m => m.ContaGerencialId);
+        var filhosPorContaPai = contasDespesa
+            .Where(c => c.ContaPaiId.HasValue)
+            .GroupBy(c => c.ContaPaiId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(conta => conta.Id).ToArray());
 
         var rateios = await dashboardDbHelpers.CarregarRateiosPorEmissaoAsync(inicioMes, fimMes, cancellationToken);
-        var realizadoPorConta = rateios
+        var realizadoDiretoPorConta = rateios
             .Where(r => r.TipoLancamento == "ContaPagar")
             .GroupBy(r => r.ContaGerencialId)
             .ToDictionary(
                 g => g.Key,
                 g => decimal.Round(g.Sum(r => r.ValorRateio), 2, MidpointRounding.AwayFromZero));
 
+        var metaCache = new Dictionary<Guid, decimal?>();
+        var realizadoCache = new Dictionary<Guid, decimal>();
+
+        decimal? CalcularMeta(Guid contaId)
+        {
+            if (metaCache.TryGetValue(contaId, out var metaCalculada))
+            {
+                return metaCalculada;
+            }
+
+            if (!filhosPorContaPai.TryGetValue(contaId, out var filhosIds) || filhosIds.Length == 0)
+            {
+                metaCalculada = metasPorConta.GetValueOrDefault(contaId)?.ValorMeta;
+                metaCache[contaId] = metaCalculada;
+                return metaCalculada;
+            }
+
+            var possuiMeta = false;
+            var totalMeta = 0m;
+
+            foreach (var filhoId in filhosIds)
+            {
+                var metaFilho = CalcularMeta(filhoId);
+                if (!metaFilho.HasValue)
+                {
+                    continue;
+                }
+
+                possuiMeta = true;
+                totalMeta += metaFilho.Value;
+            }
+
+            metaCalculada = possuiMeta
+                ? decimal.Round(totalMeta, 2, MidpointRounding.AwayFromZero)
+                : null;
+
+            metaCache[contaId] = metaCalculada;
+            return metaCalculada;
+        }
+
+        decimal CalcularRealizado(Guid contaId)
+        {
+            if (realizadoCache.TryGetValue(contaId, out var realizadoCalculado))
+            {
+                return realizadoCalculado;
+            }
+
+            realizadoCalculado = realizadoDiretoPorConta.GetValueOrDefault(contaId);
+
+            if (filhosPorContaPai.TryGetValue(contaId, out var filhosIds))
+            {
+                foreach (var filhoId in filhosIds)
+                {
+                    realizadoCalculado += CalcularRealizado(filhoId);
+                }
+            }
+
+            realizadoCalculado = decimal.Round(realizadoCalculado, 2, MidpointRounding.AwayFromZero);
+            realizadoCache[contaId] = realizadoCalculado;
+            return realizadoCalculado;
+        }
+
         var itens = contasDespesa
-            .Where(conta =>
-                conta.Ativo ||
-                metasPorConta.ContainsKey(conta.Id) ||
-                realizadoPorConta.ContainsKey(conta.Id))
             .Select(conta =>
             {
-                var meta = metasPorConta.GetValueOrDefault(conta.Id);
-                var realizado = realizadoPorConta.GetValueOrDefault(conta.Id);
+                var meta = CalcularMeta(conta.Id);
+                var realizado = CalcularRealizado(conta.Id);
+                var aceitaLancamentos = !filhosPorContaPai.ContainsKey(conta.Id);
 
-                return new OrcamentoItemResponse(
-                    meta?.Id,
-                    conta.Id,
-                    conta.Codigo,
-                    conta.Descricao,
-                    meta?.ValorMeta,
-                    realizado,
-                    CalcularPercentual(realizado, meta?.ValorMeta),
-                    EstaEstourado(realizado, meta?.ValorMeta));
+                return new
+                {
+                    Conta = conta,
+                    Meta = meta,
+                    Realizado = realizado,
+                    AceitaLancamentos = aceitaLancamentos
+                };
             })
-            // Estouradas primeiro; depois por % consumido decrescente (null = sem meta, vai para baixo);
-            // depois por maior gasto absoluto; por último por código e descrição.
-            .OrderByDescending(item => item.Estourado)
-            .ThenByDescending(item => item.PercentualConsumido ?? -1m)
-            .ThenByDescending(item => item.ValorRealizado)
-            .ThenBy(item => item.ContaGerencialCodigo ?? string.Empty)
+            .Where(x =>
+                x.Conta.Ativo ||
+                x.Meta.HasValue ||
+                x.Realizado > 0m)
+            .Select(x => new OrcamentoItemResponse(
+                metasPorConta.GetValueOrDefault(x.Conta.Id)?.Id,
+                x.Conta.Id,
+                x.Conta.ContaPaiId,
+                x.Conta.Codigo,
+                x.Conta.Descricao,
+                x.Meta,
+                x.Realizado,
+                CalcularPercentual(x.Realizado, x.Meta),
+                EstaEstourado(x.Realizado, x.Meta),
+                x.AceitaLancamentos))
+            .OrderBy(item => item.ContaGerencialCodigo ?? string.Empty)
             .ThenBy(item => item.ContaGerencialDescricao)
             .ToList();
 
-        var totalMeta = decimal.Round(itens.Sum(item => item.ValorMeta ?? 0m), 2, MidpointRounding.AwayFromZero);
-        var totalRealizado = decimal.Round(itens.Sum(item => item.ValorRealizado), 2, MidpointRounding.AwayFromZero);
+        var totalMeta = decimal.Round(
+            itens.Where(item => item.ContaPaiId is null).Sum(item => item.ValorMeta ?? 0m),
+            2,
+            MidpointRounding.AwayFromZero);
+        var totalRealizado = decimal.Round(
+            itens.Where(item => item.ContaPaiId is null).Sum(item => item.ValorRealizado),
+            2,
+            MidpointRounding.AwayFromZero);
 
         return new OrcamentoCompetenciaResponse(
             competencia,
@@ -90,7 +167,7 @@ public sealed class OrcamentoAppService(
     {
         if (request.ContaGerencialId == Guid.Empty)
         {
-            throw ValidationExceptionFactory.Create("ContaGerencialId", "Conta gerencial é obrigatória.");
+            throw ValidationExceptionFactory.Create("ContaGerencialId", "Conta gerencial e obrigatoria.");
         }
 
         if (request.ValorMeta <= 0)
@@ -107,12 +184,23 @@ public sealed class OrcamentoAppService(
 
         if (contaGerencial is null)
         {
-            throw ValidationExceptionFactory.Create("ContaGerencialId", "Conta gerencial não encontrada.");
+            throw ValidationExceptionFactory.Create("ContaGerencialId", "Conta gerencial nao encontrada.");
         }
 
         if (contaGerencial.Tipo != TipoContaGerencial.Despesa)
         {
-            throw ValidationExceptionFactory.Create("ContaGerencialId", "Somente contas gerenciais de despesa aceitam meta de orçamento.");
+            throw ValidationExceptionFactory.Create("ContaGerencialId", "Somente contas gerenciais de despesa aceitam meta de orcamento.");
+        }
+
+        var possuiFilhos = await dbContext.ContasGerenciais
+            .AsNoTracking()
+            .AnyAsync(c => c.ContaPaiId == request.ContaGerencialId, cancellationToken);
+
+        if (possuiFilhos)
+        {
+            throw ValidationExceptionFactory.Create(
+                "ContaGerencialId",
+                "Contas pai do orcamento sao calculadas automaticamente pela soma das contas filhas.");
         }
 
         var meta = await dbContext.MetasOrcamento
@@ -170,7 +258,7 @@ public sealed class OrcamentoAppService(
     {
         if (string.IsNullOrWhiteSpace(competencia))
         {
-            throw ValidationExceptionFactory.Create("Competencia", "Competência é obrigatória. Use o formato yyyy-MM.");
+            throw ValidationExceptionFactory.Create("Competencia", "Competencia e obrigatoria. Use o formato yyyy-MM.");
         }
 
         if (!DateOnly.TryParseExact(
@@ -180,7 +268,7 @@ public sealed class OrcamentoAppService(
                 DateTimeStyles.None,
                 out var inicioMes))
         {
-            throw ValidationExceptionFactory.Create("Competencia", "Competência inválida. Use o formato yyyy-MM.");
+            throw ValidationExceptionFactory.Create("Competencia", "Competencia invalida. Use o formato yyyy-MM.");
         }
 
         return inicioMes;

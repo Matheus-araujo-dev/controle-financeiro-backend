@@ -479,6 +479,95 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         error!.Errors.Should().ContainKey("Rateios");
     }
 
+
+    [Fact]
+    public async Task PostCancelar_QuandoContaVierDeCompraPlanejadaESemCancelarPlanejamento_DeveVoltarCompraParaPlanejada()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var compraPlanejadaId = await CriarCompraPlanejadaAsync(client, fixture);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            origemCompraPlanejadaId = compraPlanejadaId,
+            dataEmissao = "2026-05-20",
+            responsavelCompraId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-05-25",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 4500m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Notebook novo",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 4500m }
+            }
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+        var cancelResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/cancelar", new
+        {
+            cancelarPlanejamentoRelacionado = false
+        });
+
+        var compra = await client.GetFromJsonAsync<CompraPlanejadaDetalheResponse>($"/api/v1/compras-planejadas/{compraPlanejadaId}");
+
+        cancelResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        compra.Should().NotBeNull();
+        compra!.Status.Should().Be("Planejada");
+        compra.ContaPagarGeradaId.Should().BeNull();
+        compra.ConvertidaEmContaPagarEmUtc.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task PostCancelar_QuandoContaVierDeCompraPlanejadaECancelarPlanejamento_DeveCancelarCompraPlanejada()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var compraPlanejadaId = await CriarCompraPlanejadaAsync(client, fixture);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            origemCompraPlanejadaId = compraPlanejadaId,
+            dataEmissao = "2026-05-20",
+            responsavelCompraId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-05-25",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 4500m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Notebook novo",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 4500m }
+            }
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+        var cancelResponse = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/cancelar", new
+        {
+            cancelarPlanejamentoRelacionado = true
+        });
+
+        var compra = await client.GetFromJsonAsync<CompraPlanejadaDetalheResponse>($"/api/v1/compras-planejadas/{compraPlanejadaId}");
+
+        cancelResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        compra.Should().NotBeNull();
+        compra!.Status.Should().Be("Cancelada");
+        compra.ContaPagarGeradaId.Should().BeNull();
+        compra.ConvertidaEmContaPagarEmUtc.Should().BeNull();
+    }
+
     [Fact]
     public async Task PostLiquidar_DeveGerarMovimentacaoDeSaida()
     {
@@ -927,6 +1016,29 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         error!.Errors.Should().ContainKey("Recorrencia");
     }
 
+    private static async Task<Guid> CriarCompraPlanejadaAsync(HttpClient client, FinancialFixtureSeed.FixtureIds fixture)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
+        {
+            titulo = "Notebook novo",
+            descricao = "Troca do equipamento principal",
+            valorEstimado = 4500m,
+            dataDesejada = "2026-05-25",
+            prioridade = "Alta",
+            status = "Planejada",
+            parcelavel = true,
+            quantidadeParcelasDesejada = 10,
+            contaGerencialId = fixture.ContaGerencialDespesaId,
+            responsavelId = fixture.ResponsavelId,
+            link = "https://loja.exemplo.com/produto/notebook",
+            observacao = "Aguardar melhor janela"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var payload = await response.Content.ReadFromJsonAsync<IdResponse>();
+        return payload!.Id;
+    }
+
     private static async Task<Guid> CriarContaGerencialAsync(
         HttpClient client,
         string codigo,
@@ -1013,6 +1125,13 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         Guid? ContaPagarId,
         Guid? ContaReceberId,
         string? Observacao);
+
+    private sealed record CompraPlanejadaDetalheResponse(
+        Guid Id,
+        string Titulo,
+        string Status,
+        Guid? ContaPagarGeradaId,
+        DateTime? ConvertidaEmContaPagarEmUtc);
 }
 
 

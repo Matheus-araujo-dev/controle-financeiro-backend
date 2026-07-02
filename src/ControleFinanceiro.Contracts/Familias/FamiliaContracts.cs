@@ -52,4 +52,6 @@ public sealed record AlterarPapelMembroRequest([Required] string Papel);
 
 public sealed record RenomearFamiliaRequest([Required] string Nome);
 
+public sealed record CriarWorkspaceRequest(string? Nome);
+
 public sealed record SelecionarFamiliaResponse(AuthTokenResponse Sessao);

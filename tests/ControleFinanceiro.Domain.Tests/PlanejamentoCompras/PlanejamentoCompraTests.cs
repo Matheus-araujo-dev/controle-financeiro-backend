@@ -98,4 +98,54 @@ public sealed class PlanejamentoCompraTests
         action.Should().Throw<ArgumentException>()
             .WithParameterName("link");
     }
+
+    [Fact]
+    public void ReverterParaPlanejada_DeveLimparVinculoComContaPagarEGerarStatusPlanejada()
+    {
+        var planejamento = PlanejamentoCompra.Criar(
+            "Notebook novo",
+            "Compra planejada",
+            3500m,
+            new DateOnly(2026, 5, 10),
+            PrioridadePlanejamentoCompra.Alta,
+            StatusPlanejamentoCompra.Planejada,
+            true,
+            6,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            null,
+            "Aguardar promocao");
+
+        planejamento.MarcarComoConvertidaEmContaPagar(Guid.NewGuid());
+        planejamento.ReverterParaPlanejada();
+
+        planejamento.Status.Should().Be(StatusPlanejamentoCompra.Planejada);
+        planejamento.ContaPagarGeradaId.Should().BeNull();
+        planejamento.ConvertidaEmContaPagarEmUtc.Should().BeNull();
+    }
+
+    [Fact]
+    public void CancelarPlanejamento_DeveLimparVinculoComContaPagarEManterStatusCancelada()
+    {
+        var planejamento = PlanejamentoCompra.Criar(
+            "Notebook novo",
+            "Compra planejada",
+            3500m,
+            new DateOnly(2026, 5, 10),
+            PrioridadePlanejamentoCompra.Alta,
+            StatusPlanejamentoCompra.Planejada,
+            true,
+            6,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            null,
+            "Aguardar promocao");
+
+        planejamento.MarcarComoConvertidaEmContaPagar(Guid.NewGuid());
+        planejamento.CancelarPlanejamento();
+
+        planejamento.Status.Should().Be(StatusPlanejamentoCompra.Cancelada);
+        planejamento.ContaPagarGeradaId.Should().BeNull();
+        planejamento.ConvertidaEmContaPagarEmUtc.Should().BeNull();
+    }
 }

@@ -114,7 +114,6 @@ public sealed class FamiliaAppService(
         dbContext.DefinirWorkspaceCorrente(familia.Id);
         await contasPadraoSeedService.SeedAsync(cancellationToken);
 
-
         return await EmitirSessaoAsync(usuario, familia, PapelFamilia.Administrador, cancellationToken);
     }
 

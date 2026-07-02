@@ -1,5 +1,6 @@
-using ControleFinanceiro.Application.Common.Exceptions;
+﻿using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Contracts.Auth;
 using ControleFinanceiro.Contracts.Familias;
 using ControleFinanceiro.Domain.Identidade;
 using ControleFinanceiro.SharedKernel.Abstractions;
@@ -15,9 +16,33 @@ public sealed class FamiliaAppService(
     IClock clock,
     IOptions<IdentidadeOptions> identidadeOptions)
 {
+    private const int MaxParticipacoesPorUsuario = 3;
+
+    public async Task<IReadOnlyList<ParticipacaoFamiliaResponse>> ListarMinhasFamiliasAsync(CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var usuarioId))
+        {
+            return [];
+        }
+
+        var familiaAtivaId = currentUser.WorkspaceId ?? currentUser.FamiliaId;
+
+        return await (
+            from m in dbContext.MembrosFamilia.AsNoTracking()
+            join f in dbContext.Familias.AsNoTracking() on m.FamiliaId equals f.Id
+            where m.UsuarioId == usuarioId
+            orderby m.CreatedAtUtc
+            select new ParticipacaoFamiliaResponse(
+                f.Id,
+                f.Nome,
+                m.Papel.ToString(),
+                familiaAtivaId.HasValue && f.Id == familiaAtivaId.Value))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<FamiliaDetalheResponse?> ObterMinhaFamiliaAsync(CancellationToken cancellationToken)
     {
-        var familiaId = currentUser.FamiliaId;
+        var familiaId = currentUser.WorkspaceId ?? currentUser.FamiliaId;
         if (familiaId is null)
         {
             return null;
@@ -69,6 +94,25 @@ public sealed class FamiliaAppService(
             convitesPendentes);
     }
 
+    public async Task<AuthTokenResponse> CriarWorkspaceAsync(string? nome, CancellationToken cancellationToken)
+    {
+        var usuario = await ExigirUsuarioAsync(cancellationToken);
+        await ExigirLimiteParticipacoesDisponivelAsync(usuario.Id, cancellationToken);
+
+        var nomeWorkspace = string.IsNullOrWhiteSpace(nome)
+            ? $"Espaco de {usuario.Nome}"
+            : nome.Trim();
+
+        var familia = Familia.Criar(nomeWorkspace);
+        dbContext.Familias.Add(familia);
+        dbContext.MembrosFamilia.Add(MembroFamilia.Criar(familia.Id, usuario.Id, PapelFamilia.Administrador));
+        usuario.DefinirFamiliaAtiva(familia.Id);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await EmitirSessaoAsync(usuario, familia, PapelFamilia.Administrador, cancellationToken);
+    }
+
     public async Task<FamiliaDetalheResponse?> RenomearAsync(string nome, CancellationToken cancellationToken)
     {
         var familiaId = ExigirFamiliaAdministrada();
@@ -103,6 +147,15 @@ public sealed class FamiliaAppService(
             throw new ApplicationValidationException(
                 "Este e-mail já pertence a um membro da família.",
                 new Dictionary<string, string[]> { ["email"] = ["E-mail já é membro da família."] });
+        }
+
+        var usuarioConvidado = await dbContext.Usuarios
+            .AsNoTracking()
+            .SingleOrDefaultAsync(u => u.Email == emailNormalizado, cancellationToken);
+
+        if (usuarioConvidado is not null)
+        {
+            await ExigirLimiteParticipacoesDisponivelAsync(usuarioConvidado.Id, cancellationToken);
         }
 
         var token = tokenService.GenerateOpaqueToken();
@@ -182,6 +235,8 @@ public sealed class FamiliaAppService(
                 new Dictionary<string, string[]> { ["token"] = ["Usuário já é membro da família."] });
         }
 
+        await ExigirLimiteParticipacoesDisponivelAsync(usuario.Id, cancellationToken);
+
         convite.Aceitar(usuario.Id, clock.UtcNow);
         dbContext.MembrosFamilia.Add(MembroFamilia.Criar(convite.FamiliaId, usuario.Id, convite.Papel));
         usuario.DefinirFamiliaAtiva(convite.FamiliaId);
@@ -197,6 +252,27 @@ public sealed class FamiliaAppService(
             convite.Papel.ToString(),
             [],
             []);
+    }
+
+    public async Task<AuthTokenResponse?> SelecionarFamiliaAtivaAsync(Guid familiaId, CancellationToken cancellationToken)
+    {
+        var usuario = await ExigirUsuarioAsync(cancellationToken);
+
+        var membro = await dbContext.MembrosFamilia
+            .AsNoTracking()
+            .SingleOrDefaultAsync(m => m.FamiliaId == familiaId && m.UsuarioId == usuario.Id, cancellationToken);
+
+        if (membro is null)
+        {
+            return null;
+        }
+
+        usuario.DefinirFamiliaAtiva(familiaId);
+        var familia = await dbContext.Familias
+            .AsNoTracking()
+            .SingleAsync(f => f.Id == familiaId, cancellationToken);
+
+        return await EmitirSessaoAsync(usuario, familia, membro.Papel, cancellationToken);
     }
 
     public async Task<bool> AlterarPapelMembroAsync(
@@ -296,7 +372,7 @@ public sealed class FamiliaAppService(
         if (!string.Equals(currentUser.Papel, PapelFamilia.Administrador.ToString(), StringComparison.OrdinalIgnoreCase))
         {
             throw new ApplicationValidationException(
-                "Apenas administradores da família podem executar esta ação.",
+                "Apenas administradores do workspace podem executar esta acao.",
                 new Dictionary<string, string[]> { ["papel"] = ["Permissão insuficiente."] });
         }
 
@@ -315,6 +391,51 @@ public sealed class FamiliaAppService(
             ?? throw new AuthenticationFailedException("Usuário autenticado não está registrado na plataforma.");
     }
 
+    private async Task ExigirLimiteParticipacoesDisponivelAsync(Guid usuarioId, CancellationToken cancellationToken)
+    {
+        var totalParticipacoes = await dbContext.MembrosFamilia
+            .CountAsync(m => m.UsuarioId == usuarioId, cancellationToken);
+
+        if (totalParticipacoes >= MaxParticipacoesPorUsuario)
+        {
+            throw new ApplicationValidationException(
+                $"O usuário pode participar de no máximo {MaxParticipacoesPorUsuario} workspaces.",
+                new Dictionary<string, string[]>
+                {
+                    ["workspace"] = [$"Limite máximo de {MaxParticipacoesPorUsuario} participações atingido."]
+                });
+        }
+    }
+
+    private async Task<AuthTokenResponse> EmitirSessaoAsync(
+        Usuario usuario,
+        Familia familia,
+        PapelFamilia papel,
+        CancellationToken cancellationToken)
+    {
+        var accessToken = tokenService.CreateAccessToken(usuario, familia.Id, papel);
+        var refreshTokenValue = tokenService.GenerateOpaqueToken();
+
+        dbContext.RefreshTokens.Add(RefreshToken.Criar(
+            usuario.Id,
+            tokenService.HashToken(refreshTokenValue),
+            clock.UtcNow.Add(tokenService.RefreshTokenLifetime)));
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new AuthTokenResponse(
+            accessToken.AccessToken,
+            accessToken.ExpiresAtUtc,
+            refreshTokenValue,
+            new UsuarioAutenticadoResponse(
+                usuario.Id,
+                usuario.Email,
+                usuario.Nome,
+                usuario.AvatarUrl,
+                new WorkspaceResumoResponse(familia.Id, familia.Nome, papel.ToString()),
+                new FamiliaResumoResponse(familia.Id, familia.Nome, papel.ToString())));
+    }
+
     private static PapelFamilia ConverterPapel(string papel)
     {
         if (!Enum.TryParse<PapelFamilia>(papel, ignoreCase: true, out var resultado))
@@ -327,3 +448,6 @@ public sealed class FamiliaAppService(
         return resultado;
     }
 }
+
+
+

@@ -145,9 +145,12 @@ public sealed class ContasPagarController(ContaPagarAppService service, ISender 
     [ProducesResponseType(typeof(ContaPagarDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ContaPagarDetalheResponse>> Cancelar(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ContaPagarDetalheResponse>> Cancelar(
+        Guid id,
+        [FromBody] CancelarContaPagarRequest? request,
+        CancellationToken cancellationToken)
     {
-        var response = await service.CancelarAsync(id, cancellationToken);
+        var response = await service.CancelarAsync(id, request, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 }

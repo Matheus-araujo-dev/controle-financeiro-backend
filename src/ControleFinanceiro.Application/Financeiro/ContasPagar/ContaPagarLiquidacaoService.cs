@@ -9,7 +9,7 @@ public interface IContaPagarLiquidacaoService
 {
     Task<ContaPagarDetalheResponse?> LiquidarAsync(Guid id, LiquidarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken);
-    Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancellationToken cancellationToken);
+    Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken);
 }
 
 public sealed class ContaPagarLiquidacaoService(
@@ -133,7 +133,7 @@ public sealed class ContaPagarLiquidacaoService(
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }
 
-    public async Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken)
     {
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
@@ -144,6 +144,24 @@ public sealed class ContaPagarLiquidacaoService(
         var movimentoEconomico = await dbContext.MovimentacoesFinanceiras
             .SingleOrDefaultAsync(x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica, cancellationToken);
         movimentoEconomico?.Cancelar(StatusMovimentacao.CanceladaId);
+
+        if (conta.OrigemCompraPlanejadaId.HasValue)
+        {
+            var compraPlanejada = await dbContext.ComprasPlanejadas
+                .SingleOrDefaultAsync(x => x.Id == conta.OrigemCompraPlanejadaId.Value, cancellationToken);
+
+            if (compraPlanejada is not null)
+            {
+                if (request?.CancelarPlanejamentoRelacionado == true)
+                {
+                    compraPlanejada.CancelarPlanejamento();
+                }
+                else
+                {
+                    compraPlanejada.ReverterParaPlanejada();
+                }
+            }
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);

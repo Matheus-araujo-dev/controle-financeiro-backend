@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ControleFinanceiro.Contracts.Auth;
 
 namespace ControleFinanceiro.Contracts.Familias;
 
@@ -24,6 +25,12 @@ public sealed record FamiliaDetalheResponse(
     IReadOnlyList<MembroFamiliaResponse> Membros,
     IReadOnlyList<ConviteFamiliaResponse> ConvitesPendentes);
 
+public sealed record ParticipacaoFamiliaResponse(
+    Guid Id,
+    string Nome,
+    string MeuPapel,
+    bool Ativa);
+
 public sealed record CriarConviteFamiliaRequest(
     [Required][EmailAddress] string Email,
     [Required] string Papel);
@@ -44,3 +51,7 @@ public sealed record ConviteDetalhePublicoResponse(
 public sealed record AlterarPapelMembroRequest([Required] string Papel);
 
 public sealed record RenomearFamiliaRequest([Required] string Nome);
+
+public sealed record CriarWorkspaceRequest(string? Nome);
+
+public sealed record SelecionarFamiliaResponse(AuthTokenResponse Sessao);

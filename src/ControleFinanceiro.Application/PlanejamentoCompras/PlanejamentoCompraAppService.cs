@@ -340,7 +340,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             throw ValidationExceptionFactory.Create("DataVencimento", "Informe a data de vencimento para formas sem baixa automática.");
         }
 
-        await contaPagarCommands.CriarAsync(
+        var contaPagar = await contaPagarCommands.CriarAsync(
             new CriarContaPagarRequest(
                 compra.Id,
                 request.NumeroDocumento,
@@ -362,6 +362,9 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 [new RateioRequest(compra.ContaGerencialId, compra.ValorEstimado)],
                 null),
             cancellationToken);
+
+        compra.MarcarComoConvertidaEmContaPagar(contaPagar.Id);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return await ObterPorIdAsync(id, cancellationToken);
     }

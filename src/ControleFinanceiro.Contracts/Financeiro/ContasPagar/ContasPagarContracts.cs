@@ -105,6 +105,9 @@ public sealed record LiquidarContaPagarRequest(
     Guid? FormaPagamentoId = null,
     bool AtualizarValorConta = false);
 
+public sealed record CancelarContaPagarRequest(
+    bool? CancelarPlanejamentoRelacionado = null);
+
 public sealed record ContaPagarResumoResponse(
     Guid Id,
     string? NumeroDocumento,

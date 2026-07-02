@@ -149,6 +149,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
         };
 
         var totais = await consulta
+            .Where(x => x.Status == StatusPlanejamentoCompra.Planejada)
             .GroupBy(_ => 1)
             .Select(g => new { Total = g.Count(), Valor = g.Sum(x => x.ValorEstimado) })
             .FirstOrDefaultAsync(cancellationToken);

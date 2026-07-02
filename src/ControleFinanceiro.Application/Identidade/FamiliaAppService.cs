@@ -94,6 +94,25 @@ public sealed class FamiliaAppService(
             convitesPendentes);
     }
 
+    public async Task<AuthTokenResponse> CriarWorkspaceAsync(string? nome, CancellationToken cancellationToken)
+    {
+        var usuario = await ExigirUsuarioAsync(cancellationToken);
+        await ExigirLimiteParticipacoesDisponivelAsync(usuario.Id, cancellationToken);
+
+        var nomeWorkspace = string.IsNullOrWhiteSpace(nome)
+            ? $"Espaco de {usuario.Nome}"
+            : nome.Trim();
+
+        var familia = Familia.Criar(nomeWorkspace);
+        dbContext.Familias.Add(familia);
+        dbContext.MembrosFamilia.Add(MembroFamilia.Criar(familia.Id, usuario.Id, PapelFamilia.Administrador));
+        usuario.DefinirFamiliaAtiva(familia.Id);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await EmitirSessaoAsync(usuario, familia, PapelFamilia.Administrador, cancellationToken);
+    }
+
     public async Task<FamiliaDetalheResponse?> RenomearAsync(string nome, CancellationToken cancellationToken)
     {
         var familiaId = ExigirFamiliaAdministrada();

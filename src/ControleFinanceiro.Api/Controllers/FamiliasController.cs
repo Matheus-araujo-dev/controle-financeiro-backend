@@ -25,6 +25,18 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService, IWeb
         return Ok(response);
     }
 
+    [HttpPost]
+    [ProducesResponseType(typeof(SelecionarFamiliaResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SelecionarFamiliaResponse>> CriarWorkspace(
+        [FromBody] CriarWorkspaceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await familiaAppService.CriarWorkspaceAsync(request.Nome, cancellationToken);
+        SetRefreshTokenCookie(response.RefreshToken);
+        return StatusCode(StatusCodes.Status201Created, new SelecionarFamiliaResponse(response with { RefreshToken = string.Empty }));
+    }
+
     [HttpGet("minha")]
     [ProducesResponseType(typeof(FamiliaDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -80,6 +92,7 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService, IWeb
         return revogado ? NoContent() : NotFoundResponse("Convite não encontrado.");
     }
 
+    [AllowAnonymous]
     [HttpGet("convites/{token}")]
     [ProducesResponseType(typeof(ConviteDetalhePublicoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]

@@ -237,13 +237,14 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(null, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
         await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken);
 
         ContaGerencial conta;
 
         try
         {
             conta = ContaGerencial.Criar(
-                request.Codigo,
+                codigo,
                 request.Descricao,
                 MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
@@ -279,11 +280,12 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(id, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
         await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken, id);
 
         try
         {
             conta.Atualizar(
-                request.Codigo,
+                codigo,
                 request.Descricao,
                 MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
@@ -419,6 +421,60 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new SeedPlanoInicialResponse(criadas);
+    }
+
+    private async Task<string?> ResolverCodigoAsync(
+        string? codigoInformado,
+        Guid? contaPaiId,
+        CancellationToken cancellationToken,
+        Guid? contaIdAtual = null)
+    {
+        if (!string.IsNullOrWhiteSpace(codigoInformado))
+        {
+            return codigoInformado.Trim();
+        }
+
+        if (!contaPaiId.HasValue)
+        {
+            var codigosRaiz = await dbContext.ContasGerenciais.AsNoTracking()
+                .Where(x => x.ContaPaiId == null && x.Codigo != null)
+                .Where(x => !contaIdAtual.HasValue || x.Id != contaIdAtual.Value)
+                .Select(x => x.Codigo!)
+                .ToListAsync(cancellationToken);
+
+            var maiorCodigoRaiz = codigosRaiz
+                .Where(x => !x.Contains('.'))
+                .Select(x => int.TryParse(x, out var numero) ? numero : (int?)null)
+                .Max();
+
+            return ((maiorCodigoRaiz ?? 0) + 1).ToString("00");
+        }
+
+        var codigoPai = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.Id == contaPaiId.Value)
+            .Select(x => x.Codigo)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(codigoPai))
+        {
+            return null;
+        }
+
+        var codigosFilhos = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.ContaPaiId == contaPaiId.Value && x.Codigo != null)
+            .Where(x => !contaIdAtual.HasValue || x.Id != contaIdAtual.Value)
+            .Select(x => x.Codigo!)
+            .ToListAsync(cancellationToken);
+
+        var prefixo = $"{codigoPai}.";
+        var maiorSufixo = codigosFilhos
+            .Where(x => x.StartsWith(prefixo, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x[prefixo.Length..])
+            .Where(x => !x.Contains('.'))
+            .Select(x => int.TryParse(x, out var numero) ? numero : (int?)null)
+            .Max();
+
+        return $"{codigoPai}.{((maiorSufixo ?? 0) + 1).ToString("00")}";
     }
 
     private async Task ValidarHierarquiaAsync(Guid? contaId, Guid? contaPaiId, CancellationToken cancellationToken)

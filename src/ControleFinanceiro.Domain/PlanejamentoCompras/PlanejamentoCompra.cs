@@ -168,6 +168,20 @@ public sealed class PlanejamentoCompra : TenantEntity
         Status = StatusPlanejamentoCompra.Comprada;
     }
 
+    public void ReverterParaPlanejada()
+    {
+        Status = StatusPlanejamentoCompra.Planejada;
+        ContaPagarGeradaId = null;
+        ConvertidaEmContaPagarEmUtc = null;
+    }
+
+    public void CancelarPlanejamento()
+    {
+        Status = StatusPlanejamentoCompra.Cancelada;
+        ContaPagarGeradaId = null;
+        ConvertidaEmContaPagarEmUtc = null;
+    }
+
     private static string? NormalizarOpcional(string? valor)
     {
         return string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

@@ -74,6 +74,60 @@ public sealed class OrcamentosControllerTests(CustomWebApplicationFactory factor
         orcamento.Itens.Should().NotContain(item => item.ContaGerencialId == fixture.ContaGerencialReceitaId);
     }
 
+
+    [Fact]
+    public async Task GetOrcamento_DeveConsolidarContaPaiPelaSomaDasFilhasEOrdenarPorCodigo()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var contaPaiId = await CriarContaGerencialAsync(client, "DESP.10", "Despesas estruturais", null);
+        var contaFilhaBId = await CriarContaGerencialAsync(client, "DESP.10.02", "Filha B", contaPaiId);
+        var contaFilhaAId = await CriarContaGerencialAsync(client, "DESP.10.01", "Filha A", contaPaiId);
+
+        await UpsertMetaAsync(client, contaFilhaAId, "2026-04", 100m);
+        await UpsertMetaAsync(client, contaFilhaBId, "2026-04", 250m);
+
+        await CriarContaPagarAsync(client, fixture, "2026-04-05", "2026-04-10", 40m, "Despesa filha A", contaFilhaAId);
+        await CriarContaPagarAsync(client, fixture, "2026-04-06", "2026-04-12", 70m, "Despesa filha B", contaFilhaBId);
+
+        var orcamento = await client.GetFromJsonAsync<OrcamentoCompetenciaResponse>("/api/v1/orcamentos?competencia=2026-04");
+
+        orcamento.Should().NotBeNull();
+        orcamento!.TotalMeta.Should().Be(350m);
+        orcamento.TotalRealizado.Should().Be(110m);
+        orcamento.Itens.Select(item => item.ContaGerencialCodigo).Should().BeInAscendingOrder();
+        orcamento.Itens.Should().Contain(item =>
+            item.ContaGerencialId == contaPaiId &&
+            item.ValorMeta == 350m &&
+            item.ValorRealizado == 110m &&
+            item.AceitaLancamentos == false);
+        orcamento.Itens.Should().Contain(item =>
+            item.ContaGerencialId == contaFilhaAId &&
+            item.ContaPaiId == contaPaiId &&
+            item.AceitaLancamentos);
+    }
+
+    [Fact]
+    public async Task PutMeta_QuandoContaGerencialForPai_DeveRetornarBadRequest()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var contaPaiId = await CriarContaGerencialAsync(client, "DESP.20", "Conta pai", null);
+        _ = await CriarContaGerencialAsync(client, "DESP.20.01", "Conta filha", contaPaiId);
+
+        var response = await client.PutAsJsonAsync("/api/v1/orcamentos/metas", new
+        {
+            contaGerencialId = contaPaiId,
+            competencia = "2026-04",
+            valorMeta = 100m
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task PutMeta_QuandoMetaJaExiste_DeveAtualizarValorSemDuplicar()
     {
@@ -168,6 +222,22 @@ public sealed class OrcamentosControllerTests(CustomWebApplicationFactory factor
         removerNovamenteResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    private static async Task<Guid> CriarContaGerencialAsync(HttpClient client, string codigo, string descricao, Guid? contaPaiId)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
+        {
+            codigo,
+            descricao,
+            tipo = "Despesa",
+            contaPaiId,
+            ativo = true
+        });
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<IdResponse>();
+        return payload!.Id;
+    }
+
     private static async Task<MetaOrcamentoResponse> UpsertMetaAsync(
         HttpClient client,
         Guid contaGerencialId,
@@ -237,10 +307,12 @@ public sealed class OrcamentosControllerTests(CustomWebApplicationFactory factor
     private sealed record OrcamentoItemResponse(
         Guid? MetaId,
         Guid ContaGerencialId,
+        Guid? ContaPaiId,
         string? ContaGerencialCodigo,
         string ContaGerencialDescricao,
         decimal? ValorMeta,
         decimal ValorRealizado,
         decimal? PercentualConsumido,
-        bool Estourado);
+        bool Estourado,
+        bool AceitaLancamentos);
 }

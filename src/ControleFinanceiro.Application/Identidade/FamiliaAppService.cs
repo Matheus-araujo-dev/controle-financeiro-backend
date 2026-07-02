@@ -14,7 +14,8 @@ public sealed class FamiliaAppService(
     ICurrentUser currentUser,
     ITokenService tokenService,
     IClock clock,
-    IOptions<IdentidadeOptions> identidadeOptions)
+    IOptions<IdentidadeOptions> identidadeOptions,
+    Cadastros.ContasGerenciais.ContasGerenciaisPadraoSeedService contasPadraoSeedService)
 {
     private const int MaxParticipacoesPorUsuario = 3;
 
@@ -109,6 +110,9 @@ public sealed class FamiliaAppService(
         usuario.DefinirFamiliaAtiva(familia.Id);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        dbContext.DefinirWorkspaceCorrente(familia.Id);
+        await contasPadraoSeedService.SeedAsync(cancellationToken);
 
         return await EmitirSessaoAsync(usuario, familia, PapelFamilia.Administrador, cancellationToken);
     }

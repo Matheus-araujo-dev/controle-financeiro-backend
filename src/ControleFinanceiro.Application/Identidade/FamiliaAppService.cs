@@ -112,9 +112,16 @@ public sealed class FamiliaAppService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         dbContext.DefinirWorkspaceCorrente(familia.Id);
-        await contasPadraoSeedService.SeedAsync(cancellationToken);
+        await contasPadraoSeedService.SeedAsync(familia.Id, cancellationToken);
 
         return await EmitirSessaoAsync(usuario, familia, PapelFamilia.Administrador, cancellationToken);
+    }
+
+    public async Task<int> SeedContasGerenciaisPadraoAsync(CancellationToken cancellationToken)
+    {
+        var familiaId = ExigirFamiliaAdministrada();
+        dbContext.DefinirWorkspaceCorrente(familiaId);
+        return await contasPadraoSeedService.SeedAsync(familiaId, cancellationToken);
     }
 
     public async Task<FamiliaDetalheResponse?> RenomearAsync(string nome, CancellationToken cancellationToken)

@@ -307,7 +307,9 @@ public sealed class ContaGerencialAppService(
 
     public async Task<SeedPlanoInicialResponse> SeedPlanoInicialAsync(CancellationToken cancellationToken)
     {
-        var criadas = await padraoSeedService.SeedAsync(cancellationToken);
+        var familiaId = dbContext.WorkspaceCorrente
+            ?? throw new InvalidOperationException("Workspace nao definido.");
+        var criadas = await padraoSeedService.SeedAsync(familiaId, cancellationToken);
         return new SeedPlanoInicialResponse(criadas);
     }
 

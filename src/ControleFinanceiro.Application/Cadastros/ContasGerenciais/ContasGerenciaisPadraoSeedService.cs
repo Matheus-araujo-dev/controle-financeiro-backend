@@ -6,11 +6,17 @@ namespace ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 
 public sealed class ContasGerenciaisPadraoSeedService(IAppDbContext dbContext)
 {
-    public async Task<int> SeedAsync(CancellationToken cancellationToken)
+    public async Task<int> SeedAsync(Guid familiaId, CancellationToken cancellationToken)
     {
+        if (familiaId == Guid.Empty)
+            throw new ArgumentException("FamiliaId é obrigatório.", nameof(familiaId));
+
+        // IgnoreQueryFilters garante que lemos apenas as contas desta família,
+        // independente do estado do filtro global de tenant.
         var existentesPorCodigo = await dbContext.ContasGerenciais
             .AsNoTracking()
-            .Where(x => x.Codigo != null)
+            .IgnoreQueryFilters()
+            .Where(x => x.Codigo != null && x.FamiliaId == familiaId)
             .ToDictionaryAsync(x => x.Codigo!, x => x.Id, cancellationToken);
 
         var criadas = 0;
@@ -21,6 +27,7 @@ public sealed class ContasGerenciaisPadraoSeedService(IAppDbContext dbContext)
                 return id;
 
             var c = ContaGerencial.Criar(codigo, descricao, tipo, null, null, true, false);
+            c.AtribuirFamilia(familiaId);
             dbContext.ContasGerenciais.Add(c);
             await dbContext.SaveChangesAsync(cancellationToken);
             existentesPorCodigo[codigo] = c.Id;
@@ -35,6 +42,7 @@ public sealed class ContasGerenciaisPadraoSeedService(IAppDbContext dbContext)
 
             var paiId = existentesPorCodigo[codigoPai];
             var c = ContaGerencial.Criar(codigo, descricao, tipo, paiId, null, true, false);
+            c.AtribuirFamilia(familiaId);
             dbContext.ContasGerenciais.Add(c);
             await dbContext.SaveChangesAsync(cancellationToken);
             existentesPorCodigo[codigo] = c.Id;
@@ -49,6 +57,7 @@ public sealed class ContasGerenciaisPadraoSeedService(IAppDbContext dbContext)
 
             var paiId = existentesPorCodigo[codigoPai];
             var c = ContaGerencial.Criar(codigo, descricao, tipo, paiId, null, true, false);
+            c.AtribuirFamilia(familiaId);
             dbContext.ContasGerenciais.Add(c);
             existentesPorCodigo[codigo] = c.Id;
             criadas++;

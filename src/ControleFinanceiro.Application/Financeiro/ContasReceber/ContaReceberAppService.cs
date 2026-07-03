@@ -355,7 +355,8 @@ public sealed class ContaReceberAppService(
             regra is not null,
             regra?.Id,
             OrigemLancamento.Manual,
-            ConverterRateios(request.Rateios));
+            ConverterRateios(request.Rateios),
+            DateOnly.FromDateTime(DateTime.Today));
 
         dbContext.ContasReceber.AddRange(contas);
         dbContext.RateiosContaGerencial.AddRange(contas.SelectMany(x => x.Rateios));

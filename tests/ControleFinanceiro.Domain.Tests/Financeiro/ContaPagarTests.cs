@@ -285,4 +285,54 @@ public sealed class ContaPagarTests
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("*Não é permitido editar contas liquidadas ou canceladas.*");
     }
+
+    private static ContaPagar CriarContaSimples(decimal valorOriginal = 100m) =>
+        ContaPagar.Criar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 4),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            dataVencimento: new DateOnly(2026, 4, 10),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: null,
+            contaBancariaId: null,
+            valorOriginal: valorOriginal,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 1,
+            numeroParcela: 1,
+            grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
+            descricao: "Teste",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Manual,
+            rateios: [RateioPlano.Create(Guid.NewGuid(), valorOriginal)]);
+
+    [Fact]
+    public void Estornar_QuandoParcial_DeveVoltarParaPendente()
+    {
+        var conta = CriarContaSimples();
+        conta.Liquidar(new DateOnly(2026, 4, 6), Guid.NewGuid(), StatusConta.ParcialId);
+
+        conta.Estornar(StatusConta.PendenteId);
+
+        conta.StatusContaId.Should().Be(StatusConta.PendenteId);
+        conta.DataLiquidacao.Should().BeNull();
+        conta.ContaBancariaId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Estornar_QuandoNemLiquidadaNemParcial_DeveLancarExcecao()
+    {
+        var conta = CriarContaSimples();
+
+        var action = () => conta.Estornar(StatusConta.PendenteId);
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Apenas contas liquidadas ou com pagamento parcial podem ser estornadas.*");
+    }
 }

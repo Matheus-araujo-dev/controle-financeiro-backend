@@ -212,12 +212,26 @@ public sealed class ContaReceberAppService(
         var totalVencendoHoje = resumo?.VencendoHoje ?? 0m;
         var totalLiquidado = resumo?.Liquidado ?? 0m;
 
-        var items = (await consulta
-                .ApplyPagination(query)
-                .ToArrayAsync(cancellationToken))
+        var paginados = await consulta.ApplyPagination(query).ToArrayAsync(cancellationToken);
+
+        var parcialIds = paginados.Where(x => x.StatusCodigo == "PARCIAL").Select(x => x.Id).ToArray();
+        var valorPagoPorId = new Dictionary<Guid, decimal>();
+        if (parcialIds.Length > 0)
+        {
+            valorPagoPorId = await dbContext.MovimentacoesFinanceiras
+                .Where(m => m.ContaReceberId != null && parcialIds.Contains(m.ContaReceberId.Value) &&
+                            m.Natureza == NaturezaMovimentacao.Realizada &&
+                            m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+                .GroupBy(m => m.ContaReceberId!.Value)
+                .Select(g => new { Id = g.Key, Total = g.Sum(m => m.Valor) })
+                .ToDictionaryAsync(x => x.Id, x => x.Total, cancellationToken);
+        }
+
+        var items = paginados
             .Select(x =>
             {
                 var (statusCodigo, statusNome) = ResolverStatusEfetivo(x.StatusCodigo, x.StatusNome, x.DataVencimento, hoje);
+                var valorPago = valorPagoPorId.TryGetValue(x.Id, out var vp) ? vp : (decimal?)null;
                 return new ContaReceberResumoResponse(
                     x.Id,
                     x.NumeroDocumento,
@@ -231,6 +245,7 @@ public sealed class ContaReceberAppService(
                     x.FormaPagamentoId,
                     x.FormaPagamentoNome,
                     x.ValorLiquido,
+                    valorPago,
                     statusCodigo,
                     statusNome,
                     x.QuantidadeParcelas,
@@ -658,14 +673,27 @@ public sealed class ContaReceberAppService(
             conta.AtualizarValorLiquido(request.ValorLiquidacao, novosRateios);
             valorReferenciaConta = request.ValorLiquidacao;
 
-            if (conta.RegraRecorrenciaId.HasValue)
+            if (conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
             {
                 await AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
             }
         }
 
         var saldoFinal = saldoJaLiquidado + request.ValorLiquidacao;
-        statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+
+        if (request.CancelarValorRestante && saldoFinal < valorReferenciaConta)
+        {
+            var novosRateiosCancelamento = await RecalcularRateiosAsync(conta.Id, saldoFinal, cancellationToken);
+            conta.AtualizarValorLiquido(saldoFinal, novosRateiosCancelamento);
+            if (conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
+                await AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, saldoFinal, novosRateiosCancelamento, cancellationToken);
+            statusFinal = StatusConta.LiquidadaId;
+        }
+        else
+        {
+            statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+        }
+
         valorMovimentacao = request.ValorLiquidacao;
 
         conta.Liquidar(request.DataLiquidacao, request.ContaBancariaId, statusFinal);
@@ -809,6 +837,17 @@ public sealed class ContaReceberAppService(
             return null;
         }
 
+        if (conta.StatusContaId == StatusConta.ParcialId)
+        {
+            // Cancela apenas o restante: ajusta valor ao que já foi pago e liquida a conta
+            var saldoPago = await CalcularSaldoLiquidadoAsync(conta.Id, cancellationToken);
+            var novosRateios = await RecalcularRateiosAsync(conta.Id, saldoPago, cancellationToken);
+            conta.AtualizarValorLiquido(saldoPago, novosRateios);
+            conta.Liquidar(conta.DataLiquidacao!.Value, conta.ContaBancariaId!.Value, StatusConta.LiquidadaId);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return await MapearDetalheAsync(conta, cancellationToken);
+        }
+
         try
         {
             conta.Cancelar(StatusConta.CanceladaId);
@@ -856,6 +895,14 @@ public sealed class ContaReceberAppService(
                 rateio.Percentual))
             .ToArrayAsync(cancellationToken);
 
+        var valorPago = conta.StatusContaId == StatusConta.ParcialId
+            ? await dbContext.MovimentacoesFinanceiras
+                .Where(m => m.ContaReceberId == conta.Id &&
+                            m.Natureza == NaturezaMovimentacao.Realizada &&
+                            m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+                .SumAsync(m => (decimal?)m.Valor, cancellationToken)
+            : (decimal?)null;
+
         return new ContaReceberDetalheResponse(
             conta.Id,
             conta.NumeroDocumento,
@@ -879,6 +926,7 @@ public sealed class ContaReceberAppService(
             conta.ValorJuros,
             conta.ValorMulta,
             conta.ValorLiquido,
+            valorPago,
             conta.QuantidadeParcelas,
             conta.NumeroParcela,
             conta.GrupoParcelamentoId,

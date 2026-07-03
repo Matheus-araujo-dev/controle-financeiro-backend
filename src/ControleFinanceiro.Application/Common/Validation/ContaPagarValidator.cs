@@ -12,10 +12,6 @@ public class CreateContaPagarValidator : DomainValidator<CriarContaPagarRequest>
             .MaximumLength(50)
             .WithMessage("Número do documento deve ter no máximo 50 caracteres.");
 
-        RuleFor(x => x.DataEmissao)
-            .NotEmpty()
-            .WithMessage("Data de emissão é obrigatória.");
-
         RuleFor(x => x.RecebedorId)
             .NotEmpty()
             .WithMessage("Recebedor é obrigatório.");
@@ -108,10 +104,6 @@ public class UpdateContaPagarValidator : DomainValidator<AtualizarContaPagarRequ
         RuleFor(x => x.NumeroDocumento)
             .MaximumLength(50)
             .WithMessage("Número do documento deve ter no máximo 50 caracteres.");
-
-        RuleFor(x => x.DataEmissao)
-            .NotEmpty()
-            .WithMessage("Data de emissão é obrigatória.");
 
         RuleFor(x => x.RecebedorId)
             .NotEmpty()

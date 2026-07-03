@@ -48,7 +48,7 @@ public sealed class ContaPagarCriacaoService(
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
                 request.QuantidadeParcelas, request.OrigemCompraPlanejadaId, request.Descricao,
                 request.Observacao, StatusConta.PendenteId, regra is not null, regra?.Id,
-                OrigemLancamento.Manual, rateios);
+                OrigemLancamento.Manual, rateios, DateOnly.FromDateTime(DateTime.Today));
 
         dbContext.ContasPagar.AddRange(contas);
         dbContext.RateiosContaGerencial.AddRange(contas.SelectMany(x => x.Rateios));

@@ -158,7 +158,8 @@ public sealed class ContaPagar : TenantEntity
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
         OrigemLancamento origem,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataAtual = null)
     {
         if (quantidadeParcelas <= 1)
         {
@@ -205,6 +206,13 @@ public sealed class ContaPagar : TenantEntity
 
         for (var index = 0; index < quantidadeParcelas; index++)
         {
+            var dataVenc = dataVencimento.AddMonths(index);
+            var statusParaParcela = dataAtual.HasValue &&
+                (dataVenc.Year > dataAtual.Value.Year ||
+                 (dataVenc.Year == dataAtual.Value.Year && dataVenc.Month > dataAtual.Value.Month))
+                ? StatusConta.FuturoId
+                : statusContaId;
+
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
 
@@ -213,7 +221,7 @@ public sealed class ContaPagar : TenantEntity
                 dataEmissao,
                 responsavelCompraId,
                 recebedorId,
-                dataVencimento.AddMonths(index),
+                dataVenc,
                 formaPagamentoId,
                 cartaoId,
                 contaBancariaId,
@@ -227,7 +235,7 @@ public sealed class ContaPagar : TenantEntity
                 origemCompraPlanejadaId,
                 descricao,
                 observacao,
-                statusContaId,
+                statusParaParcela,
                 ehRecorrente,
                 regraRecorrenciaId,
                 origem,

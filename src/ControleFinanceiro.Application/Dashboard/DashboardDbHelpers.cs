@@ -16,19 +16,29 @@ public sealed class DashboardDbHelpers(
     ICurrentUser currentUser,
     ILogger<DashboardDbHelpers> logger)
 {
-    internal async Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, CancellationToken cancellationToken)
+    internal Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, CancellationToken cancellationToken)
+        => CalcularSaldoRealizadoAteAsync(dataLimite, null, cancellationToken);
+
+    internal async Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, IReadOnlyCollection<Guid>? contaBancariaIds, CancellationToken cancellationToken)
     {
-        var saldoInicialContas = await dbContext.ContasBancarias
-            .AsNoTracking()
-            .Where(c => c.Ativo)
+        var contasQuery = dbContext.ContasBancarias.AsNoTracking().Where(c => c.Ativo);
+        if (contaBancariaIds is { Count: > 0 })
+            contasQuery = contasQuery.Where(c => contaBancariaIds.Contains(c.Id));
+
+        var saldoInicialContas = await contasQuery
             .SumAsync(c => (decimal?)c.SaldoInicial, cancellationToken) ?? 0m;
 
-        var movimentos = await dbContext.MovimentacoesFinanceiras
+        var movQuery = dbContext.MovimentacoesFinanceiras
             .AsNoTracking()
             .Where(m =>
                 m.Natureza == NaturezaMovimentacao.Realizada &&
                 m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId &&
-                m.DataMovimentacao <= dataLimite)
+                m.DataMovimentacao <= dataLimite);
+
+        if (contaBancariaIds is { Count: > 0 })
+            movQuery = movQuery.Where(m => m.ContaBancariaId != null && contaBancariaIds.Contains(m.ContaBancariaId.Value));
+
+        var movimentos = await movQuery
             .GroupBy(_ => 1)
             .Select(g => new
             {

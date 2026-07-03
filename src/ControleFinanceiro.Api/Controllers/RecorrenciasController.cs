@@ -18,4 +18,32 @@ public sealed class RecorrenciasController(RecorrenciaAppService service) : ApiC
     {
         return Ok(await service.ListarAsync(query, cancellationToken));
     }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(RecorrenciaListItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecorrenciaListItemResponse>> Obter(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.ObterAsync(id, cancellationToken);
+        if (response is null) return NotFound();
+        return Ok(response);
+    }
+
+    [HttpPost("{id:guid}/pausar")]
+    [ProducesResponseType(typeof(RecorrenciaListItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecorrenciaListItemResponse>> Pausar(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.PausarAsync(id, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("{id:guid}/retomar")]
+    [ProducesResponseType(typeof(RecorrenciaListItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecorrenciaListItemResponse>> Retomar(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.RetomarAsync(id, cancellationToken);
+        return Ok(response);
+    }
 }

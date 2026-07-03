@@ -31,6 +31,8 @@ public sealed record DashboardResumoQueryRequest
     public DateOnly? DataReferencia { get; init; }
 
     public int DiasProjetados { get; init; } = 15;
+
+    public IReadOnlyCollection<Guid>? ContaBancariaIds { get; init; }
 }
 
 public sealed record DashboardFluxoCaixaQueryRequest
@@ -42,6 +44,8 @@ public sealed record DashboardFluxoCaixaQueryRequest
     public int Dias { get; init; } = 15;
 
     public DashboardFluxoCaixaVisao Visao { get; init; } = DashboardFluxoCaixaVisao.Caixa;
+
+    public IReadOnlyCollection<Guid>? ContaBancariaIds { get; init; }
 }
 
 public sealed record DashboardContaGerencialResumoQueryRequest

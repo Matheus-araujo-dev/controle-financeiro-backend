@@ -32,14 +32,15 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
         }
 
         var pessoas = await db.CarregarPessoasAsync(cancellationToken);
+        var contaBancariaIds = query.ContaBancariaIds;
 
-        var saldoAtual = await db.CalcularSaldoRealizadoAteAsync(hoje, cancellationToken);
+        var saldoAtual = await db.CalcularSaldoRealizadoAteAsync(hoje, contaBancariaIds, cancellationToken);
         var totalAPagar = await CalcularTotalPendenteContasPagarAsync(dataFinal, cancellationToken);
         var totalAReceber = await CalcularTotalPendenteContasReceberAsync(dataFinal, cancellationToken);
 
         var contasVencidas = await CarregarContasVencidasAsync(dataReferencia, pessoas, cancellationToken);
         var contasAVencer = await CarregarContasAVencerAsync(dataReferencia, dataFinal, pessoas, cancellationToken);
-        var movimentacoesRecentes = await CarregarMovimentacoesRecentesAsync(dataReferencia, cancellationToken);
+        var movimentacoesRecentes = await CarregarMovimentacoesRecentesAsync(dataReferencia, contaBancariaIds, cancellationToken);
 
         var saldoProjetado = decimal.Round(saldoAtual + totalAReceber - totalAPagar, 2, MidpointRounding.AwayFromZero);
 
@@ -116,12 +117,17 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
     }
 
     private async Task<IReadOnlyList<DashboardMovimentacaoResumoResponse>> CarregarMovimentacoesRecentesAsync(
-        DateOnly dataReferencia, CancellationToken cancellationToken)
+        DateOnly dataReferencia, IReadOnlyCollection<Guid>? contaBancariaIds, CancellationToken cancellationToken)
     {
-        var movimentacoes = await dbContext.MovimentacoesFinanceiras.AsNoTracking()
+        var query = dbContext.MovimentacoesFinanceiras.AsNoTracking()
             .Where(m => m.Natureza == NaturezaMovimentacao.Realizada &&
                         m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId &&
-                        m.DataMovimentacao <= dataReferencia)
+                        m.DataMovimentacao <= dataReferencia);
+
+        if (contaBancariaIds is { Count: > 0 })
+            query = query.Where(m => m.ContaBancariaId != null && contaBancariaIds.Contains(m.ContaBancariaId.Value));
+
+        var movimentacoes = await query
             .OrderByDescending(m => m.DataMovimentacao).ThenByDescending(m => m.CreatedAtUtc).Take(10)
             .ToListAsync(cancellationToken);
 

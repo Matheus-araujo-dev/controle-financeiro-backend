@@ -13,7 +13,8 @@ public sealed class AuthAppService(
     IGoogleTokenValidator googleTokenValidator,
     ITokenService tokenService,
     IClock clock,
-    IOptions<IdentidadeOptions> identidadeOptions)
+    IOptions<IdentidadeOptions> identidadeOptions,
+    Cadastros.ContasGerenciais.ContasGerenciaisPadraoSeedService contasPadraoSeedService)
 {
     public async Task<AuthTokenResponse> LoginComGoogleAsync(string idToken, CancellationToken cancellationToken)
     {
@@ -37,10 +38,18 @@ public sealed class AuthAppService(
             usuario.AtualizarPerfil(googleUser.Email, googleUser.Nome, googleUser.AvatarUrl);
         }
 
-        var (membro, familia) = await GarantirMembroFamiliaAsync(usuario, cancellationToken);
+        var (membro, familia, familiaRecemCriada) = await GarantirMembroFamiliaAsync(usuario, cancellationToken);
         usuario.DefinirFamiliaAtiva(membro.FamiliaId);
 
-        return await EmitirTokensAsync(usuario, familia, membro.Papel, cancellationToken);
+        var tokenResponse = await EmitirTokensAsync(usuario, familia, membro.Papel, cancellationToken);
+
+        if (familiaRecemCriada)
+        {
+            dbContext.DefinirWorkspaceCorrente(familia.Id);
+            await contasPadraoSeedService.SeedAsync(familia.Id, cancellationToken);
+        }
+
+        return tokenResponse;
     }
 
     public async Task<AuthTokenResponse> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
@@ -91,7 +100,7 @@ public sealed class AuthAppService(
         }
     }
 
-    private async Task<(MembroFamilia Membro, Familia Familia)> GarantirMembroFamiliaAsync(
+    private async Task<(MembroFamilia Membro, Familia Familia, bool FamiliaRecemCriada)> GarantirMembroFamiliaAsync(
         Usuario usuario,
         CancellationToken cancellationToken)
     {
@@ -100,7 +109,7 @@ public sealed class AuthAppService(
         {
             var familiaExistente = await dbContext.Familias
                 .SingleAsync(f => f.Id == membroExistente.FamiliaId, cancellationToken);
-            return (membroExistente, familiaExistente);
+            return (membroExistente, familiaExistente, false);
         }
 
         var familiaPadraoId = identidadeOptions.Value.FamiliaPadraoId;
@@ -110,17 +119,17 @@ public sealed class AuthAppService(
                 .Include(f => f.Membros)
                 .SingleOrDefaultAsync(f => f.Id == familiaPadraoId.Value, cancellationToken);
 
-            // A famÃ­lia padrÃ£o sÃ³ absorve o primeiro usuÃ¡rio (dono do histÃ³rico prÃ©-multi-tenant);
-            // demais usuÃ¡rios entram apenas por convite.
+            // A família padrão só absorve o primeiro usuário (dono do histórico pré-multi-tenant);
+            // demais usuários entram apenas por convite.
             if (familiaPadrao is not null && familiaPadrao.Membros.Count == 0)
             {
-                return (familiaPadrao.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), familiaPadrao);
+                return (familiaPadrao.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), familiaPadrao, false);
             }
         }
 
         var novaFamilia = Familia.Criar($"Espaco de {usuario.Nome}");
         dbContext.Familias.Add(novaFamilia);
-        return (novaFamilia.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), novaFamilia);
+        return (novaFamilia.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), novaFamilia, true);
     }
 
     private async Task<MembroFamilia?> ObterMembroAtivoAsync(Usuario usuario, CancellationToken cancellationToken)

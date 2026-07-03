@@ -123,6 +123,71 @@ public sealed class RecorrenciaAppService(
     public Task<RecorrenciaListResponse> ListarAtivasAsync(CancellationToken cancellationToken) =>
         ListarAsync(new RecorrenciaListQueryRequest { Ativa = true }, cancellationToken);
 
+    public async Task<RecorrenciaListItemResponse?> ObterAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var pagar = await (
+            from regra in dbContext.RegrasRecorrencia.AsNoTracking()
+            where regra.Id == id
+            join conta in dbContext.ContasPagar.AsNoTracking()
+                on regra.Id equals conta.RegraRecorrenciaId
+            where conta.Origem != DomainOrigemLancamento.Recorrencia
+            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
+            from responsavel in responsaveis.DefaultIfEmpty()
+            orderby conta.CreatedAtUtc
+            select new RecorrenciaRow(
+                regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
+                recebedor.Nome, responsavel.Nome)
+        ).FirstOrDefaultAsync(cancellationToken);
+
+        if (pagar != null) return MapearRow(pagar);
+
+        var receber = await (
+            from regra in dbContext.RegrasRecorrencia.AsNoTracking()
+            where regra.Id == id
+            join conta in dbContext.ContasReceber.AsNoTracking()
+                on regra.Id equals conta.RegraRecorrenciaId
+            where conta.Origem != DomainOrigemLancamento.Recorrencia
+            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
+            from responsavel in responsaveis.DefaultIfEmpty()
+            orderby conta.CreatedAtUtc
+            select new RecorrenciaRow(
+                regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
+                pagador.Nome, responsavel.Nome)
+        ).FirstOrDefaultAsync(cancellationToken);
+
+        return receber != null ? MapearRow(receber) : null;
+    }
+
+    public async Task<RecorrenciaListItemResponse> PausarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Recorrência não encontrada.");
+
+        regra.Pausar();
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (await ObterAsync(id, cancellationToken))!;
+    }
+
+    public async Task<RecorrenciaListItemResponse> RetomarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Recorrência não encontrada.");
+
+        regra.Retomar();
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (await ObterAsync(id, cancellationToken))!;
+    }
+
     private Task<List<RecorrenciaRow>> ConsultarOrigensPagarAsync(
         RecorrenciaListQueryRequest query, string? termo, CancellationToken cancellationToken)
     {

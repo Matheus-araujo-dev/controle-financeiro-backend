@@ -114,6 +114,7 @@ var healthChecks = builder.Services.AddHealthChecks()
 healthChecks.AddCheck<DistributedCacheHealthCheck>("cache", tags: ["cache", "infra"]);
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker>();
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.AtualizacaoStatusContasWorker>();
+builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.TransicaoStatusFuturoWorker>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

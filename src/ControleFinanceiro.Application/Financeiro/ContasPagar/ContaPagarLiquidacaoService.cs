@@ -187,6 +187,14 @@ public sealed class ContaPagarLiquidacaoService(
             }
         }
 
+        if (conta.RegraRecorrenciaId.HasValue && request?.PausarRecorrenciaRelacionada == true)
+        {
+            var regra = await dbContext.RegrasRecorrencia
+                .SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
+            if (regra is not null && regra.Ativa)
+                regra.Pausar();
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }

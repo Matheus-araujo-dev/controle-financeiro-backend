@@ -133,9 +133,9 @@ public sealed class ContasReceberController(ContaReceberAppService service) : Ap
     [ProducesResponseType(typeof(ContaReceberDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ContaReceberDetalheResponse>> Cancelar(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ContaReceberDetalheResponse>> Cancelar(Guid id, [FromBody] CancelarContaReceberRequest? request, CancellationToken cancellationToken)
     {
-        var response = await service.CancelarAsync(id, cancellationToken);
+        var response = await service.CancelarAsync(id, request, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 }

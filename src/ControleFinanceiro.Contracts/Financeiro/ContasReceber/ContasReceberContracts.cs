@@ -83,7 +83,9 @@ public sealed record LiquidarContaReceberRequest(
     DateOnly DataLiquidacao,
     Guid ContaBancariaId,
     Guid? FormaPagamentoId = null,
-    bool AtualizarValorConta = false);
+    bool AtualizarValorConta = false,
+    bool AtualizarRecorrencia = false,
+    bool CancelarValorRestante = false);
 
 public sealed record ContaReceberResumoResponse(
     Guid Id,
@@ -98,6 +100,7 @@ public sealed record ContaReceberResumoResponse(
     Guid FormaPagamentoId,
     string FormaPagamentoNome,
     decimal ValorLiquido,
+    decimal? ValorPago,
     string StatusCodigo,
     string StatusNome,
     int QuantidadeParcelas,
@@ -144,6 +147,7 @@ public sealed record ContaReceberDetalheResponse(
     decimal ValorJuros,
     decimal ValorMulta,
     decimal ValorLiquido,
+    decimal? ValorPago,
     int QuantidadeParcelas,
     int NumeroParcela,
     Guid? GrupoParcelamentoId,

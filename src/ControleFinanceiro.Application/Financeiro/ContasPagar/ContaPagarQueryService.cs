@@ -210,12 +210,27 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         var totalVencendoHoje = resumo?.VencendoHoje ?? 0m;
         var totalLiquidado = resumo?.Liquidado ?? 0m;
 
-        var items = (await consulta
-                .ApplyPagination(query)
-                .ToArrayAsync(cancellationToken))
+        var paginados = await consulta.ApplyPagination(query).ToArrayAsync(cancellationToken);
+
+        // Batch ValorPago only for PARCIAL items (1 extra round-trip at most per page)
+        var parcialIds = paginados.Where(x => x.StatusCodigo == "PARCIAL").Select(x => x.Id).ToArray();
+        var valorPagoPorId = new Dictionary<Guid, decimal>();
+        if (parcialIds.Length > 0)
+        {
+            valorPagoPorId = await dbContext.MovimentacoesFinanceiras
+                .Where(m => m.ContaPagarId != null && parcialIds.Contains(m.ContaPagarId.Value) &&
+                            m.Natureza == NaturezaMovimentacao.Realizada &&
+                            m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+                .GroupBy(m => m.ContaPagarId!.Value)
+                .Select(g => new { Id = g.Key, Total = g.Sum(m => m.Valor) })
+                .ToDictionaryAsync(x => x.Id, x => x.Total, cancellationToken);
+        }
+
+        var items = paginados
             .Select(x =>
             {
                 var (statusCodigo, statusNome) = ResolverStatusEfetivo(x.StatusCodigo, x.StatusNome, x.DataVencimento, hoje);
+                var valorPago = valorPagoPorId.TryGetValue(x.Id, out var vp) ? vp : (decimal?)null;
                 return new ContaPagarResumoResponse(
                     x.Id,
                     x.NumeroDocumento,
@@ -229,6 +244,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                     x.FormaPagamentoId,
                     x.FormaPagamentoNome,
                     x.ValorLiquido,
+                    valorPago,
                     statusCodigo,
                     statusNome,
                     x.QuantidadeParcelas,
@@ -376,6 +392,14 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 .ToArrayAsync(cancellationToken);
         }
 
+        var valorPago = conta.StatusContaId == StatusConta.ParcialId
+            ? await dbContext.MovimentacoesFinanceiras
+                .Where(m => m.ContaPagarId == conta.Id &&
+                            m.Natureza == NaturezaMovimentacao.Realizada &&
+                            m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+                .SumAsync(m => (decimal?)m.Valor, cancellationToken)
+            : (decimal?)null;
+
         return new ContaPagarDetalheResponse(
             conta.Id,
             conta.NumeroDocumento,
@@ -399,6 +423,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             conta.ValorJuros,
             conta.ValorMulta,
             conta.ValorLiquido,
+            valorPago,
             conta.QuantidadeParcelas,
             conta.NumeroParcela,
             conta.GrupoParcelamentoId,
@@ -536,6 +561,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             x.FormaPagamentoId,
             x.FormaPagamentoNome,
             x.ValorLiquido,
+            null,
             x.StatusCodigo,
             x.StatusNome,
             x.QuantidadeParcelas,

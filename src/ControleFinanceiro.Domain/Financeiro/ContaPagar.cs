@@ -462,9 +462,9 @@ public sealed class ContaPagar : TenantEntity
 
     public void Estornar(Guid statusContaPendenteId)
     {
-        if (StatusContaId != StatusConta.LiquidadaId)
+        if (StatusContaId != StatusConta.LiquidadaId && StatusContaId != StatusConta.ParcialId)
         {
-            throw new InvalidOperationException("Apenas contas liquidadas podem ser estornadas.");
+            throw new InvalidOperationException("Apenas contas liquidadas ou com pagamento parcial podem ser estornadas.");
         }
 
         StatusContaId = statusContaPendenteId;

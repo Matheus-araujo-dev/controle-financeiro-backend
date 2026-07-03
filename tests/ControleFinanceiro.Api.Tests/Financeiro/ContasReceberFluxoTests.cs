@@ -104,6 +104,102 @@ public sealed class ContasReceberFluxoTests(CustomWebApplicationFactory factory)
         resposta.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task LiquidarParcial_DeveSetarStatusParcialEExporValorPago()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaReceberAsync(client, fixture, valor: 200m);
+
+        var liquidar = await client.PostAsJsonAsync($"/api/v1/contas-receber/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = false,
+            cancelarValorRestante = false
+        });
+
+        liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detalhe = await liquidar.Content.ReadFromJsonAsync<ContaDetalhe>();
+        detalhe!.StatusCodigo.Should().Be("PARCIAL");
+        detalhe.ValorPago.Should().Be(120m);
+        detalhe.ValorLiquido.Should().Be(200m);
+    }
+
+    [Fact]
+    public async Task LiquidarParcial_CancelarRestante_DeveSetarLiquidada()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaReceberAsync(client, fixture, valor: 200m);
+
+        var liquidar = await client.PostAsJsonAsync($"/api/v1/contas-receber/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = false,
+            cancelarValorRestante = true
+        });
+
+        liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detalhe = await liquidar.Content.ReadFromJsonAsync<ContaDetalhe>();
+        detalhe!.StatusCodigo.Should().Be("LIQUIDADA");
+        detalhe.ValorLiquido.Should().Be(120m);
+    }
+
+    [Fact]
+    public async Task LiquidarParcial_Estornar_DeveVoltarParaPendente()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaReceberAsync(client, fixture, valor: 200m);
+
+        await client.PostAsJsonAsync($"/api/v1/contas-receber/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = false,
+            cancelarValorRestante = false
+        });
+
+        var estornar = await client.PostAsync($"/api/v1/contas-receber/{id}/estornar", content: null);
+
+        estornar.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await estornar.Content.ReadFromJsonAsync<ContaResumo>())!.StatusCodigo.Should().Be("PENDENTE");
+    }
+
+    [Fact]
+    public async Task CancelarParcial_DeveTrimValueELiquidar()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaReceberAsync(client, fixture, valor: 200m);
+
+        await client.PostAsJsonAsync($"/api/v1/contas-receber/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 120m,
+            atualizarValorConta = false,
+            cancelarValorRestante = false
+        });
+
+        var cancelar = await client.PostAsync($"/api/v1/contas-receber/{id}/cancelar", content: null);
+
+        cancelar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detalhe = await cancelar.Content.ReadFromJsonAsync<ContaDetalhe>();
+        detalhe!.StatusCodigo.Should().Be("LIQUIDADA");
+        detalhe.ValorLiquido.Should().Be(120m);
+    }
+
     private sealed record PagedResponse<T>(IReadOnlyCollection<T> Items);
     private sealed record MovimentacaoResumoResponse(Guid Id, decimal Valor);
+    private sealed record ContaDetalhe(Guid Id, string StatusCodigo, decimal ValorLiquido, decimal? ValorPago);
 }

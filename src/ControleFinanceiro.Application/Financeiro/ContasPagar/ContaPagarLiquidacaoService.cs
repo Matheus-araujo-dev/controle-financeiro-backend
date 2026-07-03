@@ -56,12 +56,25 @@ public sealed class ContaPagarLiquidacaoService(
                 conta.AtualizarValorLiquido(request.ValorLiquidacao, novosRateios);
                 valorReferenciaConta = request.ValorLiquidacao;
 
-                if (conta.RegraRecorrenciaId.HasValue)
+                if (conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
                     await helper.AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
             }
 
             var saldoFinal = saldoJaLiquidado + request.ValorLiquidacao;
-            statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+
+            if (request.CancelarValorRestante && saldoFinal < valorReferenciaConta)
+            {
+                var novosRateios = await helper.RecalcularRateiosAsync(conta.Id, saldoFinal, cancellationToken);
+                conta.AtualizarValorLiquido(saldoFinal, novosRateios);
+                if (conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
+                    await helper.AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, saldoFinal, novosRateios, cancellationToken);
+                statusFinal = StatusConta.LiquidadaId;
+            }
+            else
+            {
+                statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+            }
+
             valorMovimentacao = request.ValorLiquidacao;
         }
 
@@ -137,6 +150,17 @@ public sealed class ContaPagarLiquidacaoService(
     {
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
+
+        if (conta.StatusContaId == StatusConta.ParcialId)
+        {
+            // Cancela apenas o restante: ajusta valor ao que já foi pago e liquida a conta
+            var saldoPago = await helper.CalcularSaldoLiquidadoAsync(conta.Id, cancellationToken);
+            var novosRateios = await helper.RecalcularRateiosAsync(conta.Id, saldoPago, cancellationToken);
+            conta.AtualizarValorLiquido(saldoPago, novosRateios);
+            conta.Liquidar(conta.DataLiquidacao!.Value, conta.ContaBancariaId!.Value, StatusConta.LiquidadaId);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
+        }
 
         try { conta.Cancelar(StatusConta.CanceladaId); }
         catch (InvalidOperationException ex) { throw helper.ConverterParaValidacao(ex); }

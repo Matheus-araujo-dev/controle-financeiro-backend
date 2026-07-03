@@ -710,7 +710,8 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
             dataLiquidacao = "2026-04-06",
             contaBancariaId = fixture.ContaBancariaId,
             valorLiquidacao = 150m,
-            atualizarValorConta = true
+            atualizarValorConta = true,
+            atualizarRecorrencia = true
         });
 
         var listAfterGenerate = await client.GetFromJsonAsync<ContaListResponse>("/api/v1/contas-pagar?search=Internet escritorio");

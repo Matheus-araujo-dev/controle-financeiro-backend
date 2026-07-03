@@ -103,7 +103,9 @@ public sealed record LiquidarContaPagarRequest(
     DateOnly DataLiquidacao,
     Guid ContaBancariaId,
     Guid? FormaPagamentoId = null,
-    bool AtualizarValorConta = false);
+    bool AtualizarValorConta = false,
+    bool AtualizarRecorrencia = false,
+    bool CancelarValorRestante = false);
 
 public sealed record CancelarContaPagarRequest(
     bool? CancelarPlanejamentoRelacionado = null);
@@ -121,6 +123,7 @@ public sealed record ContaPagarResumoResponse(
     Guid FormaPagamentoId,
     string FormaPagamentoNome,
     decimal ValorLiquido,
+    decimal? ValorPago,
     string StatusCodigo,
     string StatusNome,
     int QuantidadeParcelas,
@@ -167,6 +170,7 @@ public sealed record ContaPagarDetalheResponse(
     decimal ValorJuros,
     decimal ValorMulta,
     decimal ValorLiquido,
+    decimal? ValorPago,
     int QuantidadeParcelas,
     int NumeroParcela,
     Guid? GrupoParcelamentoId,

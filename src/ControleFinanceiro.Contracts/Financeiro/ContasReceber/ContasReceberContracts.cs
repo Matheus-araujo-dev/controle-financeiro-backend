@@ -78,6 +78,9 @@ public sealed record AtualizarContaReceberRequest(
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia);
 
+public sealed record CancelarContaReceberRequest(
+    bool? PausarRecorrenciaRelacionada = null);
+
 public sealed record LiquidarContaReceberRequest(
     decimal ValorLiquidacao,
     DateOnly DataLiquidacao,

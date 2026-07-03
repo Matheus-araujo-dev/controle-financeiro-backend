@@ -828,7 +828,7 @@ public sealed class ContaReceberAppService(
         return await MapearDetalheAsync(conta, cancellationToken);
     }
 
-    public async Task<ContaReceberDetalheResponse?> CancelarAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<ContaReceberDetalheResponse?> CancelarAsync(Guid id, CancelarContaReceberRequest? request, CancellationToken cancellationToken)
     {
         var conta = await dbContext.ContasReceber.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -855,6 +855,14 @@ public sealed class ContaReceberAppService(
         catch (InvalidOperationException exception)
         {
             throw ConverterParaValidacao(exception);
+        }
+
+        if (conta.RegraRecorrenciaId.HasValue && request?.PausarRecorrenciaRelacionada == true)
+        {
+            var regra = await dbContext.RegrasRecorrencia
+                .SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
+            if (regra is not null && regra.Ativa)
+                regra.Pausar();
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

@@ -19,7 +19,8 @@ public sealed class DashboardFluxoCaixaService(IAppDbContext dbContext, Dashboar
         var usarDataVencimento = query.Visao == DashboardFluxoCaixaVisao.Caixa;
         var projetarPrevisoes = !mesReferenciaEhMesAtual;
 
-        var saldoInicial = await db.CalcularSaldoRealizadoAteAsync(dataInicial.AddDays(-1), cancellationToken);
+        var contaBancariaIds = query.ContaBancariaIds;
+        var saldoInicial = await db.CalcularSaldoRealizadoAteAsync(dataInicial.AddDays(-1), contaBancariaIds, cancellationToken);
         var eventos = new List<FluxoCaixaEvento>();
 
         var contasPagar = await dbContext.ContasPagar.AsNoTracking()
@@ -54,10 +55,15 @@ public sealed class DashboardFluxoCaixaService(IAppDbContext dbContext, Dashboar
                 eventos.Add(new FluxoCaixaEvento(data, TipoMovimentacao.Entrada, conta.ValorLiquido));
         }
 
-        var movimentacoes = await dbContext.MovimentacoesFinanceiras.AsNoTracking()
+        var movQuery = dbContext.MovimentacoesFinanceiras.AsNoTracking()
             .Where(m => m.Natureza == NaturezaMovimentacao.Realizada &&
                         m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId &&
-                        m.DataMovimentacao >= dataInicial && m.DataMovimentacao <= dataFinal)
+                        m.DataMovimentacao >= dataInicial && m.DataMovimentacao <= dataFinal);
+
+        if (contaBancariaIds is { Count: > 0 })
+            movQuery = movQuery.Where(m => m.ContaBancariaId != null && contaBancariaIds.Contains(m.ContaBancariaId.Value));
+
+        var movimentacoes = await movQuery
             .Select(m => new { m.DataMovimentacao, m.Tipo, m.Valor })
             .ToListAsync(cancellationToken);
 

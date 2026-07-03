@@ -108,7 +108,8 @@ public sealed record LiquidarContaPagarRequest(
     bool CancelarValorRestante = false);
 
 public sealed record CancelarContaPagarRequest(
-    bool? CancelarPlanejamentoRelacionado = null);
+    bool? CancelarPlanejamentoRelacionado = null,
+    bool? PausarRecorrenciaRelacionada = null);
 
 public sealed record ContaPagarResumoResponse(
     Guid Id,

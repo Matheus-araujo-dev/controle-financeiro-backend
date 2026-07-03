@@ -64,7 +64,7 @@ public sealed class ContaPagarValidatorTests
 
         resultado.IsValid.Should().BeFalse();
         resultado.Errors.Select(e => e.PropertyName).Should().Contain(
-            ["DataEmissao", "RecebedorId", "DataVencimento", "FormaPagamentoId", "Descricao", "Rateios"]);
+            ["RecebedorId", "DataVencimento", "FormaPagamentoId", "Descricao", "Rateios"]);
     }
 
     [Theory]

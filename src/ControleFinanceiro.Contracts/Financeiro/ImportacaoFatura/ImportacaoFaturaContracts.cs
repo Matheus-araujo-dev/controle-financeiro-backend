@@ -22,10 +22,10 @@ public sealed record ImportacaoFaturaItemConfirmar(
 
 public sealed record ConfirmarImportacaoFaturaRequest(
     Guid CartaoId,
-    Guid FormaPagamentoId,
     Guid RecebedorPadraoId,
-    Guid ContaGerencialPadraoId,
-    IReadOnlyCollection<ImportacaoFaturaItemConfirmar> Itens);
+    IReadOnlyCollection<ImportacaoFaturaItemConfirmar> Itens,
+    Guid? FormaPagamentoId = null,
+    Guid? ContaGerencialPadraoId = null);
 
 public sealed record ConfirmarImportacaoFaturaResponse(
     int ContasCriadas,

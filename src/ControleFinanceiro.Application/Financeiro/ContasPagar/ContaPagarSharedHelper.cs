@@ -245,12 +245,17 @@ public sealed class ContaPagarSharedHelper(
     {
         try
         {
-            conta.Atualizar(
+            // Preserve FUTURO: status transitions to PENDENTE only via the scheduled job.
+        var statusId = conta.StatusContaId == StatusConta.FuturoId
+            ? StatusConta.FuturoId
+            : StatusConta.PendenteId;
+
+        conta.Atualizar(
                 request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
-                request.Descricao, request.Observacao, StatusConta.PendenteId,
+                request.Descricao, request.Observacao, statusId,
                 ConverterRateios(request.Rateios));
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)

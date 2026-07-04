@@ -195,6 +195,28 @@ public sealed class ContaPagarLiquidacaoService(
                 regra.Pausar();
         }
 
+        // Cancelamento em cascata de parcelas do mesmo grupo
+        if (conta.GrupoParcelamentoId.HasValue)
+        {
+            var cancelarFuturas = conta.NumeroParcela == 1 || request?.CancelarParcelasFuturas == true;
+            if (cancelarFuturas)
+            {
+                var parcelas = await dbContext.ContasPagar
+                    .Where(x => x.GrupoParcelamentoId == conta.GrupoParcelamentoId.Value
+                             && x.Id != conta.Id
+                             && x.DataVencimento >= conta.DataVencimento
+                             && x.StatusContaId != StatusConta.CanceladaId
+                             && x.StatusContaId != StatusConta.LiquidadaId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var parcela in parcelas)
+                {
+                    try { parcela.Cancelar(StatusConta.CanceladaId); }
+                    catch (InvalidOperationException) { /* ignorar parcelas que não podem ser canceladas */ }
+                }
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }

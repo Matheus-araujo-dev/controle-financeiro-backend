@@ -35,6 +35,21 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
+        if (query.EhPagador.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhPagador == query.EhPagador.Value);
+        }
+
+        if (query.EhRecebedor.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhRecebedor == query.EhRecebedor.Value);
+        }
+
+        if (query.EhResponsavel.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhResponsavel == query.EhResponsavel.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Documento))
         {
             var termoDoc = $"%{query.Documento.Trim().ToLower()}%";
@@ -108,7 +123,10 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.CpfCnpj,
                 x.Email,
                 x.Telefone,
-                x.Ativo))
+                x.Ativo,
+                x.EhPagador,
+                x.EhRecebedor,
+                x.EhResponsavel))
             .ToArray();
 
         var paged = PagedResult<PessoaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -201,7 +219,10 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 request.Email,
                 request.Telefone,
                 request.Observacao,
-                pessoa.Ativo);
+                pessoa.Ativo,
+                request.EhPagador,
+                request.EhRecebedor,
+                request.EhResponsavel);
 
             if (pessoa.ChavesPix.Count > 0)
             {
@@ -261,7 +282,10 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 request.Telefone,
                 request.Observacao,
                 MapearChavesPix(request.ChavesPix),
-                true);
+                true,
+                request.EhPagador,
+                request.EhRecebedor,
+                request.EhResponsavel);
         }
         catch (ArgumentException exception)
         {
@@ -330,7 +354,10 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 .ToArray(),
             pessoa.Ativo,
             pessoa.CreatedAtUtc,
-            pessoa.UpdatedAtUtc);
+            pessoa.UpdatedAtUtc,
+            pessoa.EhPagador,
+            pessoa.EhRecebedor,
+            pessoa.EhResponsavel);
     }
 
     private static IReadOnlyCollection<ChavePixPlano> MapearChavesPix(IReadOnlyCollection<PessoaChavePixRequest>? chavesPix)

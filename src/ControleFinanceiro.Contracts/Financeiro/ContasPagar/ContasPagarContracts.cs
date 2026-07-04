@@ -96,7 +96,8 @@ public sealed record AtualizarContaPagarRequest(
     string Descricao,
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
-    RecorrenciaConfigRequest? Recorrencia);
+    RecorrenciaConfigRequest? Recorrencia,
+    bool AtualizarParcelasFuturas = false);
 
 public sealed record LiquidarContaPagarRequest(
     decimal ValorLiquidacao,
@@ -109,7 +110,8 @@ public sealed record LiquidarContaPagarRequest(
 
 public sealed record CancelarContaPagarRequest(
     bool? CancelarPlanejamentoRelacionado = null,
-    bool? PausarRecorrenciaRelacionada = null);
+    bool? PausarRecorrenciaRelacionada = null,
+    bool? CancelarParcelasFuturas = null);
 
 public sealed record ContaPagarResumoResponse(
     Guid Id,

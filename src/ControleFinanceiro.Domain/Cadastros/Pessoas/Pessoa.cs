@@ -30,6 +30,12 @@ public sealed class Pessoa : TenantEntity
 
     public bool Ativo { get; private set; }
 
+    public bool EhPagador { get; private set; }
+
+    public bool EhRecebedor { get; private set; }
+
+    public bool EhResponsavel { get; private set; }
+
     public IReadOnlyCollection<PessoaChavePix> ChavesPix => _chavesPix;
 
     public static Pessoa Criar(
@@ -40,10 +46,13 @@ public sealed class Pessoa : TenantEntity
         string? telefone,
         string? observacao,
         IReadOnlyCollection<ChavePixPlano> chavesPix,
-        bool ativo)
+        bool ativo,
+        bool ehPagador = true,
+        bool ehRecebedor = true,
+        bool ehResponsavel = true)
     {
         var pessoa = new Pessoa();
-        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo);
+        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel);
         pessoa.SubstituirChavesPix(chavesPix);
         return pessoa;
     }
@@ -56,9 +65,12 @@ public sealed class Pessoa : TenantEntity
         string? telefone,
         string? observacao,
         IReadOnlyCollection<ChavePixPlano> chavesPix,
-        bool ativo)
+        bool ativo,
+        bool ehPagador,
+        bool ehRecebedor,
+        bool ehResponsavel)
     {
-        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo);
+        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel);
         SubstituirChavesPix(chavesPix);
     }
 
@@ -69,7 +81,10 @@ public sealed class Pessoa : TenantEntity
         string? email,
         string? telefone,
         string? observacao,
-        bool ativo)
+        bool ativo,
+        bool ehPagador = true,
+        bool ehRecebedor = true,
+        bool ehResponsavel = true)
     {
         Nome = NormalizarObrigatorio(nome, nameof(nome), 200);
         TipoPessoa = tipoPessoa;
@@ -78,6 +93,9 @@ public sealed class Pessoa : TenantEntity
         Telefone = NormalizarOpcional(telefone, 50);
         Observacao = NormalizarOpcional(observacao, 1000);
         Ativo = ativo;
+        EhPagador = ehPagador;
+        EhRecebedor = ehRecebedor;
+        EhResponsavel = ehResponsavel;
     }
 
     public void Ativar()

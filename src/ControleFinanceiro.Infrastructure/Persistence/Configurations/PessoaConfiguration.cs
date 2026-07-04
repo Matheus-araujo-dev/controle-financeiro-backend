@@ -33,6 +33,10 @@ public sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         builder.Property(x => x.Observacao)
             .HasMaxLength(1000);
 
+        builder.Property(x => x.EhPagador).IsRequired().HasDefaultValue(true);
+        builder.Property(x => x.EhRecebedor).IsRequired().HasDefaultValue(true);
+        builder.Property(x => x.EhResponsavel).IsRequired().HasDefaultValue(true);
+
         builder.HasIndex(x => x.CpfCnpj)
             .IsUnique()
             .HasFilter("\"CpfCnpj\" IS NOT NULL");

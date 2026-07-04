@@ -114,18 +114,27 @@ public sealed class ImportacaoFaturaService(
         if (cartao is null)
             throw ValidationExceptionFactory.Create("CartaoId", "Cartao nao encontrado.");
 
-        if (cartao is null)
-            throw new InvalidOperationException("Cartão não encontrado.");
+        // Infere a forma de pagamento: usa a informada, depois a mais recente do cartão, depois qualquer EhCartao
+        Guid? formaPagamentoId = request.FormaPagamentoId;
+        if (formaPagamentoId is null)
+        {
+            var recenteFp = await db.ContasPagar
+                .AsNoTracking()
+                .Where(cp => cp.CartaoId == request.CartaoId)
+                .OrderByDescending(cp => cp.DataEmissao)
+                .Select(cp => (Guid?)cp.FormaPagamentoId)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        // Verifica quais chaves já estão no banco (dedup)
-        var formaPagamentoValida = await db.FormasPagamento
-            .AsNoTracking()
-            .AnyAsync(
-                f => f.Id == request.FormaPagamentoId && f.FamiliaId == familiaId && f.Ativo && f.EhCartao,
-                cancellationToken);
+            formaPagamentoId = recenteFp
+                ?? await db.FormasPagamento
+                    .AsNoTracking()
+                    .Where(f => f.FamiliaId == familiaId && f.EhCartao && f.Ativo)
+                    .Select(f => (Guid?)f.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+        }
 
-        if (!formaPagamentoValida)
-            throw ValidationExceptionFactory.Create("FormaPagamentoId", "Forma de pagamento de cartao nao encontrada.");
+        if (formaPagamentoId is null)
+            throw ValidationExceptionFactory.Create("FormaPagamentoId", "Nenhuma forma de pagamento de cartao encontrada para esta familia.");
 
         var recebedorValido = await db.Pessoas
             .AsNoTracking()
@@ -136,18 +145,19 @@ public sealed class ImportacaoFaturaService(
         if (!recebedorValido)
             throw ValidationExceptionFactory.Create("RecebedorPadraoId", "Recebedor padrao nao encontrado.");
 
-        var contaGerencialValida = await db.ContasGerenciais
-            .AsNoTracking()
-            .AnyAsync(
-                c => c.Id == request.ContaGerencialPadraoId
-                     && c.FamiliaId == familiaId
-                     && c.Ativo
-                     && c.Tipo == TipoContaGerencial.Despesa
-                     && !db.ContasGerenciais.Any(child => child.ContaPaiId == c.Id),
-                cancellationToken);
+        // Infere a conta gerencial padrão: usa a informada, depois a primeira folha de Despesa disponível
+        var contaGerencialPadraoId = request.ContaGerencialPadraoId
+            ?? await db.ContasGerenciais
+                .AsNoTracking()
+                .Where(c => c.FamiliaId == familiaId
+                         && c.Ativo
+                         && c.Tipo == TipoContaGerencial.Despesa
+                         && !db.ContasGerenciais.Any(child => child.ContaPaiId == c.Id))
+                .Select(c => (Guid?)c.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        if (!contaGerencialValida)
-            throw ValidationExceptionFactory.Create("ContaGerencialPadraoId", "Conta gerencial de despesa nao encontrada ou nao aceita lancamentos.");
+        if (contaGerencialPadraoId is null)
+            throw ValidationExceptionFactory.Create("ContaGerencialPadraoId", "Nenhuma conta gerencial de despesa encontrada para esta familia.");
 
         var chavesCompletas = request.Itens
             .Select(i => $"{request.CartaoId}|{i.ChaveImportacao}")
@@ -176,14 +186,14 @@ public sealed class ImportacaoFaturaService(
                 continue;
             }
 
-            var categoriaId = item.ContaGerencialId ?? request.ContaGerencialPadraoId;
+            var categoriaId = item.ContaGerencialId ?? contaGerencialPadraoId!.Value;
 
             var parcelas = ContaPagar.CriarParcelasCartao(
                 numeroDocumento: null,
                 dataEmissao: item.DataTransacao,
                 responsavelCompraId: null,
                 recebedorId: request.RecebedorPadraoId,
-                formaPagamentoId: request.FormaPagamentoId,
+                formaPagamentoId: formaPagamentoId.Value,
                 cartaoId: request.CartaoId,
                 valorOriginal: item.Valor,
                 valorDesconto: 0m,

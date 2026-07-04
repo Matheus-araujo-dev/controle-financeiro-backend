@@ -112,6 +112,24 @@ public sealed class AuthAppService(
             return (membroExistente, familiaExistente, false);
         }
 
+        // If the user has a pending invite, accept it automatically instead of creating a new workspace.
+        var convitePendente = await dbContext.ConvitesFamilia
+            .Where(c => c.EmailConvidado == usuario.Email
+                     && c.Status == StatusConviteFamilia.Pendente
+                     && c.ExpiraEmUtc > clock.UtcNow)
+            .OrderBy(c => c.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (convitePendente is not null)
+        {
+            convitePendente.Aceitar(usuario.Id, clock.UtcNow);
+            var novoMembro = MembroFamilia.Criar(convitePendente.FamiliaId, usuario.Id, convitePendente.Papel);
+            dbContext.MembrosFamilia.Add(novoMembro);
+            var familiaConvite = await dbContext.Familias
+                .SingleAsync(f => f.Id == convitePendente.FamiliaId, cancellationToken);
+            return (novoMembro, familiaConvite, false);
+        }
+
         var familiaPadraoId = identidadeOptions.Value.FamiliaPadraoId;
         if (familiaPadraoId.HasValue)
         {

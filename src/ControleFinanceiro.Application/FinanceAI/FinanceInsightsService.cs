@@ -77,13 +77,17 @@ public sealed class FinanceInsightsService(
 
         var contasPagarMes = await db.ContasPagar
             .AsNoTracking()
-            .Where(c => c.FamiliaId == familiaId && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes)
+            .Where(c => c.FamiliaId == familiaId
+                     && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes
+                     && c.StatusContaId != StatusConta.CanceladaId)
             .Select(c => new { c.ValorLiquido, c.DataVencimento, StatusId = c.StatusContaId })
             .ToListAsync(ct);
 
         var contasReceberMes = await db.ContasReceber
             .AsNoTracking()
-            .Where(c => c.FamiliaId == familiaId && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes)
+            .Where(c => c.FamiliaId == familiaId
+                     && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes
+                     && c.StatusContaId != StatusConta.CanceladaId)
             .Select(c => new { c.ValorLiquido, StatusId = c.StatusContaId })
             .ToListAsync(ct);
 

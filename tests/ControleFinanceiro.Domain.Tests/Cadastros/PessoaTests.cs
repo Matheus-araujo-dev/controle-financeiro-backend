@@ -77,6 +77,9 @@ public sealed class PessoaTests
                 ChavePixPlano.Create(TipoChavePix.Email, "pix@example.com"),
                 ChavePixPlano.Create(TipoChavePix.Email, " PIX@example.com ")
             ],
+            true,
+            true,
+            true,
             true);
 
         action.Should().Throw<ArgumentException>()

@@ -40,7 +40,8 @@ public sealed class ContaPagarCriacaoService(
                 request.QuantidadeParcelas, request.OrigemCompraPlanejadaId, request.Descricao,
                 request.Observacao, StatusConta.EmFaturaId, regra is not null, regra?.Id,
                 OrigemLancamento.Manual, rateios,
-                contexto.Cartao.DiaFechamentoFatura, contexto.Cartao.DiaVencimentoFatura)
+                contexto.Cartao.DiaFechamentoFatura, contexto.Cartao.DiaVencimentoFatura,
+                contexto.DataCompraCartao)
             : ContaPagar.CriarParcelas(
                 request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,

@@ -153,28 +153,20 @@ public sealed class AuthFlowTests : IDisposable
     [Fact]
     public async Task Convite_FluxoCompleto_DeveAdicionarSegundoUsuarioNaFamilia()
     {
+        // O login já aceita o convite automaticamente — não é necessário chamar /aceitar explicitamente.
         using var client = _selfJwtFactory.CreateClient();
         var loginMaria = await LoginAsync(client, "token-maria");
 
-        var convite = await CriarConviteAsync(client, loginMaria.AccessToken, "joao@example.com");
+        await CriarConviteAsync(client, loginMaria.AccessToken, "joao@example.com");
 
+        // Ao fazer login com convite pendente, o convite é aceito automaticamente.
         var loginJoao = await LoginAsync(client, "token-joao");
-        var aceitarResponse = await SendJsonAsync(
-            client,
-            HttpMethod.Post,
-            $"/api/v1/familias/convites/{convite.Token}/aceitar",
-            body: (object?)null,
-            loginJoao.AccessToken);
-
-        aceitarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var loginJoaoAtualizado = await LoginAsync(client, "token-joao");
-        loginJoaoAtualizado.Usuario.Familia.Id.Should().Be(loginMaria.Usuario.Familia.Id);
-        loginJoaoAtualizado.Usuario.Familia.Papel.Should().Be("Membro");
+        loginJoao.Usuario.Familia.Id.Should().Be(loginMaria.Usuario.Familia.Id);
+        loginJoao.Usuario.Familia.Papel.Should().Be("Membro");
 
         using var familiaRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/familias/minha");
         familiaRequest.Headers.Authorization =
-            new AuthenticationHeaderValue("Bearer", loginJoaoAtualizado.AccessToken);
+            new AuthenticationHeaderValue("Bearer", loginJoao.AccessToken);
         var familiaResponse = await client.SendAsync(familiaRequest);
         var familia = await familiaResponse.Content.ReadFromJsonAsync<FamiliaDetalheResponse>();
         familia!.Membros.Should().HaveCount(2);

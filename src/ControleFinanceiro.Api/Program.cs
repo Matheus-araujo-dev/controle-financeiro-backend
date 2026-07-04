@@ -64,7 +64,7 @@ builder.Services.AddObservability(builder.Configuration);
 builder.Services.AddMemoryCache();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddApiFoundation(builder.Configuration);
+builder.Services.AddApiFoundation(builder.Configuration, builder.Environment);
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
@@ -198,19 +198,28 @@ app.UseSerilogRequestLogging(options =>
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors(CorsOptions.PolicyName);
 
+// Swagger UI (habilitado apenas em Development/Testing) injeta estilos inline; fora desses
+// ambientes a API serve apenas JSON, então dispensamos 'unsafe-inline' em style-src.
+var permiteEstiloInline = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing");
+var styleSrc = permiteEstiloInline ? "style-src 'self' 'unsafe-inline'; " : "style-src 'self'; ";
+var contentSecurityPolicy =
+    "default-src 'self'; " +
+    "script-src 'self' https://accounts.google.com/gsi/client; " +
+    "frame-src https://accounts.google.com; " +
+    "connect-src 'self' https://apis.google.com; " +
+    styleSrc +
+    "img-src 'self' data: https://lh3.googleusercontent.com;";
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    // CSP permite Google Sign-In e comunicaÃ§Ã£o com Anthropic (usados pelo frontend e backend)
-    context.Response.Headers.Append("Content-Security-Policy",
-        "default-src 'self'; " +
-        "script-src 'self' https://accounts.google.com/gsi/client; " +
-        "frame-src https://accounts.google.com; " +
-        "connect-src 'self' https://apis.google.com; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data: https://lh3.googleusercontent.com;");
+    // Bloqueia acesso a recursos sensíveis do navegador que a aplicação não utiliza.
+    context.Response.Headers.Append("Permissions-Policy",
+        "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()");
+    // CSP permite Google Sign-In e comunicação com Anthropic (usados pelo frontend e backend)
+    context.Response.Headers.Append("Content-Security-Policy", contentSecurityPolicy);
     await next();
 });
 

@@ -34,7 +34,9 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: Strong_Passw0rd!
+          # Credencial de um Postgres efêmero, isolado ao runner e destruído ao fim do job.
+          # Sobrescrevível via secret; o fallback permite rodar o CI em forks sem o secret.
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'Strong_Passw0rd!' }}
           POSTGRES_DB: postgres
         options: >-
           --health-cmd pg_isready
@@ -45,7 +47,7 @@ jobs:
           - 5432:5432
 
     env:
-      CF_TEST_POSTGRES: "Host=localhost;Port=5432;Database={DB};Username=postgres;Password=Strong_Passw0rd!"
+      CF_TEST_POSTGRES: "Host=localhost;Port=5432;Database={DB};Username=postgres;Password=${{ secrets.CI_POSTGRES_PASSWORD || 'Strong_Passw0rd!' }}"
 
     steps:
       - uses: actions/checkout@v4

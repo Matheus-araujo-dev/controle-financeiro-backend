@@ -203,7 +203,7 @@ public sealed class AppDbContext(
 
         var auditableEntries = ChangeTracker
             .Entries<AuditableEntity>()
-            .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
         if (auditableEntries.Count == 0)
@@ -235,6 +235,11 @@ public sealed class AppDbContext(
                 entry.Entity.StampUpdate(utcNow, userId);
                 AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
             }
+
+            if (entry.State == EntityState.Deleted)
+            {
+                AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
+            }
         }
     }
 
@@ -244,17 +249,27 @@ public sealed class AppDbContext(
         string? userId)
     {
         var entityName = entry.Entity.GetType().Name;
-        var beforeJson = entry.State == EntityState.Modified
+
+        // Estado anterior: existe para Modified e Deleted (valores originais no banco).
+        var beforeJson = entry.State is EntityState.Modified or EntityState.Deleted
             ? JsonSerializer.Serialize(entry.OriginalValues.Properties.ToDictionary(
                 property => property.Name,
                 property => entry.OriginalValues[property]))
             : null;
 
-        var afterJson = JsonSerializer.Serialize(entry.CurrentValues.Properties.ToDictionary(
-            property => property.Name,
-            property => entry.CurrentValues[property]));
+        // Estado posterior: existe para Added e Modified; nulo para Deleted (registro removido).
+        var afterJson = entry.State is EntityState.Added or EntityState.Modified
+            ? JsonSerializer.Serialize(entry.CurrentValues.Properties.ToDictionary(
+                property => property.Name,
+                property => entry.CurrentValues[property]))
+            : null;
 
-        var action = entry.State == EntityState.Added ? "Created" : "Updated";
+        var action = entry.State switch
+        {
+            EntityState.Added => "Created",
+            EntityState.Deleted => "Deleted",
+            _ => "Updated"
+        };
 
         return AuditTrailEntry.Create(
             entityName,

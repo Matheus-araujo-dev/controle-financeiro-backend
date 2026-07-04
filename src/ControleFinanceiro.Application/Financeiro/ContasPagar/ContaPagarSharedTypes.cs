@@ -2,7 +2,7 @@ using ControleFinanceiro.Domain.Cadastros.Cartoes;
 
 namespace ControleFinanceiro.Application.Financeiro.ContasPagar;
 
-internal sealed record ContaPagarValidationContext(bool LiquidarNaCriacao, bool CompraCartao, Cartao? Cartao);
+internal sealed record ContaPagarValidationContext(bool LiquidarNaCriacao, bool CompraCartao, Cartao? Cartao, DateOnly? DataCompraCartao = null);
 
 internal sealed record ContaPagarRecorrenciaTemplate(
     string? NumeroDocumento,

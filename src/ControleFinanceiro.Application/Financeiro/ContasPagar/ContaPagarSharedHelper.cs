@@ -79,16 +79,14 @@ public sealed class ContaPagarSharedHelper(
             if (contaBancariaId.HasValue)
                 throw validationFactory.Create("ContaBancariaId", "Compras em cartão não geram saída bancária real neste momento.");
 
-            if (dataLiquidacao.HasValue)
-                throw validationFactory.Create("DataLiquidacao", "Compras em cartão não devem informar data de liquidação.");
-
-            var competencia = FaturaCartaoCompetencia.Calcular(dataEmissao, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
+            var dataCompra = dataLiquidacao ?? dataEmissao;
+            var competencia = FaturaCartaoCompetencia.Calcular(dataCompra, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
 
             if (await dbContext.FaturasCartao.AnyAsync(
                     x => x.CartaoId == cartaoId.Value &&
                          x.Competencia == competencia.Competencia &&
                          x.Status == StatusFaturaCartao.Paga, cancellationToken))
-                throw validationFactory.Create("DataEmissao", "Já existe fatura paga para a competência desta compra em cartão.");
+                throw validationFactory.Create("DataLiquidacao", "Já existe fatura paga para a competência desta compra em cartão.");
         }
         else if (cartaoId.HasValue)
         {
@@ -101,7 +99,8 @@ public sealed class ContaPagarSharedHelper(
         if (!formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao && dataLiquidacao.HasValue)
             throw validationFactory.Create("DataLiquidacao", "Data de liquidação só pode ser informada com baixa automática.");
 
-        return new ContaPagarValidationContext(formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao, formaPagamento.EhCartao, cartao);
+        return new ContaPagarValidationContext(formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao, formaPagamento.EhCartao, cartao,
+            formaPagamento.EhCartao ? (dataLiquidacao ?? dataEmissao) : null);
     }
 
     internal async Task<PlanejamentoCompra?> ObterCompraPlanejadaOrigemAsync(Guid? origemCompraPlanejadaId, CancellationToken cancellationToken)

@@ -215,6 +215,7 @@ public sealed class ContaPagar : TenantEntity
 
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
+            var descricaoParcela = AjustarDescricaoParcela(descricao, index + 1, quantidadeParcelas);
 
             parcelas.Add(Criar(
                 numeroDocumento,
@@ -233,7 +234,7 @@ public sealed class ContaPagar : TenantEntity
                 index + 1,
                 grupoParcelamentoId,
                 origemCompraPlanejadaId,
-                descricao,
+                descricaoParcela,
                 observacao,
                 statusParaParcela,
                 ehRecorrente,
@@ -266,14 +267,17 @@ public sealed class ContaPagar : TenantEntity
         OrigemLancamento origem,
         IReadOnlyCollection<RateioPlano> rateios,
         int diaFechamentoFatura,
-        int diaVencimentoFatura)
+        int diaVencimentoFatura,
+        DateOnly? dataCompra = null)
     {
         var valorLiquidoTotal = CalcularValorLiquido(valorOriginal, valorDesconto, valorJuros, valorMulta);
         ValidarRateios(rateios, valorLiquidoTotal);
 
+        var dataReferenciaCompetencia = dataCompra ?? dataEmissao;
+
         if (quantidadeParcelas <= 1)
         {
-            var competenciaPrimeiraParcela = FaturaCartaoCompetencia.Calcular(dataEmissao, diaFechamentoFatura, diaVencimentoFatura);
+            var competenciaPrimeiraParcela = FaturaCartaoCompetencia.Calcular(dataReferenciaCompetencia, diaFechamentoFatura, diaVencimentoFatura);
             return
             [
                 Criar(
@@ -315,10 +319,11 @@ public sealed class ContaPagar : TenantEntity
         for (var index = 0; index < quantidadeParcelas; index++)
         {
             var dataEmissaoParcela = dataEmissao.AddMonths(index);
-            var competenciaParcela = FaturaCartaoCompetencia.Calcular(dataEmissaoParcela, diaFechamentoFatura, diaVencimentoFatura);
+            var dataCompetenciaParcela = dataReferenciaCompetencia.AddMonths(index);
+            var competenciaParcela = FaturaCartaoCompetencia.Calcular(dataCompetenciaParcela, diaFechamentoFatura, diaVencimentoFatura);
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
-            var descricaoParcela = AtualizarMarcadorParcelaDescricao(descricao, index + 1, quantidadeParcelas);
+            var descricaoParcela = AjustarDescricaoParcela(descricao, index + 1, quantidadeParcelas);
 
             parcelas.Add(Criar(
                 numeroDocumento,
@@ -349,14 +354,13 @@ public sealed class ContaPagar : TenantEntity
         return parcelas;
     }
 
-    private static string AtualizarMarcadorParcelaDescricao(string descricao, int numeroParcela, int quantidadeParcelas)
+    private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)
     {
         if (string.IsNullOrWhiteSpace(descricao))
-        {
             return descricao;
-        }
 
-        return ParcelaDescricaoRegex.Replace(descricao, $"{numeroParcela}/{quantidadeParcelas}", 1);
+        var semMarcador = ParcelaDescricaoRegex.Replace(descricao, string.Empty).Trim();
+        return $"{semMarcador} {numeroParcela}/{quantidadeParcelas}";
     }
 
     public void Atualizar(

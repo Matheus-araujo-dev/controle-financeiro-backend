@@ -614,7 +614,8 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         decimal ValorLiquido,
         int QuantidadeParcelas,
         int NumeroParcela,
-        DateOnly DataVencimento);
+        DateOnly DataVencimento,
+        string StatusCodigo);
 
     private sealed record PagedResponse<T>(IReadOnlyCollection<T> Items, int Page, int PageSize, int TotalItems, int TotalPages);
 

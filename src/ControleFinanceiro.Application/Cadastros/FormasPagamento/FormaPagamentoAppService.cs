@@ -129,6 +129,8 @@ public sealed class FormaPagamentoAppService
         CriarFormaPagamentoRequest request,
         CancellationToken cancellationToken)
     {
+        await ValidarNomeDuplicadoAsync(null, request.Nome, cancellationToken);
+
         FormaPagamento formaPagamento;
 
         try
@@ -166,6 +168,8 @@ public sealed class FormaPagamentoAppService
             return null;
         }
 
+        await ValidarNomeDuplicadoAsync(id, request.Nome, cancellationToken);
+
         try
         {
             formaPagamento.Atualizar(
@@ -185,6 +189,17 @@ public sealed class FormaPagamentoAppService
         await _lookupCache.RefreshFormaPagamentoAsync(cancellationToken);
 
         return await ObterPorIdAsync(id, cancellationToken);
+    }
+
+    private async Task ValidarNomeDuplicadoAsync(Guid? excluirId, string nome, CancellationToken cancellationToken)
+    {
+        var nomeLower = nome.Trim().ToLower();
+        var existe = await _dbContext.FormasPagamento.AnyAsync(
+            x => x.Nome.ToLower() == nomeLower && (!excluirId.HasValue || x.Id != excluirId.Value),
+            cancellationToken);
+
+        if (existe)
+            throw ValidationExceptionFactory.Create("Nome", "Já existe uma forma de pagamento com este nome.");
     }
 
     private static TipoFormaPagamento MapearTipo(FormaPagamentoTipo tipo)

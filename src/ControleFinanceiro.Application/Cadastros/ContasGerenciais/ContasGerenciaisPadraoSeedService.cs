@@ -91,7 +91,7 @@ public sealed class ContasGerenciaisPadraoSeedService(IAppDbContext dbContext)
         await GrupoAsync("2", "2.2",  "Alimentação",              TipoContaGerencial.Despesa);
         await GrupoAsync("2", "2.3",  "Saúde e proteção",         TipoContaGerencial.Despesa);
         await GrupoAsync("2", "2.4",  "Bem-estar e beleza",       TipoContaGerencial.Despesa);
-        await GrupoAsync("2", "2.5",  "Veículo",                  TipoContaGerencial.Despesa);
+        await GrupoAsync("2", "2.5",  "Carro",                    TipoContaGerencial.Despesa);
         await GrupoAsync("2", "2.6",  "Transporte urbano",        TipoContaGerencial.Despesa);
         await GrupoAsync("2", "2.7",  "Educação",                 TipoContaGerencial.Despesa);
         await GrupoAsync("2", "2.8",  "Vestuário",                TipoContaGerencial.Despesa);

@@ -10,6 +10,8 @@ public sealed record FaturaListQueryRequest : ListQueryRequest
 
     public string? Competencia { get; init; }
 
+    public IReadOnlyCollection<string>? Competencias { get; init; }
+
     public string? StatusCodigo { get; init; }
 
     public IReadOnlyCollection<string>? StatusCodigos { get; init; }

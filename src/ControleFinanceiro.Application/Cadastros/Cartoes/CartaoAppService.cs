@@ -167,6 +167,7 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
 
     public async Task<CartaoDetalheResponse> CriarAsync(CriarCartaoRequest request, CancellationToken cancellationToken)
     {
+        await ValidarNomeDuplicadoAsync(null, request.Nome, cancellationToken);
         await ValidarContaBancariaPadraoAsync(request.ContaBancariaPagamentoPadraoId, cancellationToken);
 
         Cartao cartao;
@@ -207,6 +208,7 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
             return null;
         }
 
+        await ValidarNomeDuplicadoAsync(id, request.Nome, cancellationToken);
         await ValidarContaBancariaPadraoAsync(request.ContaBancariaPagamentoPadraoId, cancellationToken);
 
         try
@@ -229,6 +231,17 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await ObterPorIdAsync(id, cancellationToken);
+    }
+
+    private async Task ValidarNomeDuplicadoAsync(Guid? excluirId, string nome, CancellationToken cancellationToken)
+    {
+        var nomeLower = nome.Trim().ToLower();
+        var existe = await dbContext.Cartoes.AnyAsync(
+            x => x.Nome.ToLower() == nomeLower && (!excluirId.HasValue || x.Id != excluirId.Value),
+            cancellationToken);
+
+        if (existe)
+            throw ValidationExceptionFactory.Create("Nome", "Já existe um cartão com este nome.");
     }
 
     private async Task ValidarContaBancariaPadraoAsync(Guid? contaBancariaId, CancellationToken cancellationToken)

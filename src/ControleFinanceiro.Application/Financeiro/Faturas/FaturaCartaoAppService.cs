@@ -65,7 +65,17 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => cartaoIds.Contains(x.CartaoId));
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Competencia))
+        var competenciasSelecionadas = query.Competencias?
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct()
+            .ToHashSet() ?? [];
+
+        if (competenciasSelecionadas.Count > 0)
+        {
+            consulta = consulta.Where(x => competenciasSelecionadas.Contains(x.Competencia));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.Competencia))
         {
             var competencia = query.Competencia.Trim();
             consulta = consulta.Where(x => x.Competencia == competencia);

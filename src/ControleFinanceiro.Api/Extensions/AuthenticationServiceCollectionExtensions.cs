@@ -13,11 +13,12 @@ public static class AuthenticationServiceCollectionExtensions
 {
     public static IServiceCollection AddApiFoundation(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         services.ConfigureApiBehavior();
         services.AddApiCors(configuration);
-        services.AddApiAuthentication(configuration);
+        services.AddApiAuthentication(configuration, environment);
         return services;
     }
 
@@ -42,7 +43,7 @@ public static class AuthenticationServiceCollectionExtensions
             options.AddPolicy(CorsOptions.PolicyName, policy =>
             {
                 policy.WithOrigins(allowedOrigins)
-                    .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin", "X-Debug-User")
+                    .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin")
                     .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                     .AllowCredentials();
             });
@@ -53,11 +54,34 @@ public static class AuthenticationServiceCollectionExtensions
 
     private static IServiceCollection AddApiAuthentication(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         var authOptions = configuration.GetSection(AuthOptions.SectionName).Get<AuthOptions>() ?? new AuthOptions();
         var useJwtBearer = string.Equals(authOptions.Mode, AuthOptions.JwtBearerMode, StringComparison.OrdinalIgnoreCase);
         var useSelfJwt = string.Equals(authOptions.Mode, AuthOptions.SelfJwtMode, StringComparison.OrdinalIgnoreCase);
+        var useDevelopment = string.Equals(authOptions.Mode, AuthOptions.DevelopmentMode, StringComparison.OrdinalIgnoreCase);
+
+        // Fail-closed: qualquer valor de Auth:Mode não reconhecido é rejeitado no startup.
+        // Sem isso, um typo ou uma env var mal configurada (ex.: "disable") cairia
+        // silenciosamente no handler de desenvolvimento, que autentica qualquer requisição
+        // com o header X-Debug-User e concede papel Administrador.
+        if (!useJwtBearer && !useSelfJwt && !useDevelopment)
+        {
+            throw new InvalidOperationException(
+                $"Auth:Mode inválido: '{authOptions.Mode}'. Valores permitidos: " +
+                $"'{AuthOptions.JwtBearerMode}', '{AuthOptions.SelfJwtMode}', '{AuthOptions.DevelopmentMode}'.");
+        }
+
+        // O modo Development (bypass via X-Debug-User) nunca pode ser habilitado fora de
+        // um ambiente de desenvolvimento. "Testing" é permitido para os testes de integração.
+        if (useDevelopment && !environment.IsDevelopment() && !environment.IsEnvironment("Testing"))
+        {
+            throw new InvalidOperationException(
+                $"Auth:Mode='{AuthOptions.DevelopmentMode}' é proibido no ambiente '{environment.EnvironmentName}'. " +
+                "Use 'SelfJwt' ou 'JwtBearer' em produção.");
+        }
+
         var defaultScheme = useJwtBearer || useSelfJwt
             ? JwtBearerDefaults.AuthenticationScheme
             : DevelopmentAuthenticationHandler.SchemeName;

@@ -53,6 +53,48 @@ public sealed class AppDbContextAuditingTests
         auditTrail.AfterJson.Should().NotContain("5531999998888");
     }
 
+    [Fact]
+    public async Task SaveChangesAsync_AoRemover_DeveRegistrarTrailDeDelete()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var clock = new FakeClock(new DateTime(2026, 4, 3, 20, 30, 0, DateTimeKind.Utc));
+        var currentUser = new FakeCurrentUser("tester");
+
+        await using var context = new AppDbContext(options, clock, currentUser);
+        await context.Database.EnsureCreatedAsync();
+
+        var pessoa = Pessoa.Criar(
+            "Cliente Exemplo",
+            TipoPessoa.Fisica,
+            "123.456.789-01",
+            "cliente@example.com",
+            "5531999998888",
+            "Observacao sensivel",
+            [],
+            true);
+        context.Pessoas.Add(pessoa);
+        await context.SaveChangesAsync();
+
+        context.Pessoas.Remove(pessoa);
+        await context.SaveChangesAsync();
+
+        var deleteTrail = await context.AuditTrailEntries.SingleAsync(entry => entry.Action == "Deleted");
+        deleteTrail.EntityName.Should().Be(nameof(Pessoa));
+        deleteTrail.EntityId.Should().Be(pessoa.Id);
+        deleteTrail.ExecutedBy.Should().Be("tester");
+        deleteTrail.AfterJson.Should().BeNull();
+        deleteTrail.BeforeJson.Should().NotBeNull();
+        // O estado anterior é serializado com sanitização de PII.
+        deleteTrail.BeforeJson.Should().Contain("[REDACTED]");
+        deleteTrail.BeforeJson.Should().NotContain("Cliente Exemplo");
+    }
+
     private sealed class FakeClock(DateTime utcNow) : IClock
     {
         public DateTime UtcNow { get; } = utcNow;

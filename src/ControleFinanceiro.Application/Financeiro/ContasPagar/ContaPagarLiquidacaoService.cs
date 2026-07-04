@@ -217,6 +217,7 @@ public sealed class ContaPagarLiquidacaoService(
             }
         }
 
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }

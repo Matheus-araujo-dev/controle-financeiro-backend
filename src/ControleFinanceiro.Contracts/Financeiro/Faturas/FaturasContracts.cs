@@ -69,7 +69,8 @@ public sealed record FaturaItemResponse(
     decimal ValorLiquido,
     string StatusCodigo,
     int NumeroParcela,
-    int QuantidadeParcelas);
+    int QuantidadeParcelas,
+    bool EhEstorno = false);
 
 public sealed record FaturaDetalheResponse(
     Guid Id,

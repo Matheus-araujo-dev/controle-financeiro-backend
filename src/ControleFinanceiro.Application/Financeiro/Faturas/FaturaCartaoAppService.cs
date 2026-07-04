@@ -559,7 +559,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where conta.CartaoId == cartaoId && conta.StatusContaId != StatusConta.CanceladaId
+            where conta.CartaoId == cartaoId
             select new
             {
                 conta.Id,
@@ -570,18 +570,24 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                 conta.ValorLiquido,
                 StatusCodigo = status.Codigo,
                 conta.NumeroParcela,
-                conta.QuantidadeParcelas
+                conta.QuantidadeParcelas,
+                EhCancelada = conta.StatusContaId == StatusConta.CanceladaId
             })
             .ToArrayAsync(cancellationToken);
 
-        return contas
+        var filtrados = contas
             .Where(conta => FaturaCartaoCompetencia.CalcularPorDataVencimento(
                     conta.DataVencimento,
                     cartao.DiaFechamentoFatura,
                     cartao.DiaVencimentoFatura).Competencia == competencia)
             .OrderBy(conta => conta.DataEmissao)
             .ThenBy(conta => conta.NumeroParcela)
-            .Select(conta => new FaturaItemResponse(
+            .ToArray();
+
+        var resultado = new List<FaturaItemResponse>(filtrados.Length);
+        foreach (var conta in filtrados)
+        {
+            resultado.Add(new FaturaItemResponse(
                 conta.Id,
                 conta.Descricao,
                 conta.RecebedorNome,
@@ -589,8 +595,24 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                 conta.ValorLiquido,
                 conta.StatusCodigo,
                 conta.NumeroParcela,
-                conta.QuantidadeParcelas))
-            .ToArray();
+                conta.QuantidadeParcelas));
+
+            if (conta.EhCancelada)
+            {
+                resultado.Add(new FaturaItemResponse(
+                    conta.Id,
+                    $"Estorno: {conta.Descricao}",
+                    conta.RecebedorNome,
+                    conta.DataEmissao,
+                    -conta.ValorLiquido,
+                    "ESTORNO",
+                    conta.NumeroParcela,
+                    conta.QuantidadeParcelas,
+                    EhEstorno: true));
+            }
+        }
+
+        return resultado;
     }
 
     private async Task<Dictionary<FaturaLookupKey, int>> CarregarQuantidadeItensAsync(

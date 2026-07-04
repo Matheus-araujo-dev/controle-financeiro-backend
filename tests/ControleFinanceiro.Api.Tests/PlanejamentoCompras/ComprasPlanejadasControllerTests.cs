@@ -392,7 +392,8 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         detalhe.ContaPagarGeradaId.Should().BeNull();
 
         contas.Should().NotBeNull();
-        contas!.Items.Should().BeEmpty();
+        contas!.Items.Should().HaveCount(3);
+        contas.Items.Should().AllSatisfy(item => item.StatusCodigo.Should().Be("EM_FATURA"));
 
         faturas.Should().NotBeNull();
         faturas!.Items.Should().Contain(item => item.Competencia == "2026-06" && item.ValorTotal == 1500m);
@@ -430,7 +431,8 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         detalhe!.Status.Should().Be("Comprada");
         detalhe.ContaPagarGeradaId.Should().BeNull();
         contas.Should().NotBeNull();
-        contas!.Items.Should().BeEmpty();
+        contas!.Items.Should().HaveCount(2);
+        contas.Items.Should().AllSatisfy(item => item.StatusCodigo.Should().Be("EM_FATURA"));
     }
 
     [Fact]

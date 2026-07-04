@@ -78,6 +78,30 @@ public sealed class ContaPagarRecorrenciaService(
         }
 
         await helper.CancelarMovimentacaoEconomicaAsync(conta, cancellationToken);
+
+        // Propagação para parcelas do mesmo grupo
+        var propagarParcelas = conta.GrupoParcelamentoId.HasValue &&
+            (conta.NumeroParcela == 1 || request.AtualizarParcelasFuturas);
+        if (propagarParcelas)
+        {
+            var grupoId = conta.GrupoParcelamentoId!.Value;
+            var parcelasFuturas = await dbContext.ContasPagar
+                .Where(x => x.GrupoParcelamentoId == grupoId
+                         && x.Id != conta.Id
+                         && x.DataVencimento >= conta.DataVencimento
+                         && x.StatusContaId != StatusConta.LiquidadaId
+                         && x.StatusContaId != StatusConta.CanceladaId)
+                .ToListAsync(cancellationToken);
+
+            foreach (var parcela in parcelasFuturas)
+            {
+                var requestParcela = request with { DataVencimento = parcela.DataVencimento };
+                helper.AtualizarContaExistente(parcela, requestParcela);
+                await helper.SincronizarRateiosContaAsync(parcela, cancellationToken);
+                await helper.CancelarMovimentacaoEconomicaAsync(parcela, cancellationToken);
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);

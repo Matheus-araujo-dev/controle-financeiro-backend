@@ -26,6 +26,12 @@ public sealed record PessoaListQueryRequest : ListQueryRequest
 
     public bool? Ativo { get; init; }
 
+    public bool? EhPagador { get; init; }
+
+    public bool? EhRecebedor { get; init; }
+
+    public bool? EhResponsavel { get; init; }
+
     /// <summary>Filtro por documento (CPF/CNPJ), busca parcial.</summary>
     public string? Documento { get; init; }
 
@@ -58,7 +64,10 @@ public sealed record CriarPessoaRequest(
     string? Email,
     string? Telefone,
     string? Observacao,
-    IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix);
+    IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix,
+    bool EhPagador = true,
+    bool EhRecebedor = true,
+    bool EhResponsavel = true);
 
 public sealed record AtualizarPessoaRequest(
     string Nome,
@@ -67,7 +76,10 @@ public sealed record AtualizarPessoaRequest(
     string? Email,
     string? Telefone,
     string? Observacao,
-    IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix);
+    IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix,
+    bool EhPagador = true,
+    bool EhRecebedor = true,
+    bool EhResponsavel = true);
 
 public sealed record PessoaChavePixRequest(
     PessoaChavePixTipo Tipo,
@@ -84,7 +96,10 @@ public sealed record PessoaResumoResponse(
     string? CpfCnpj,
     string? Email,
     string? Telefone,
-    bool Ativo);
+    bool Ativo,
+    bool EhPagador = true,
+    bool EhRecebedor = true,
+    bool EhResponsavel = true);
 
 public sealed record PessoaDetalheResponse(
     Guid Id,
@@ -97,4 +112,7 @@ public sealed record PessoaDetalheResponse(
     IReadOnlyCollection<PessoaChavePixResponse> ChavesPix,
     bool Ativo,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    bool EhPagador = true,
+    bool EhRecebedor = true,
+    bool EhResponsavel = true);

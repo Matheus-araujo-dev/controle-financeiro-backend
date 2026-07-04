@@ -30,7 +30,6 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join forma in dbContext.FormasPagamento.AsNoTracking() on conta.FormaPagamentoId equals forma.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where !conta.CartaoId.HasValue
             select new
             {
                 conta.Id,
@@ -488,7 +487,6 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join forma in dbContext.FormasPagamento.AsNoTracking() on conta.FormaPagamentoId equals forma.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where !conta.CartaoId.HasValue
             select new
             {
                 conta.Id,

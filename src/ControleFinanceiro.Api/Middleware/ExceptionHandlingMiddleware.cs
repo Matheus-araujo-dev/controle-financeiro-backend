@@ -1,5 +1,6 @@
 using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Contracts.Errors;
+using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 
 namespace ControleFinanceiro.Api.Middleware;
@@ -42,6 +43,17 @@ public sealed class ExceptionHandlingMiddleware(
                 "VALIDATION_ERROR",
                 exception.Message,
                 exception.Errors);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Outra operação alterou o mesmo registro entre a leitura e a gravação
+            // (ex.: liquidação concorrente da mesma conta). O cliente deve recarregar e repetir.
+            await WriteErrorAsync(
+                context,
+                StatusCodes.Status409Conflict,
+                "CONCURRENCY_CONFLICT",
+                "O registro foi modificado por outra operação. Recarregue os dados e tente novamente.",
+                new Dictionary<string, string[]>());
         }
         catch (Exception exception)
         {

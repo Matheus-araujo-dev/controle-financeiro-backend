@@ -108,12 +108,14 @@ public sealed class AppDbContext(
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
+        RenovarConcurrencyStamps();
         return base.SaveChanges();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         PrepareAuditableEntities();
+        RenovarConcurrencyStamps();
 
         var events = ChangeTracker.Entries<Entity>()
             .SelectMany(e => e.Entity.DomainEvents)
@@ -166,7 +168,37 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new WhatsappUsuarioConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappConfigAlertaConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
+        AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);
+    }
+
+    /// <summary>Nome da propriedade-sombra usada como token de optimistic concurrency.</summary>
+    internal const string ConcurrencyStampProperty = "ConcurrencyStamp";
+
+    /// <summary>Entidades financeiras protegidas por optimistic concurrency.</summary>
+    private static readonly Type[] TiposComConcorrencia =
+    [
+        typeof(ContaPagar),
+        typeof(ContaReceber),
+        typeof(FaturaCartao),
+        typeof(MovimentacaoFinanceira)
+    ];
+
+    /// <summary>
+    /// Ativa optimistic concurrency nas entidades financeiras via uma propriedade-sombra
+    /// <c>ConcurrencyStamp</c> (Guid) que é renovada a cada gravação. Assim, duas
+    /// liquidações/estornos concorrentes sobre a mesma conta fazem o segundo SaveChanges
+    /// falhar com <see cref="DbUpdateConcurrencyException"/>, prevenindo pagamentos e
+    /// movimentações duplicados. Agnóstico de provedor (funciona em PostgreSQL e SQLite).
+    /// </summary>
+    private static void AplicarConcorrenciaOtimista(ModelBuilder modelBuilder)
+    {
+        foreach (var tipo in TiposComConcorrencia)
+        {
+            modelBuilder.Entity(tipo)
+                .Property<Guid>(ConcurrencyStampProperty)
+                .IsConcurrencyToken();
+        }
     }
 
     private void AplicarConvencoesDeTenant(ModelBuilder modelBuilder)
@@ -194,6 +226,30 @@ public sealed class AppDbContext(
     {
         modelBuilder.Entity<TEntity>()
             .HasQueryFilter(entity => _workspaceCorrente == null || (Guid?)entity.FamiliaId == _workspaceCorrente);
+    }
+
+    /// <summary>
+    /// Gera um novo valor de <c>ConcurrencyStamp</c> para cada entidade financeira inserida ou
+    /// alterada. Como o token é marcado como concorrência, o EF usa o valor ORIGINAL na cláusula
+    /// WHERE do UPDATE; se outra transação já o alterou, 0 linhas são afetadas e o EF lança
+    /// <see cref="DbUpdateConcurrencyException"/>.
+    /// </summary>
+    private void RenovarConcurrencyStamps()
+    {
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified))
+            {
+                continue;
+            }
+
+            if (Array.IndexOf(TiposComConcorrencia, entry.Entity.GetType()) < 0)
+            {
+                continue;
+            }
+
+            entry.Property(ConcurrencyStampProperty).CurrentValue = Guid.NewGuid();
+        }
     }
 
     private void PrepareAuditableEntities()

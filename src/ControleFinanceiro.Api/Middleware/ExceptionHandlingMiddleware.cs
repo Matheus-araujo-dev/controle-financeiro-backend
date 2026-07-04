@@ -8,9 +8,16 @@ public sealed class ExceptionHandlingMiddleware(
     RequestDelegate next,
     ILogger<ExceptionHandlingMiddleware> logger)
 {
+    // Redige pares chave=valor sensíveis. O valor aceita qualquer caractere que não seja
+    // separador (espaço, aspas, & ou ;), cobrindo e-mails, tokens JWT, chaves com pontos etc.
     private static readonly Regex SensitiveDataPattern = new(
-        @"(cpf|cnpj|senha|password|token|secret|key|chavepix|-chave|credito|limite)[""']?\s*[:=]\s*[""']?([a-zA-Z0-9@#$%^&*]+)[""']?",
+        @"(cpf|cnpj|senha|password|pass|token|secret|apikey|api[_-]?key|key|authorization|bearer|chavepix|chave[_-]?pix|pix|-chave|credito|cartao|cvv|agencia|conta|limite|email|e-mail|refresh|access)[""']?\s*[:=]\s*[""']?([^\s""'&;]+)[""']?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // Redige CPF/CNPJ soltos (com ou sem máscara) que apareçam sem uma chave associada.
+    private static readonly Regex DocumentoPattern = new(
+        @"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b",
+        RegexOptions.Compiled);
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -55,7 +62,8 @@ public sealed class ExceptionHandlingMiddleware(
         if (string.IsNullOrWhiteSpace(input))
             return input;
         
-        return SensitiveDataPattern.Replace(input, "$1=[REDACTED]");
+        var semParesSensiveis = SensitiveDataPattern.Replace(input, "$1=[REDACTED]");
+        return DocumentoPattern.Replace(semParesSensiveis, "[REDACTED]");
     }
 
     private static Task WriteErrorAsync(

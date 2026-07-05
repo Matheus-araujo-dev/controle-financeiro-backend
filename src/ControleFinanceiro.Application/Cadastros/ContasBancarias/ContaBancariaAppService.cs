@@ -204,6 +204,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
         CriarContaBancariaRequest request,
         CancellationToken cancellationToken)
     {
+        await ValidarNomeDuplicadoAsync(null, request.Nome, cancellationToken);
+
         ContaBancaria conta;
 
         try
@@ -242,6 +244,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
         {
             return null;
         }
+
+        await ValidarNomeDuplicadoAsync(id, request.Nome, cancellationToken);
 
         try
         {
@@ -329,6 +333,17 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
         return limite.HasValue
             ? decimal.Round(limite.Value - comprometido, 2, MidpointRounding.AwayFromZero)
             : null;
+    }
+
+    private async Task ValidarNomeDuplicadoAsync(Guid? excluirId, string nome, CancellationToken cancellationToken)
+    {
+        var nomeLower = nome.Trim().ToLower();
+        var existe = await dbContext.ContasBancarias.AnyAsync(
+            x => x.Nome.ToLower() == nomeLower && (!excluirId.HasValue || x.Id != excluirId.Value),
+            cancellationToken);
+
+        if (existe)
+            throw ValidationExceptionFactory.Create("Nome", "Já existe uma conta bancária com este nome.");
     }
 
     private static Exception ConverterParaValidacao(Exception exception)

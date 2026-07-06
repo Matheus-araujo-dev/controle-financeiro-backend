@@ -36,6 +36,10 @@ public sealed class Pessoa : TenantEntity
 
     public bool EhResponsavel { get; private set; }
 
+    public Guid? ContaGerencialDespesaId { get; private set; }
+
+    public Guid? ContaGerencialReceitaId { get; private set; }
+
     public IReadOnlyCollection<PessoaChavePix> ChavesPix => _chavesPix;
 
     public static Pessoa Criar(
@@ -49,10 +53,12 @@ public sealed class Pessoa : TenantEntity
         bool ativo,
         bool ehPagador = true,
         bool ehRecebedor = true,
-        bool ehResponsavel = true)
+        bool ehResponsavel = true,
+        Guid? contaGerencialDespesaId = null,
+        Guid? contaGerencialReceitaId = null)
     {
         var pessoa = new Pessoa();
-        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel);
+        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel, contaGerencialDespesaId, contaGerencialReceitaId);
         pessoa.SubstituirChavesPix(chavesPix);
         return pessoa;
     }
@@ -68,9 +74,11 @@ public sealed class Pessoa : TenantEntity
         bool ativo,
         bool ehPagador,
         bool ehRecebedor,
-        bool ehResponsavel)
+        bool ehResponsavel,
+        Guid? contaGerencialDespesaId = null,
+        Guid? contaGerencialReceitaId = null)
     {
-        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel);
+        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel, contaGerencialDespesaId, contaGerencialReceitaId);
         SubstituirChavesPix(chavesPix);
     }
 
@@ -84,7 +92,9 @@ public sealed class Pessoa : TenantEntity
         bool ativo,
         bool ehPagador = true,
         bool ehRecebedor = true,
-        bool ehResponsavel = true)
+        bool ehResponsavel = true,
+        Guid? contaGerencialDespesaId = null,
+        Guid? contaGerencialReceitaId = null)
     {
         Nome = NormalizarObrigatorio(nome, nameof(nome), 200);
         TipoPessoa = tipoPessoa;
@@ -96,6 +106,8 @@ public sealed class Pessoa : TenantEntity
         EhPagador = ehPagador;
         EhRecebedor = ehRecebedor;
         EhResponsavel = ehResponsavel;
+        ContaGerencialDespesaId = contaGerencialDespesaId;
+        ContaGerencialReceitaId = contaGerencialReceitaId;
     }
 
     public void Ativar()

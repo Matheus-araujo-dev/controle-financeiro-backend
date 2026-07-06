@@ -25,12 +25,18 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         ContaPagarListQueryRequest query,
         CancellationToken cancellationToken)
     {
+        // Pré-computa o filtro de status para saber se EM_FATURA foi solicitado.
+        // Itens EM_FATURA têm CartaoId e seriam excluídos pelo filtro base; quando o
+        // usuário pede explicitamente esse status, incluímos os itens de cartão.
+        var statusCodigosAntecipados = NormalizarStatusCodigos(query.StatusCodigo, query.StatusCodigos);
+        var incluirEmFatura = statusCodigosAntecipados.Contains("EM_FATURA");
+
         var consulta =
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join forma in dbContext.FormasPagamento.AsNoTracking() on conta.FormaPagamentoId equals forma.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where !conta.CartaoId.HasValue
+            where !conta.CartaoId.HasValue || incluirEmFatura
             select new
             {
                 conta.Id,
@@ -483,12 +489,14 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         ContaPagarCursorQueryRequest query,
         CancellationToken cancellationToken)
     {
+        var incluirEmFaturaCursor = query.StatusCodigos?.Contains("EM_FATURA") ?? false;
+
         var consultaBase =
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join forma in dbContext.FormasPagamento.AsNoTracking() on conta.FormaPagamentoId equals forma.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where !conta.CartaoId.HasValue
+            where !conta.CartaoId.HasValue || incluirEmFaturaCursor
             select new
             {
                 conta.Id,

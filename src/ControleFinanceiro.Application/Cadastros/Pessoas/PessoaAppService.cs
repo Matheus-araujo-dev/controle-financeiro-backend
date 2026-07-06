@@ -126,7 +126,9 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.Ativo,
                 x.EhPagador,
                 x.EhRecebedor,
-                x.EhResponsavel))
+                x.EhResponsavel,
+                x.ContaGerencialDespesaId,
+                x.ContaGerencialReceitaId))
             .ToArray();
 
         var paged = PagedResult<PessoaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -222,7 +224,9 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 pessoa.Ativo,
                 request.EhPagador,
                 request.EhRecebedor,
-                request.EhResponsavel);
+                request.EhResponsavel,
+                request.ContaGerencialDespesaId,
+                request.ContaGerencialReceitaId);
 
             if (pessoa.ChavesPix.Count > 0)
             {
@@ -285,7 +289,9 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 true,
                 request.EhPagador,
                 request.EhRecebedor,
-                request.EhResponsavel);
+                request.EhResponsavel,
+                request.ContaGerencialDespesaId,
+                request.ContaGerencialReceitaId);
         }
         catch (ArgumentException exception)
         {
@@ -357,7 +363,9 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             pessoa.UpdatedAtUtc,
             pessoa.EhPagador,
             pessoa.EhRecebedor,
-            pessoa.EhResponsavel);
+            pessoa.EhResponsavel,
+            pessoa.ContaGerencialDespesaId,
+            pessoa.ContaGerencialReceitaId);
     }
 
     private static IReadOnlyCollection<ChavePixPlano> MapearChavesPix(IReadOnlyCollection<PessoaChavePixRequest>? chavesPix)

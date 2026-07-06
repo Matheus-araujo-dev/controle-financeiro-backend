@@ -1,3 +1,4 @@
+using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -43,6 +44,21 @@ public sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
 
         builder.HasIndex(x => x.Nome);
         builder.HasIndex("Ativo", "Nome");
+
+        builder.Property(x => x.ContaGerencialDespesaId);
+        builder.Property(x => x.ContaGerencialReceitaId);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialDespesaId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialReceitaId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasMany(x => x.ChavesPix)
             .WithOne()

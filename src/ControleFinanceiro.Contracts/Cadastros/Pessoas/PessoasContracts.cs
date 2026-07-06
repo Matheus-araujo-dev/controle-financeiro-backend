@@ -67,7 +67,9 @@ public sealed record CriarPessoaRequest(
     IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix,
     bool EhPagador = true,
     bool EhRecebedor = true,
-    bool EhResponsavel = true);
+    bool EhResponsavel = true,
+    Guid? ContaGerencialDespesaId = null,
+    Guid? ContaGerencialReceitaId = null);
 
 public sealed record AtualizarPessoaRequest(
     string Nome,
@@ -79,7 +81,9 @@ public sealed record AtualizarPessoaRequest(
     IReadOnlyCollection<PessoaChavePixRequest>? ChavesPix,
     bool EhPagador = true,
     bool EhRecebedor = true,
-    bool EhResponsavel = true);
+    bool EhResponsavel = true,
+    Guid? ContaGerencialDespesaId = null,
+    Guid? ContaGerencialReceitaId = null);
 
 public sealed record PessoaChavePixRequest(
     PessoaChavePixTipo Tipo,
@@ -99,7 +103,9 @@ public sealed record PessoaResumoResponse(
     bool Ativo,
     bool EhPagador = true,
     bool EhRecebedor = true,
-    bool EhResponsavel = true);
+    bool EhResponsavel = true,
+    Guid? ContaGerencialDespesaId = null,
+    Guid? ContaGerencialReceitaId = null);
 
 public sealed record PessoaDetalheResponse(
     Guid Id,
@@ -115,4 +121,6 @@ public sealed record PessoaDetalheResponse(
     DateTime UpdatedAtUtc,
     bool EhPagador = true,
     bool EhRecebedor = true,
-    bool EhResponsavel = true);
+    bool EhResponsavel = true,
+    Guid? ContaGerencialDespesaId = null,
+    Guid? ContaGerencialReceitaId = null);

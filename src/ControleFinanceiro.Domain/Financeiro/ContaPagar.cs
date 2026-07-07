@@ -626,7 +626,5 @@ public sealed class ContaPagar : TenantEntity
     }
 
     private static decimal CalcularValorLiquido(decimal valorOriginal, decimal valorDesconto, decimal valorJuros, decimal valorMulta)
-    {
-        return decimal.Round(valorOriginal - valorDesconto + valorJuros + valorMulta, 2, MidpointRounding.AwayFromZero);
-    }
+        => CalculoFinanceiro.ValorLiquido(valorOriginal, valorDesconto, valorJuros, valorMulta);
 }

@@ -52,6 +52,9 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
 
         builder.HasIndex("StatusContaId", "DataVencimento");
         builder.HasIndex("RecebedorId", "StatusContaId");
+        // Sincronização/liquidação de fatura filtra por CartaoId + StatusContaId.
+        builder.HasIndex(x => new { x.CartaoId, x.StatusContaId })
+            .HasFilter("\"CartaoId\" IS NOT NULL");
         builder.HasIndex(x => x.OrigemImportacaoWhatsappId);
         builder.HasIndex(x => new { x.CartaoId, x.ChaveSerieImportacaoCartao, x.NumeroParcela, x.QuantidadeParcelas })
             .HasFilter("\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");

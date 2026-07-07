@@ -23,7 +23,10 @@ public sealed class FinanceInsightsService(
         var familiaId = currentUser.FamiliaId
             ?? throw new InvalidOperationException("Família não identificada.");
 
-        var cacheKey = $"insights:{familiaId}:{mesReferencia}";
+        // Versão dos dados: muda a cada escrita nas contas da família, invalidando o cache
+        // automaticamente (sem acoplar a camada de escrita). Evita servir insights obsoletos.
+        var versaoDados = await ObterVersaoDadosAsync(familiaId, cancellationToken);
+        var cacheKey = $"insights:{familiaId}:{mesReferencia}:{versaoDados}";
         if (cache.TryGetValue(cacheKey, out AgenteInsightsResponse? cached) && cached is not null)
             return cached;
 
@@ -56,7 +59,7 @@ public sealed class FinanceInsightsService(
 
             var response = new AgenteInsightsResponse(insights, completion.Usage.InputTokens + completion.Usage.OutputTokens);
 
-            cache.Set(cacheKey, response, TimeSpan.FromHours(1));
+            cache.Set(cacheKey, response, TimeSpan.FromMinutes(30));
             logger.LogInformation("Insights gerados para família {FamiliaId} mês {Mes}: {Count} insights", familiaId, mesReferencia, insights.Count);
 
             return response;
@@ -66,6 +69,21 @@ public sealed class FinanceInsightsService(
             logger.LogWarning(ex, "Falha ao gerar insights para {FamiliaId}", familiaId);
             return new AgenteInsightsResponse([], 0);
         }
+    }
+
+    // Assinatura barata das últimas alterações financeiras da família (max UpdatedAtUtc).
+    // Uma query MAX indexável é irrisória perto de uma chamada ao LLM.
+    private async Task<long> ObterVersaoDadosAsync(Guid familiaId, CancellationToken ct)
+    {
+        var maxPagar = await db.ContasPagar.AsNoTracking()
+            .Where(c => c.FamiliaId == familiaId)
+            .MaxAsync(c => (DateTime?)c.UpdatedAtUtc, ct);
+        var maxReceber = await db.ContasReceber.AsNoTracking()
+            .Where(c => c.FamiliaId == familiaId)
+            .MaxAsync(c => (DateTime?)c.UpdatedAtUtc, ct);
+
+        var mais = maxPagar >= maxReceber ? maxPagar : maxReceber;
+        return mais?.Ticks ?? 0;
     }
 
     private async Task<string> MontarContextoAsync(Guid familiaId, string mesReferencia, CancellationToken ct)

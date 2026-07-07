@@ -8,6 +8,7 @@ using ControleFinanceiro.Infrastructure;
 using ControleFinanceiro.Infrastructure.Persistence;
 using ControleFinanceiro.SharedKernel.Logging;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -62,6 +63,15 @@ builder.Services.Configure<WhatsappWebhookOptions>(builder.Configuration.GetSect
 builder.Services.AddFeatureFlags(builder.Configuration);
 builder.Services.AddObservability(builder.Configuration);
 builder.Services.AddMemoryCache();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/json"]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiFoundation(builder.Configuration, builder.Environment);
@@ -156,6 +166,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+app.UseResponseCompression();
 
 app.Use(async (context, next) =>
 {

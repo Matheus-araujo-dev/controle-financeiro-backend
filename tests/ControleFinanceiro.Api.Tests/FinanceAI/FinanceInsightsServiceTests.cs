@@ -71,15 +71,15 @@ public sealed class FinanceInsightsServiceTests(CustomWebApplicationFactory fact
     }
 
     [Fact]
-    public async Task GerarInsightsAsync_SemFamilia_DeveLancar()
+    public async Task GerarInsightsAsync_SemFamilia_DeveRetornarVazio()
     {
         using var scope = _factory.Services.CreateScope();
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var servico = Criar(scope, familiaId: null, cache);
 
-        var acao = async () => await servico.GerarInsightsAsync("2026-04", CancellationToken.None);
+        var resultado = await servico.GerarInsightsAsync("2026-04", CancellationToken.None);
 
-        await acao.Should().ThrowAsync<InvalidOperationException>();
+        resultado.Insights.Should().BeEmpty();
     }
 }
 

@@ -179,6 +179,52 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
         paginaVazia!.Items.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task PausarERetomar_DeveCancelarFuturasERegenerarAoRetomar()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 500m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Recorrente pausar retomar",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 500m } },
+            recorrencia = new
+            {
+                tipoPeriodicidade = "Mensal",
+                tipoDia = "DiaFixo",
+                diaOrdemMensal = 20,
+                dataInicio = (string?)null,
+                dataFim = "2026-12-01",
+                permiteEdicaoOcorrenciaIndividual = true,
+                observacao = (string?)null
+            }
+        });
+        createResponse.StatusCode.Should().Be(System.Net.HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+        var regraId = created!.Recorrencia!.Id;
+
+        var pausarResponse = await client.PostAsync($"/api/v1/recorrencias/{regraId}/pausar", content: null);
+        pausarResponse.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var pausada = await pausarResponse.Content.ReadFromJsonAsync<RecorrenciaListItemResponse>();
+        pausada!.Ativa.Should().BeFalse();
+
+        var retomarResponse = await client.PostAsync($"/api/v1/recorrencias/{regraId}/retomar", content: null);
+        retomarResponse.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var retomada = await retomarResponse.Content.ReadFromJsonAsync<RecorrenciaListItemResponse>();
+        retomada!.Ativa.Should().BeTrue();
+    }
+
     private sealed record ContaDetalheResponse(Guid Id, RecorrenciaResponse? Recorrencia);
 
     private sealed record RecorrenciaResponse(Guid Id);

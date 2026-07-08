@@ -63,7 +63,8 @@ public sealed class ContaPagarRecorrenciaService(
         var contexto = await helper.ValidarCriacaoOuAtualizacaoAsync(
             request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
-            request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken);
+            request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
+            request.DataCompra);
 
         helper.AtualizarContaExistente(conta, request);
         if (regraRecorrenciaCriadaId.HasValue) conta.VincularRecorrencia(regraRecorrenciaCriadaId.Value);
@@ -124,7 +125,8 @@ public sealed class ContaPagarRecorrenciaService(
         await helper.ValidarCriacaoOuAtualizacaoAsync(
             request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
-            request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken);
+            request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
+            request.DataCompra);
 
         regra.Atualizar(
             helper.MapearTipoPeriodicidadeDominio(recorrencia.TipoPeriodicidade),
@@ -153,7 +155,8 @@ public sealed class ContaPagarRecorrenciaService(
             await helper.ValidarCriacaoOuAtualizacaoAsync(
                 requestAjustado.DataEmissao, requestAjustado.RecebedorId, requestAjustado.ResponsavelCompraId,
                 requestAjustado.FormaPagamentoId, requestAjustado.CartaoId, requestAjustado.ContaBancariaId,
-                requestAjustado.DataLiquidacao, requestAjustado.QuantidadeParcelas, requestAjustado.Rateios, cancellationToken);
+                requestAjustado.DataLiquidacao, requestAjustado.QuantidadeParcelas, requestAjustado.Rateios, cancellationToken,
+                requestAjustado.DataCompra);
             await helper.CancelarMovimentacaoEconomicaAsync(contaFutura, cancellationToken);
         }
 

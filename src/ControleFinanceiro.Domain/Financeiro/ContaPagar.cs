@@ -28,6 +28,8 @@ public sealed class ContaPagar : TenantEntity
 
     public DateOnly? DataLiquidacao { get; private set; }
 
+    public DateOnly? DataCompra { get; private set; }
+
     public Guid FormaPagamentoId { get; private set; }
 
     public Guid? CartaoId { get; private set; }
@@ -95,7 +97,8 @@ public sealed class ContaPagar : TenantEntity
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
         OrigemLancamento origem,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataCompra = null)
     {
         var conta = new ContaPagar();
         conta.DefinirCampos(
@@ -120,7 +123,8 @@ public sealed class ContaPagar : TenantEntity
             statusContaId,
             ehRecorrente,
             regraRecorrenciaId,
-            origem);
+            origem,
+            dataCompra);
         conta.SubstituirRateios(rateios);
         conta.AddDomainEvent(new ContaPagarCriadaEvent(
             conta.Id,
@@ -303,7 +307,8 @@ public sealed class ContaPagar : TenantEntity
                     ehRecorrente,
                     regraRecorrenciaId,
                     origem,
-                    rateios)
+                    rateios,
+                    dataCompra)
             ];
         }
 
@@ -348,7 +353,8 @@ public sealed class ContaPagar : TenantEntity
                 ehRecorrente,
                 regraRecorrenciaId,
                 origem,
-                rateiosParcela));
+                rateiosParcela,
+                dataCompra));
         }
 
         return parcelas;
@@ -379,7 +385,8 @@ public sealed class ContaPagar : TenantEntity
         string descricao,
         string? observacao,
         Guid statusContaId,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataCompra = null)
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
         {
@@ -408,7 +415,8 @@ public sealed class ContaPagar : TenantEntity
             statusContaId,
             EhRecorrente,
             RegraRecorrenciaId,
-            Origem);
+            Origem,
+            dataCompra);
         SubstituirRateios(rateios);
     }
 
@@ -533,7 +541,8 @@ public sealed class ContaPagar : TenantEntity
         Guid statusContaId,
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
-        OrigemLancamento origem)
+        OrigemLancamento origem,
+        DateOnly? dataCompra = null)
     {
         if (recebedorId == Guid.Empty)
         {
@@ -591,6 +600,7 @@ public sealed class ContaPagar : TenantEntity
         EhRecorrente = ehRecorrente;
         RegraRecorrenciaId = regraRecorrenciaId;
         Origem = origem;
+        DataCompra = dataCompra;
 
         if (ValorLiquido == 0)
         {

@@ -34,7 +34,8 @@ public sealed class ContaPagarSharedHelper(
         DateOnly? dataLiquidacao,
         int quantidadeParcelas,
         IReadOnlyCollection<RateioRequest> rateios,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateOnly? dataCompra = null)
     {
         var recebedor = await dbContext.Pessoas.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == recebedorId, cancellationToken)
@@ -89,8 +90,8 @@ public sealed class ContaPagarSharedHelper(
             if (contaBancariaId.HasValue)
                 throw validationFactory.Create("ContaBancariaId", "Compras em cartão não geram saída bancária real neste momento.");
 
-            var dataCompra = dataLiquidacao ?? dataEmissao;
-            var competencia = FaturaCartaoCompetencia.Calcular(dataCompra, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
+            var dataCompraCartao = dataCompra ?? dataLiquidacao ?? dataEmissao;
+            var competencia = FaturaCartaoCompetencia.Calcular(dataCompraCartao, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
 
             if (await dbContext.FaturasCartao.AnyAsync(
                     x => x.CartaoId == cartaoId.Value &&
@@ -110,7 +111,7 @@ public sealed class ContaPagarSharedHelper(
             throw validationFactory.Create("DataLiquidacao", "Data de liquidação só pode ser informada com baixa automática.");
 
         return new ContaPagarValidationContext(formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao, formaPagamento.EhCartao, cartao,
-            formaPagamento.EhCartao ? (dataLiquidacao ?? dataEmissao) : null);
+            formaPagamento.EhCartao ? (dataCompra ?? dataLiquidacao ?? dataEmissao) : null);
     }
 
     internal async Task<PlanejamentoCompra?> ObterCompraPlanejadaOrigemAsync(Guid? origemCompraPlanejadaId, CancellationToken cancellationToken)
@@ -256,7 +257,8 @@ public sealed class ContaPagarSharedHelper(
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
                 request.Descricao, request.Observacao, statusId,
-                ConverterRateios(request.Rateios));
+                ConverterRateios(request.Rateios),
+                request.DataCompra);
 
         // builder.Ignore(Rateios) impede EF de detectar mudança só em rateios; força Modified.
         dbContext.ContasPagar.Update(conta);

@@ -44,6 +44,12 @@ public sealed class ExceptionHandlingMiddleware(
                 exception.Message,
                 exception.Errors);
         }
+        catch (OperationCanceledException)
+        {
+            // Cliente desconectou antes da resposta — não registrar como erro.
+            if (!context.Response.HasStarted)
+                context.Response.StatusCode = 499;
+        }
         catch (DbUpdateConcurrencyException)
         {
             // Outra operação alterou o mesmo registro entre a leitura e a gravação

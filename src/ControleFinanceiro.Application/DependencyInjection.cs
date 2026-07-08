@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<Dashboard.DashboardDbHelpers>();
         services.AddScoped<Financeiro.ContasPagar.ContaPagarSharedHelper>();
         services.AddScoped<Financeiro.ContasReceber.ContaReceberSharedHelper>();
+        services.AddScoped<ImportacoesWhatsapp.ImportacaoWhatsappSharedHelper>();
         return services;
     }
 

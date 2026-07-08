@@ -12,8 +12,15 @@ public interface IContaPagarCriacaoService
 public sealed class ContaPagarCriacaoService(
     IAppDbContext dbContext,
     IContaPagarQueryService queryService,
-    ContaPagarSharedHelper helper) : IContaPagarCriacaoService
+    ContaPagarSharedHelper helper,
+    IContaPagarRecorrenciaService recorrenciaService) : IContaPagarCriacaoService
 {
+    private static DateOnly HorizonteSeisMeses()
+    {
+        var horizonte = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(6);
+        return new DateOnly(horizonte.Year, horizonte.Month, DateTime.DaysInMonth(horizonte.Year, horizonte.Month));
+    }
+
     public async Task<ContaPagarDetalheResponse> CriarAsync(CriarContaPagarRequest request, CancellationToken cancellationToken)
     {
         helper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
@@ -64,6 +71,11 @@ public sealed class ContaPagarCriacaoService(
 
         var primeiraConta = contas.First();
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (regra is not null)
+        {
+            await recorrenciaService.GerarPorRegraAsync(regra, HorizonteSeisMeses(), cancellationToken);
+        }
 
         return await queryService.ObterPorIdAsync(primeiraConta.Id, cancellationToken)
             ?? throw new InvalidOperationException("Falha ao mapear conta criada.");

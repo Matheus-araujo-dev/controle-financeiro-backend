@@ -14,21 +14,24 @@ namespace ControleFinanceiro.Application.Financeiro.Recorrencias;
 
 public sealed class RecorrenciaAppService(
     IAppDbContext dbContext,
-    ContaPagarAppService contaPagarAppService,
+    IContaPagarRecorrenciaService contaPagarRecorrenciaService,
     ContaReceberAppService contaReceberAppService,
     ILogger<RecorrenciaAppService> logger)
 {
+    private static DateOnly HorizonteSeisMeses(DateOnly referencia)
+    {
+        var horizonte = referencia.AddMonths(6);
+        return new DateOnly(horizonte.Year, horizonte.Month, DateTime.DaysInMonth(horizonte.Year, horizonte.Month));
+    }
+
     public async Task GerarOcorrenciasRecorrentesNoMesAsync(DateOnly dataReferencia, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Iniciando geração automática de recorrências para o mês {Mes}/{Ano}.", dataReferencia.Month, dataReferencia.Year);
-        
-        var ateData = new DateOnly(dataReferencia.Year, dataReferencia.Month, DateTime.DaysInMonth(dataReferencia.Year, dataReferencia.Month));
-        var request = new GerarOcorrenciasRecorrenciaRequest(ateData);
+        logger.LogInformation("Iniciando geração automática de recorrências — horizonte 6 meses a partir de {Mes}/{Ano}.", dataReferencia.Month, dataReferencia.Year);
 
-        // 1. Obter todas as regras ativas (worker roda sem tenant: filtro global desativado)
+        var ateData = HorizonteSeisMeses(dataReferencia);
+
         var regrasAtivas = await dbContext.RegrasRecorrencia
             .Where(x => x.Ativa)
-            .Select(x => new { x.Id, x.TipoLancamento, x.FamiliaId })
             .ToArrayAsync(cancellationToken);
 
         int totalGerado = 0;
@@ -37,7 +40,6 @@ public sealed class RecorrenciaAppService(
         {
             try
             {
-                // Garante que consultas e novas entidades fiquem na família dona da regra.
                 if (regra.FamiliaId != Guid.Empty)
                 {
                     dbContext.DefinirFamiliaCorrente(regra.FamiliaId);
@@ -45,17 +47,17 @@ public sealed class RecorrenciaAppService(
 
                 if (regra.TipoLancamento == Domain.Financeiro.TipoLancamentoRecorrencia.ContaPagar)
                 {
-                    await contaPagarAppService.GerarOcorrenciasAsync(regra.Id, request, cancellationToken);
+                    await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
                 }
                 else
                 {
-                    await contaReceberAppService.GerarOcorrenciasAsync(regra.Id, request, cancellationToken);
+                    await contaReceberAppService.GerarPorRegraAsync(regra, ateData, cancellationToken);
                 }
                 totalGerado++;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Erro ao gerar ocorrência para a regra {RegraId}.", regra.Id);
+                logger.LogError(ex, "Erro ao gerar ocorrências para a regra {RegraId}.", regra.Id);
             }
         }
 
@@ -171,6 +173,11 @@ public sealed class RecorrenciaAppService(
             ?? throw new KeyNotFoundException("Recorrência não encontrada.");
 
         regra.Pausar();
+
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        await contaPagarRecorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
+        await contaReceberAppService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return (await ObterAsync(id, cancellationToken))!;
@@ -184,6 +191,16 @@ public sealed class RecorrenciaAppService(
 
         regra.Retomar();
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        var ateData = HorizonteSeisMeses(DateOnly.FromDateTime(DateTime.UtcNow));
+        if (regra.TipoLancamento == Domain.Financeiro.TipoLancamentoRecorrencia.ContaPagar)
+        {
+            await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+        }
+        else
+        {
+            await contaReceberAppService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+        }
 
         return (await ObterAsync(id, cancellationToken))!;
     }

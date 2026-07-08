@@ -12,6 +12,8 @@ public interface IContaPagarRecorrenciaService
     Task<ContaPagarDetalheResponse?> AtualizarAsync(Guid id, AtualizarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> AlterarFuturasAsync(Guid id, AtualizarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> GerarOcorrenciasAsync(Guid id, GerarOcorrenciasRecorrenciaRequest request, CancellationToken cancellationToken);
+    Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken);
+    Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> EncerrarRecorrenciaAsync(Guid id, EncerrarRecorrenciaRequest request, CancellationToken cancellationToken);
 }
@@ -193,6 +195,44 @@ public sealed class ContaPagarRecorrenciaService(
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }
 
+    public async Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken)
+    {
+        var datasExistentes = await dbContext.ContasPagar
+            .Where(x => x.RegraRecorrenciaId == regra.Id)
+            .Select(x => x.DataVencimento)
+            .ToArrayAsync(cancellationToken);
+
+        var datasPendentes = regra.CalcularDatasPendentes(datasExistentes, ateData);
+        if (datasPendentes.Count == 0) return;
+
+        var template = ContaPagarSharedHelper.DesserializarTemplate(regra.TemplateJson);
+        var novasContas = datasPendentes
+            .Select(dv => ContaPagarSharedHelper.CriarOcorrenciaRecorrente(template, regra.Id, dv))
+            .ToArray();
+
+        dbContext.ContasPagar.AddRange(novasContas);
+        dbContext.RateiosContaGerencial.AddRange(novasContas.SelectMany(x => x.Rateios));
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken)
+    {
+        var contasFuturas = await dbContext.ContasPagar
+            .Where(x => x.RegraRecorrenciaId == regraId &&
+                        x.DataVencimento >= aPartirDe &&
+                        x.StatusContaId != StatusConta.LiquidadaId &&
+                        x.StatusContaId != StatusConta.CanceladaId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var conta in contasFuturas)
+        {
+            conta.Cancelar(StatusConta.CanceladaId);
+            var movimentoEconomico = await dbContext.MovimentacoesFinanceiras
+                .SingleOrDefaultAsync(x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica, cancellationToken);
+            movimentoEconomico?.Cancelar(StatusMovimentacao.CanceladaId);
+        }
+    }
+
     public async Task<ContaPagarDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken)
     {
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -200,6 +240,9 @@ public sealed class ContaPagarRecorrenciaService(
 
         var regra = await helper.ObterRegraRecorrenciaObrigatoriaAsync(conta, cancellationToken);
         regra.Pausar();
+
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        await CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);

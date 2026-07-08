@@ -383,6 +383,13 @@ public sealed class ContaReceberAppService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        if (regra is not null)
+        {
+            var horizonte = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(6);
+            var ateData = new DateOnly(horizonte.Year, horizonte.Month, DateTime.DaysInMonth(horizonte.Year, horizonte.Month));
+            await GerarPorRegraAsync(regra, ateData, cancellationToken);
+        }
+
         return await MapearDetalheAsync(contas.First(), cancellationToken);
     }
 
@@ -577,6 +584,39 @@ public sealed class ContaReceberAppService(
         return await MapearDetalheAsync(conta, cancellationToken);
     }
 
+    public async Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken)
+    {
+        var datasExistentes = await dbContext.ContasReceber
+            .Where(x => x.RegraRecorrenciaId == regra.Id)
+            .Select(x => x.DataVencimento)
+            .ToArrayAsync(cancellationToken);
+
+        var datasPendentes = regra.CalcularDatasPendentes(datasExistentes, ateData);
+        if (datasPendentes.Count == 0) return;
+
+        var template = DesserializarTemplate(regra.TemplateJson);
+        var novasContas = datasPendentes
+            .Select(dv => CriarOcorrenciaRecorrente(template, regra.Id, dv))
+            .ToArray();
+
+        dbContext.ContasReceber.AddRange(novasContas);
+        dbContext.RateiosContaGerencial.AddRange(novasContas.SelectMany(x => x.Rateios));
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken)
+    {
+        var contasFuturas = await dbContext.ContasReceber
+            .Where(x => x.RegraRecorrenciaId == regraId &&
+                        x.DataVencimento >= aPartirDe &&
+                        x.StatusContaId != StatusConta.LiquidadaId &&
+                        x.StatusContaId != StatusConta.CanceladaId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var conta in contasFuturas)
+            conta.Cancelar(StatusConta.CanceladaId);
+    }
+
     public async Task<ContaReceberDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken)
     {
         var conta = await dbContext.ContasReceber.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -588,6 +628,9 @@ public sealed class ContaReceberAppService(
 
         var regra = await ObterRegraRecorrenciaObrigatoriaAsync(conta, cancellationToken);
         regra.Pausar();
+
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        await CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await MapearDetalheAsync(conta, cancellationToken);

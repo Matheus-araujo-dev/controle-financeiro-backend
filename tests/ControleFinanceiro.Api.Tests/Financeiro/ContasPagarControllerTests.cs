@@ -792,7 +792,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         created.EhRecorrente.Should().BeTrue();
         gerarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         listResponse.Should().NotBeNull();
-        listResponse!.Items.Should().HaveCount(3);
+        listResponse!.Items.Should().HaveCount(5);
         listResponse.Items.Should().OnlyContain(item => item.EhRecorrente);
     }
 

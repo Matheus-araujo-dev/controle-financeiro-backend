@@ -776,8 +776,8 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             item.ValorTotal == 50m);
         response.Itens.Should().Contain(item =>
             item.Data == new DateOnly(2026, 5, 20) &&
-            item.Origem == "Recorrencia" &&
-            item.Status == "Previsto" &&
+            item.Origem == "ContaFuturaGerada" &&
+            item.Status == "Substituido" &&
             item.TipoMovimentacao == "Entrada" &&
             item.ValorTotal == 80m);
         response.Itens.Should().NotContain(item => item.Origem == "CompraPlanejada");
@@ -890,7 +890,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         fluxoMesAtual.Should().NotBeNull();
         fluxoMesSeguinte.Should().NotBeNull();
-        fluxoMesAtual!.Itens.Single(item => item.Data == new DateOnly(mesAtual.Year, mesAtual.Month, 15)).SaidasPrevistas.Should().Be(0m);
+        fluxoMesAtual!.Itens.Single(item => item.Data == new DateOnly(mesAtual.Year, mesAtual.Month, 15)).SaidasPrevistas.Should().Be(50m);
         fluxoMesSeguinte!.Itens.Single(item => item.Data == new DateOnly(mesSeguinte.Year, mesSeguinte.Month, 15)).SaidasPrevistas.Should().Be(50m);
     }
 
@@ -947,13 +947,11 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         resumoMesAtual.Should().NotBeNull();
         resumoMesSeguinte.Should().NotBeNull();
-        resumoMesAtual!.Itens.Should().NotContain(item =>
-            item.Origem == "Recorrencia" ||
-            item.Origem == "ContaFuturaGerada");
+        resumoMesAtual!.Itens.Should().NotContain(item => item.Origem == "Recorrencia");
         resumoMesSeguinte!.Itens.Should().Contain(item =>
             item.Data == new DateOnly(mesSeguinte.Year, mesSeguinte.Month, 15) &&
-            item.Origem == "Recorrencia" &&
-            item.Status == "Previsto" &&
+            item.Origem == "ContaFuturaGerada" &&
+            item.Status == "Substituido" &&
             item.ValorTotal == 81m);
     }
 

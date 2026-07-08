@@ -257,6 +257,9 @@ public sealed class ContaPagarSharedHelper(
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
                 request.Descricao, request.Observacao, statusId,
                 ConverterRateios(request.Rateios));
+
+        // builder.Ignore(Rateios) impede EF de detectar mudança só em rateios; força Modified.
+        dbContext.ContasPagar.Update(conta);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

@@ -20,19 +20,19 @@ public sealed class FinanceInsightsService(
     public async Task<AgenteInsightsResponse> GerarInsightsAsync(
         string mesReferencia, CancellationToken cancellationToken)
     {
-        var familiaId = currentUser.FamiliaId
-            ?? throw new InvalidOperationException("Família não identificada.");
-
         // Versão dos dados: muda a cada escrita nas contas da família, invalidando o cache
         // automaticamente (sem acoplar a camada de escrita). Evita servir insights obsoletos.
+        Guid? familiaId = null;
         try
         {
-            var versaoDados = await ObterVersaoDadosAsync(familiaId, cancellationToken);
+            familiaId = currentUser.FamiliaId
+                ?? throw new InvalidOperationException("Família não identificada.");
+            var versaoDados = await ObterVersaoDadosAsync(familiaId.Value, cancellationToken);
             var cacheKey = $"insights:{familiaId}:{mesReferencia}:{versaoDados}";
             if (cache.TryGetValue(cacheKey, out AgenteInsightsResponse? cached) && cached is not null)
                 return cached;
 
-            var contexto = await MontarContextoAsync(familiaId, mesReferencia, cancellationToken);
+            var contexto = await MontarContextoAsync(familiaId.Value, mesReferencia, cancellationToken);
 
             var systemPrompt = """
                 Você é um analista financeiro pessoal. Analise os dados financeiros fornecidos e gere

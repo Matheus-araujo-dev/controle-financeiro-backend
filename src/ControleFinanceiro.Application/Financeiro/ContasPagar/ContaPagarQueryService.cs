@@ -416,6 +416,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             recebedor.Nome,
             conta.DataVencimento,
             conta.DataLiquidacao,
+            conta.DataCompra,
             conta.FormaPagamentoId,
             formaPagamento.Nome,
             formaPagamento.EhCartao,

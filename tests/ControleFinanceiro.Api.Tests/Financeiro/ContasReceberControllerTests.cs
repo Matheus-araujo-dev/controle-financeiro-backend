@@ -423,7 +423,7 @@ public sealed class ContasReceberControllerTests(CustomWebApplicationFactory fac
         created.Recorrencia.DataFim.Should().Be(new DateOnly(2026, 8, 25));
         gerarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         listResponse.Should().NotBeNull();
-        listResponse!.Items.Should().HaveCount(3);
+        listResponse!.Items.Should().HaveCount(5);
         listResponse.Items.Should().OnlyContain(item => item.EhRecorrente);
     }
 

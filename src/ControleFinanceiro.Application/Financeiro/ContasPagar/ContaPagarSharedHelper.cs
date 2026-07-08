@@ -383,6 +383,23 @@ public sealed class ContaPagarSharedHelper(
             regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao, JsonSerializer.Serialize(novoTemplate));
     }
 
+    internal async Task AtualizarValorFuturasAsync(Guid regraRecorrenciaId, DateOnly aPartirDe, decimal novoValorLiquido, CancellationToken cancellationToken)
+    {
+        var futuras = await dbContext.ContasPagar
+            .Where(x => x.RegraRecorrenciaId == regraRecorrenciaId &&
+                        x.DataVencimento >= aPartirDe &&
+                        x.StatusContaId != StatusConta.LiquidadaId &&
+                        x.StatusContaId != StatusConta.CanceladaId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var futura in futuras)
+        {
+            var novosRateios = await RecalcularRateiosAsync(futura.Id, novoValorLiquido, cancellationToken);
+            futura.AtualizarValorLiquido(novoValorLiquido, novosRateios);
+            await SincronizarRateiosContaAsync(futura, cancellationToken);
+        }
+    }
+
     internal ILookupCacheService LookupCache => lookupCache;
     internal IAppDbContext DbContext => dbContext;
 }

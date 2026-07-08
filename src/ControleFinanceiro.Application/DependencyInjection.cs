@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScopedApplicationServices(typeof(DependencyInjection).Assembly);
         services.AddScoped<Dashboard.DashboardDbHelpers>();
         services.AddScoped<Financeiro.ContasPagar.ContaPagarSharedHelper>();
+        services.AddScoped<Financeiro.ContasReceber.ContaReceberSharedHelper>();
         return services;
     }
 

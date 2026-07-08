@@ -15,7 +15,7 @@ namespace ControleFinanceiro.Application.Financeiro.Recorrencias;
 public sealed class RecorrenciaAppService(
     IAppDbContext dbContext,
     IContaPagarRecorrenciaService contaPagarRecorrenciaService,
-    ContaReceberAppService contaReceberAppService,
+    IContaReceberRecorrenciaService contaReceberRecorrenciaService,
     ILogger<RecorrenciaAppService> logger)
 {
     private static DateOnly HorizonteSeisMeses(DateOnly referencia)
@@ -51,7 +51,7 @@ public sealed class RecorrenciaAppService(
                 }
                 else
                 {
-                    await contaReceberAppService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+                    await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
                 }
                 totalGerado++;
             }
@@ -176,7 +176,7 @@ public sealed class RecorrenciaAppService(
 
         var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
         await contaPagarRecorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
-        await contaReceberAppService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
+        await contaReceberRecorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -199,7 +199,7 @@ public sealed class RecorrenciaAppService(
         }
         else
         {
-            await contaReceberAppService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+            await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
         }
 
         return (await ObterAsync(id, cancellationToken))!;

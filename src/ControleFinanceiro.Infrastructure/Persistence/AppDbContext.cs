@@ -79,6 +79,8 @@ public sealed class AppDbContext(
 
     public DbSet<Transferencia> Transferencias => Set<Transferencia>();
 
+    public DbSet<Plano> Planos => Set<Plano>();
+
     public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
 
     public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();
@@ -169,6 +171,8 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new AiToolCallConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappUsuarioConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappConfigAlertaConfiguration());
+        modelBuilder.ApplyConfiguration(new TransferenciaConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);

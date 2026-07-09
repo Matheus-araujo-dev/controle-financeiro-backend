@@ -3,6 +3,7 @@ using System;
 using ControleFinanceiro.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ControleFinanceiro.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260709051326_AddPlanos")]
+    partial class AddPlanos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1153,16 +1156,14 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Descricao")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("FamiliaId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Nome")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
                     b.Property<int>("NumParcelas")
                         .HasColumnType("integer");
@@ -1171,8 +1172,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<decimal>("TotalRetirado")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("numeric");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1181,16 +1181,13 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<decimal>("ValorMensal")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("numeric");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContaBancariaCaixaId");
-
                     b.HasIndex("FamiliaId");
 
-                    b.ToTable("planos", (string)null);
+                    b.ToTable("Planos");
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.RateioContaGerencial", b =>
@@ -1454,8 +1451,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<string>("Descricao")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("FamiliaId")
                         .HasColumnType("uuid");
@@ -1467,20 +1463,13 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<decimal>("Valor")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("numeric");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContaBancariaDestinoId");
-
-                    b.HasIndex("ContaBancariaOrigemId");
-
-                    b.HasIndex("DataTransferencia");
-
                     b.HasIndex("FamiliaId");
 
-                    b.ToTable("transferencias", (string)null);
+                    b.ToTable("Transferencias");
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.ConviteFamilia", b =>
@@ -2235,15 +2224,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
-            modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.Plano", b =>
-                {
-                    b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasBancarias.ContaBancaria", null)
-                        .WithMany()
-                        .HasForeignKey("ContaBancariaCaixaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.RateioContaGerencial", b =>
                 {
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasGerenciais.ContaGerencial", null)
@@ -2261,21 +2241,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ContaReceberId")
                         .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.Transferencia", b =>
-                {
-                    b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasBancarias.ContaBancaria", null)
-                        .WithMany()
-                        .HasForeignKey("ContaBancariaDestinoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ControleFinanceiro.Domain.Cadastros.ContasBancarias.ContaBancaria", null)
-                        .WithMany()
-                        .HasForeignKey("ContaBancariaOrigemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Identidade.ConviteFamilia", b =>

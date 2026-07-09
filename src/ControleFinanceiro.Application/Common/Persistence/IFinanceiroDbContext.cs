@@ -13,6 +13,7 @@ public interface IFinanceiroDbContext
     DbSet<FaturaCartao> FaturasCartao { get; }
     DbSet<RegraRecorrencia> RegrasRecorrencia { get; }
     DbSet<Transferencia> Transferencias { get; }
+    DbSet<Plano> Planos { get; }
 }
 
 public interface IReadOnlyFinanceiroDbContext
@@ -25,4 +26,5 @@ public interface IReadOnlyFinanceiroDbContext
     IQueryable<FaturaCartao> FaturasCartao { get; }
     IQueryable<RegraRecorrencia> RegrasRecorrencia { get; }
     IQueryable<Transferencia> Transferencias { get; }
+    IQueryable<Plano> Planos { get; }
 }

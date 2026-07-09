@@ -62,5 +62,12 @@ public sealed class MovimentacaoFinanceiraConfiguration : IEntityTypeConfigurati
             .WithMany()
             .HasForeignKey(x => x.StatusMovimentacaoId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Transferencia>()
+            .WithMany()
+            .HasForeignKey(x => x.TransferenciaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => x.TransferenciaId);
     }
 }

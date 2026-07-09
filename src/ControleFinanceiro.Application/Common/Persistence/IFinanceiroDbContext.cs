@@ -14,6 +14,7 @@ public interface IFinanceiroDbContext
     DbSet<RegraRecorrencia> RegrasRecorrencia { get; }
     DbSet<Transferencia> Transferencias { get; }
     DbSet<Plano> Planos { get; }
+    DbSet<Investimento> Investimentos { get; }
 }
 
 public interface IReadOnlyFinanceiroDbContext
@@ -27,4 +28,5 @@ public interface IReadOnlyFinanceiroDbContext
     IQueryable<RegraRecorrencia> RegrasRecorrencia { get; }
     IQueryable<Transferencia> Transferencias { get; }
     IQueryable<Plano> Planos { get; }
+    IQueryable<Investimento> Investimentos { get; }
 }

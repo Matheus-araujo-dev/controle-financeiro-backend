@@ -93,6 +93,8 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 x.ContaBancariaPagamentoPadraoId,
                 x.LimiteCredito,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .ToListAsync(cancellationToken);
@@ -115,7 +117,9 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                     calculo.LimiteEfetivo,
                     calculo.LimiteComprometido,
                     calculo.LimiteDisponivel,
-                    x.Ativo);
+                    x.Ativo,
+                    x.Icone,
+                    x.Cor);
             })
             .ToList();
 
@@ -136,6 +140,8 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 x.ContaBancariaPagamentoPadraoId,
                 x.LimiteCredito,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .SingleOrDefaultAsync(cancellationToken);
@@ -161,6 +167,8 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
             calculo.LimiteComprometido,
             calculo.LimiteDisponivel,
             cartao.Ativo,
+            cartao.Icone,
+            cartao.Cor,
             cartao.CreatedAtUtc,
             cartao.UpdatedAtUtc);
     }
@@ -182,7 +190,9 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 request.DiaVencimentoFatura,
                 request.ContaBancariaPagamentoPadraoId,
                 request.LimiteCredito,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -221,7 +231,9 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 request.DiaVencimentoFatura,
                 request.ContaBancariaPagamentoPadraoId,
                 request.LimiteCredito,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -374,6 +386,8 @@ var contaInfo = contaIds.Length == 0
         Guid? ContaBancariaPagamentoPadraoId,
         decimal? LimiteCredito,
         bool Ativo,
+        string? Icone,
+        string? Cor,
         DateTime CreatedAtUtc,
         DateTime UpdatedAtUtc);
 

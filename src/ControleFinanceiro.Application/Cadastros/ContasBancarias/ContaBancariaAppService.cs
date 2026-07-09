@@ -118,6 +118,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 x.DataSaldoInicial,
                 x.LimiteCartoesCompartilhado,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .ToListAsync(cancellationToken);
@@ -139,7 +141,9 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                     x.LimiteCartoesCompartilhado,
                     valorComprometido,
                     CalcularDisponivel(x.LimiteCartoesCompartilhado, valorComprometido),
-                    x.Ativo);
+                    x.Ativo,
+                    x.Icone,
+                    x.Cor);
             })
             .ToList();
 
@@ -169,6 +173,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 x.DataSaldoInicial,
                 x.LimiteCartoesCompartilhado,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .SingleOrDefaultAsync(cancellationToken);
@@ -196,6 +202,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
             valorComprometido,
             CalcularDisponivel(conta.LimiteCartoesCompartilhado, valorComprometido),
             conta.Ativo,
+            conta.Icone,
+            conta.Cor,
             conta.CreatedAtUtc,
             conta.UpdatedAtUtc);
     }
@@ -219,7 +227,9 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 request.SaldoInicial,
                 request.DataSaldoInicial,
                 request.LimiteCartoesCompartilhado,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -258,7 +268,9 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 request.SaldoInicial,
                 request.DataSaldoInicial,
                 request.LimiteCartoesCompartilhado,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -369,6 +381,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
         DateOnly DataSaldoInicial,
         decimal? LimiteCartoesCompartilhado,
         bool Ativo,
+        string? Icone,
+        string? Cor,
         DateTime CreatedAtUtc,
         DateTime UpdatedAtUtc);
 }

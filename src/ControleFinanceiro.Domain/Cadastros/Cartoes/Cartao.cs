@@ -24,6 +24,10 @@ public sealed class Cartao : TenantEntity
 
     public bool Ativo { get; private set; }
 
+    public string? Icone { get; private set; }
+
+    public string? Cor { get; private set; }
+
     public static Cartao Criar(
         string nome,
         string bandeira,
@@ -32,7 +36,9 @@ public sealed class Cartao : TenantEntity
         int diaVencimentoFatura,
         Guid? contaBancariaPagamentoPadraoId,
         decimal? limiteCredito,
-        bool ativo)
+        bool ativo,
+        string? icone = null,
+        string? cor = null)
     {
         var cartao = new Cartao();
         cartao.Atualizar(
@@ -43,7 +49,9 @@ public sealed class Cartao : TenantEntity
             diaVencimentoFatura,
             contaBancariaPagamentoPadraoId,
             limiteCredito,
-            ativo);
+            ativo,
+            icone,
+            cor);
 
         return cartao;
     }
@@ -56,7 +64,9 @@ public sealed class Cartao : TenantEntity
         int diaVencimentoFatura,
         Guid? contaBancariaPagamentoPadraoId,
         decimal? limiteCredito,
-        bool ativo)
+        bool ativo,
+        string? icone = null,
+        string? cor = null)
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
@@ -93,5 +103,7 @@ public sealed class Cartao : TenantEntity
             ? decimal.Round(limiteCredito.Value, 2, MidpointRounding.AwayFromZero)
             : null;
         Ativo = ativo;
+        Icone = string.IsNullOrWhiteSpace(icone) ? null : icone.Trim();
+        Cor = string.IsNullOrWhiteSpace(cor) ? null : cor.Trim();
     }
 }

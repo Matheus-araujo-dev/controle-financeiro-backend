@@ -77,6 +77,8 @@ public sealed class AppDbContext(
 
     public DbSet<RegraRecorrencia> RegrasRecorrencia => Set<RegraRecorrencia>();
 
+    public DbSet<Transferencia> Transferencias => Set<Transferencia>();
+
     public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
 
     public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();

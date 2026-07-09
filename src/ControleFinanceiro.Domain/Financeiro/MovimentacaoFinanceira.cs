@@ -22,11 +22,59 @@ public sealed class MovimentacaoFinanceira : TenantEntity
 
     public Guid? FaturaCartaoId { get; private set; }
 
+    public Guid? TransferenciaId { get; private set; }
+
     public decimal Valor { get; private set; }
 
     public Guid StatusMovimentacaoId { get; private set; }
 
     public string? Observacao { get; private set; }
+
+    public static MovimentacaoFinanceira CriarSaidaTransferencia(
+        Guid transferenciaId,
+        Guid contaBancariaOrigemId,
+        DateOnly dataMovimentacao,
+        decimal valor,
+        string? observacao)
+    {
+        if (valor <= 0)
+            throw new ArgumentException("Valor da movimentacao deve ser maior que zero.", nameof(valor));
+
+        return new MovimentacaoFinanceira
+        {
+            DataMovimentacao = dataMovimentacao,
+            Tipo = TipoMovimentacao.Saida,
+            Natureza = NaturezaMovimentacao.Realizada,
+            ContaBancariaId = contaBancariaOrigemId,
+            TransferenciaId = transferenciaId,
+            Valor = decimal.Round(valor, 2, MidpointRounding.AwayFromZero),
+            StatusMovimentacaoId = StatusMovimentacao.EfetivadaId,
+            Observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim()
+        };
+    }
+
+    public static MovimentacaoFinanceira CriarEntradaTransferencia(
+        Guid transferenciaId,
+        Guid contaBancariaDestinoId,
+        DateOnly dataMovimentacao,
+        decimal valor,
+        string? observacao)
+    {
+        if (valor <= 0)
+            throw new ArgumentException("Valor da movimentacao deve ser maior que zero.", nameof(valor));
+
+        return new MovimentacaoFinanceira
+        {
+            DataMovimentacao = dataMovimentacao,
+            Tipo = TipoMovimentacao.Entrada,
+            Natureza = NaturezaMovimentacao.Realizada,
+            ContaBancariaId = contaBancariaDestinoId,
+            TransferenciaId = transferenciaId,
+            Valor = decimal.Round(valor, 2, MidpointRounding.AwayFromZero),
+            StatusMovimentacaoId = StatusMovimentacao.EfetivadaId,
+            Observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim()
+        };
+    }
 
     public static MovimentacaoFinanceira CriarLiquidacaoContaPagar(
         Guid contaPagarId,

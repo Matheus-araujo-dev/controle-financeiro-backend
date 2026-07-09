@@ -171,6 +171,8 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new AiToolCallConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappUsuarioConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappConfigAlertaConfiguration());
+        modelBuilder.ApplyConfiguration(new TransferenciaConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);

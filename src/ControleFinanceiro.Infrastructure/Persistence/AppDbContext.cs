@@ -79,6 +79,8 @@ public sealed class AppDbContext(
 
     public DbSet<Transferencia> Transferencias => Set<Transferencia>();
 
+    public DbSet<Plano> Planos => Set<Plano>();
+
     public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
 
     public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();

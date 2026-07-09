@@ -67,7 +67,7 @@ public sealed class InvestimentoAppService(IAppDbContext dbContext, IMemoryCache
             request.TaxaAnual);
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await ProjetarAsync(id, cancellationToken)!;
+        return (await ProjetarAsync(id, cancellationToken))!;
     }
 
     public async Task<InvestimentoResumoResponse> AtualizarValorAtualAsync(
@@ -80,7 +80,7 @@ public sealed class InvestimentoAppService(IAppDbContext dbContext, IMemoryCache
 
         investimento.AtualizarValorAtual(request.ValorAtual);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await ProjetarAsync(id, cancellationToken)!;
+        return (await ProjetarAsync(id, cancellationToken))!;
     }
 
     public async Task<InvestimentoResumoResponse> EncerrarAsync(
@@ -93,7 +93,7 @@ public sealed class InvestimentoAppService(IAppDbContext dbContext, IMemoryCache
 
         investimento.Encerrar(request.ValorResgate);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return await ProjetarAsync(id, cancellationToken)!;
+        return (await ProjetarAsync(id, cancellationToken))!;
     }
 
     public async Task<InvestimentoListResponse> ListarAsync(

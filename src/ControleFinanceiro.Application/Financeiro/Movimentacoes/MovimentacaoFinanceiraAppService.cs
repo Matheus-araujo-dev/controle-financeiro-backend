@@ -46,6 +46,8 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 movimento.FaturaCartaoId,
                 ContaPagarResponsavelId = contaPagar != null ? contaPagar.ResponsavelCompraId : null,
                 ContaReceberResponsavelId = contaReceber != null ? contaReceber.ResponsavelId : null,
+                ContaPagarRecebedorId = contaPagar != null ? (Guid?)contaPagar.RecebedorId : null,
+                ContaReceberPagadorId = contaReceber != null ? (Guid?)contaReceber.PagadorId : null,
                 ResponsavelNome = responsavelPagar != null ? responsavelPagar.Nome : (responsavelReceber != null ? responsavelReceber.Nome : null),
                 movimento.Observacao,
                 movimento.CreatedAtUtc,
@@ -79,6 +81,15 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
             consulta = consulta.Where(x =>
                 (x.ContaPagarResponsavelId.HasValue && responsavelIds.Contains(x.ContaPagarResponsavelId.Value)) ||
                 (x.ContaReceberResponsavelId.HasValue && responsavelIds.Contains(x.ContaReceberResponsavelId.Value)));
+        }
+
+        var pessoaIds = NormalizarGuidList(query.PessoaIds);
+
+        if (pessoaIds.Length > 0)
+        {
+            consulta = consulta.Where(x =>
+                (x.ContaPagarRecebedorId.HasValue && pessoaIds.Contains(x.ContaPagarRecebedorId.Value)) ||
+                (x.ContaReceberPagadorId.HasValue && pessoaIds.Contains(x.ContaReceberPagadorId.Value)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.StatusCodigo))

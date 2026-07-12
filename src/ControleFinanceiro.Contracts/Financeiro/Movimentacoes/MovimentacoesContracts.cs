@@ -23,6 +23,8 @@ public sealed record MovimentacaoListQueryRequest : ListQueryRequest
 
     public string? ResponsavelIds { get; init; }
 
+    public string? PessoaIds { get; init; }
+
     public string? StatusCodigo { get; init; }
 
     public TipoMovimentacaoResponse? Tipo { get; init; }

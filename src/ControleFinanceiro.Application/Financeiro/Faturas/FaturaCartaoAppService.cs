@@ -5,6 +5,7 @@ using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.Common.Validation;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Faturas;
+using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
@@ -578,6 +579,54 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task<FaturaItensResponse?> ListarItensPaginadoAsync(
+        Guid faturaId,
+        FaturaItensQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        var fatura = await dbContext.FaturasCartao
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == faturaId, cancellationToken);
+
+        if (fatura is null) return null;
+
+        var todos = await ListarItensAsync(fatura.CartaoId, fatura.Competencia, cancellationToken);
+
+        var ordenados = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "descricao" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.Descricao).ToArray()
+                : todos.OrderBy(x => x.Descricao).ToArray(),
+            "recebedornome" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.RecebedorNome).ToArray()
+                : todos.OrderBy(x => x.RecebedorNome).ToArray(),
+            "valorliquido" or "valor" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.ValorLiquido).ToArray()
+                : todos.OrderBy(x => x.ValorLiquido).ToArray(),
+            "statuscodigo" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.StatusCodigo).ToArray()
+                : todos.OrderBy(x => x.StatusCodigo).ToArray(),
+            _ => todos.OrderBy(x => x.DataCompra).ThenBy(x => x.NumeroParcela).ToArray()
+        };
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var termo = query.Search.Trim().ToLowerInvariant();
+            ordenados = ordenados
+                .Where(x => x.Descricao.Contains(termo, StringComparison.OrdinalIgnoreCase)
+                         || x.RecebedorNome.Contains(termo, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+
+        var totalItems = ordenados.Length;
+        var pageSize = query.NormalizedPageSize > 0 ? query.NormalizedPageSize : 50;
+        var page = query.NormalizedPage;
+        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+        var items = ordenados.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
+
+        return new FaturaItensResponse(items, page, pageSize, totalItems, totalPages);
     }
 
     private async Task<IReadOnlyCollection<FaturaItemResponse>> ListarItensAsync(

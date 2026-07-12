@@ -28,6 +28,8 @@ public sealed class ContaPagarRecorrenciaService(
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
 
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
         if (request.QuantidadeParcelas != conta.QuantidadeParcelas)
             throw helper.CriarErroValidacao("QuantidadeParcelas", "Não é permitido alterar o parcelamento na edição.");
 
@@ -68,6 +70,7 @@ public sealed class ContaPagarRecorrenciaService(
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
             request.DataCompra);
 
+        var dataVencimentoAnterior = conta.DataVencimento;
         helper.AtualizarContaExistente(conta, request);
         if (regraRecorrenciaCriadaId.HasValue) conta.VincularRecorrencia(regraRecorrenciaCriadaId.Value);
 
@@ -81,6 +84,7 @@ public sealed class ContaPagarRecorrenciaService(
         }
 
         await helper.CancelarMovimentacaoEconomicaAsync(conta, cancellationToken);
+        await ReatribuirFaturaCartaoSeNecessarioAsync(conta, dataVencimentoAnterior, cancellationToken);
 
         // Propagação para parcelas do mesmo grupo
         var propagarParcelas = conta.GrupoParcelamentoId.HasValue &&
@@ -273,5 +277,52 @@ public sealed class ContaPagarRecorrenciaService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
+    }
+
+    private async Task BloquearSeFaturaFechadaOuPagaAsync(ContaPagar conta, CancellationToken cancellationToken)
+    {
+        if (!conta.CartaoId.HasValue) return;
+
+        var cartao = await dbContext.Cartoes.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == conta.CartaoId.Value, cancellationToken);
+        if (cartao is null) return;
+
+        var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
+            conta.DataVencimento, cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura).Competencia;
+
+        var fatura = await dbContext.FaturasCartao.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CartaoId == conta.CartaoId.Value && x.Competencia == competencia, cancellationToken);
+
+        if (fatura is null) return;
+
+        if (fatura.Status == StatusFaturaCartao.Fechada || fatura.Status == StatusFaturaCartao.Paga)
+        {
+            throw helper.CriarErroValidacao("Fatura", "Não é permitido editar ou estornar lançamentos de faturas fechadas ou liquidadas.");
+        }
+    }
+
+    private async Task ReatribuirFaturaCartaoSeNecessarioAsync(
+        ContaPagar conta,
+        DateOnly dataVencimentoAnterior,
+        CancellationToken cancellationToken)
+    {
+        if (!conta.CartaoId.HasValue) return;
+        if (conta.DataVencimento == dataVencimentoAnterior) return;
+
+        var cartao = await dbContext.Cartoes
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == conta.CartaoId.Value, cancellationToken);
+
+        if (cartao is null) return;
+
+        var novaCompetencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
+            conta.DataVencimento,
+            cartao.DiaFechamentoFatura,
+            cartao.DiaVencimentoFatura).Competencia;
+
+        var novaFatura = await dbContext.FaturasCartao
+            .FirstOrDefaultAsync(x => x.CartaoId == conta.CartaoId.Value && x.Competencia == novaCompetencia, cancellationToken);
+
+        conta.ReatribuirFaturaCartao(novaFatura?.Id);
     }
 }

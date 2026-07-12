@@ -63,6 +63,8 @@ public sealed record FaturaListResponse(
     int TotalPages,
     FaturaListSummaryResponse Summary);
 
+public sealed record FaturaItensQueryRequest : ListQueryRequest;
+
 public sealed record FaturaItemResponse(
     Guid ContaPagarId,
     string Descricao,
@@ -73,6 +75,13 @@ public sealed record FaturaItemResponse(
     int NumeroParcela,
     int QuantidadeParcelas,
     bool EhEstorno = false);
+
+public sealed record FaturaItensResponse(
+    IReadOnlyCollection<FaturaItemResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages);
 
 public sealed record FaturaDetalheResponse(
     Guid Id,

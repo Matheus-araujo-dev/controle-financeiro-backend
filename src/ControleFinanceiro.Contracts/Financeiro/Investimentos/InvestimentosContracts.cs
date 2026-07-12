@@ -8,8 +8,8 @@ public record CriarInvestimentoRequest(
     TipoInvestimento Tipo,
     LiquidezInvestimento Liquidez,
     decimal ValorInvestido,
-    DateTime DataAplicacao,
-    DateTime? DataVencimento,
+    DateOnly DataAplicacao,
+    DateOnly? DataVencimento,
     decimal? TaxaAnual,
     Guid ContaBancariaVinculadaId);
 
@@ -18,7 +18,7 @@ public record AtualizarInvestimentoRequest(
     string? Emissor,
     TipoInvestimento Tipo,
     LiquidezInvestimento Liquidez,
-    DateTime? DataVencimento,
+    DateOnly? DataVencimento,
     decimal? TaxaAnual);
 
 public record AtualizarValorAtualRequest(decimal ValorAtual);
@@ -37,8 +37,8 @@ public record InvestimentoResumoResponse(
     decimal ValorAtual,
     decimal Rendimento,
     decimal RendimentoPercent,
-    DateTime DataAplicacao,
-    DateTime? DataVencimento,
+    DateOnly DataAplicacao,
+    DateOnly? DataVencimento,
     decimal? TaxaAnual,
     Guid ContaBancariaVinculadaId,
     string ContaBancariaNome,

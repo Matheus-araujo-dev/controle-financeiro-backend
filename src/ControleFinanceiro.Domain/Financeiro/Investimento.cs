@@ -36,9 +36,9 @@ public sealed class Investimento : TenantEntity
 
     public decimal ValorAtual { get; private set; }
 
-    public DateTime DataAplicacao { get; private set; }
+    public DateOnly DataAplicacao { get; private set; }
 
-    public DateTime? DataVencimento { get; private set; }
+    public DateOnly? DataVencimento { get; private set; }
 
     public decimal? TaxaAnual { get; private set; }
 
@@ -56,8 +56,8 @@ public sealed class Investimento : TenantEntity
         TipoInvestimento tipo,
         LiquidezInvestimento liquidez,
         decimal valorInvestido,
-        DateTime dataAplicacao,
-        DateTime? dataVencimento,
+        DateOnly dataAplicacao,
+        DateOnly? dataVencimento,
         decimal? taxaAnual,
         Guid contaBancariaVinculadaId)
     {
@@ -81,8 +81,8 @@ public sealed class Investimento : TenantEntity
             Liquidez = liquidez,
             ValorInvestido = decimal.Round(valorInvestido, 2),
             ValorAtual = decimal.Round(valorInvestido, 2),
-            DataAplicacao = dataAplicacao.Date,
-            DataVencimento = dataVencimento?.Date,
+            DataAplicacao = dataAplicacao,
+            DataVencimento = dataVencimento,
             TaxaAnual = taxaAnual.HasValue ? decimal.Round(taxaAnual.Value, 4) : null,
             ContaBancariaVinculadaId = contaBancariaVinculadaId,
             Encerrado = false
@@ -94,7 +94,7 @@ public sealed class Investimento : TenantEntity
         string? emissor,
         TipoInvestimento tipo,
         LiquidezInvestimento liquidez,
-        DateTime? dataVencimento,
+        DateOnly? dataVencimento,
         decimal? taxaAnual)
     {
         if (string.IsNullOrWhiteSpace(nome))
@@ -107,7 +107,7 @@ public sealed class Investimento : TenantEntity
         Emissor = string.IsNullOrWhiteSpace(emissor) ? null : emissor.Trim();
         Tipo = tipo;
         Liquidez = liquidez;
-        DataVencimento = dataVencimento?.Date;
+        DataVencimento = dataVencimento;
         TaxaAnual = taxaAnual.HasValue ? decimal.Round(taxaAnual.Value, 4) : null;
     }
 

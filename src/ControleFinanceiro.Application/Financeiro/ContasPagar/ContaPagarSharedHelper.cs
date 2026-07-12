@@ -96,8 +96,8 @@ public sealed class ContaPagarSharedHelper(
             if (await dbContext.FaturasCartao.AnyAsync(
                     x => x.CartaoId == cartaoId.Value &&
                          x.Competencia == competencia.Competencia &&
-                         x.Status == StatusFaturaCartao.Paga, cancellationToken))
-                throw validationFactory.Create("DataLiquidacao", "Já existe fatura paga para a competência desta compra em cartão.");
+                         (x.Status == StatusFaturaCartao.Paga || x.Status == StatusFaturaCartao.Fechada), cancellationToken))
+                throw validationFactory.Create("DataLiquidacao", "Já existe fatura paga ou fechada para a competência desta compra em cartão.");
         }
         else if (cartaoId.HasValue)
         {

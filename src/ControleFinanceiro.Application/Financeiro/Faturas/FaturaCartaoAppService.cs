@@ -387,6 +387,29 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         return await ObterPorIdAsync(id, cancellationToken);
     }
 
+    public async Task<FaturaDetalheResponse?> FecharAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await SincronizarFaturasAsync(cancellationToken);
+
+        var fatura = await dbContext.FaturasCartao.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (fatura is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            fatura.Fechar();
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw ValidationExceptionFactory.Create("Status", exception.Message);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await ObterPorIdAsync(id, cancellationToken);
+    }
+
     public async Task<FaturaDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken)
     {
         await SincronizarFaturasAsync(cancellationToken);
@@ -539,13 +562,14 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                 continue;
             }
 
-            if (faturaExistente.Value.Status == StatusFaturaCartao.Paga)
+            if (faturaExistente.Value.Status == StatusFaturaCartao.Paga ||
+                faturaExistente.Value.Status == StatusFaturaCartao.Fechada)
             {
                 continue;
             }
 
             // Fatura sem nenhuma compra restante (ex.: importação re-materializada)
-            // é removida mesmo se já fechada — órfã não representa obrigação real.
+            // é removida mesmo se ainda aberta — órfã não representa obrigação real.
             dbContext.FaturasCartao.Remove(faturaExistente.Value);
             houveMudanca = true;
         }
@@ -671,6 +695,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         {
             "ABERTA" => StatusFaturaCartao.Aberta,
             "PAGA" => StatusFaturaCartao.Paga,
+            "FECHADA" => StatusFaturaCartao.Fechada,
             _ => throw ValidationExceptionFactory.Create("StatusCodigo", "Status de fatura inválido.")
         };
     }
@@ -681,6 +706,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         {
             StatusFaturaCartao.Aberta => ("ABERTA", "Aberta"),
             StatusFaturaCartao.Paga => ("PAGA", "Paga"),
+            StatusFaturaCartao.Fechada => ("FECHADA", "Fechada"),
             _ => throw new ArgumentOutOfRangeException(nameof(status))
         };
     }

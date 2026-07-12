@@ -514,6 +514,11 @@ public sealed class ContaPagar : TenantEntity
         FaturaCartaoId = faturaCartaoId;
     }
 
+    public void ReatribuirFaturaCartao(Guid? novaFaturaCartaoId)
+    {
+        FaturaCartaoId = novaFaturaCartaoId;
+    }
+
     public void DefinirChaveSerieImportacaoCartao(string? chaveSerie)
     {
         ChaveSerieImportacaoCartao = string.IsNullOrWhiteSpace(chaveSerie) ? null : chaveSerie.Trim();

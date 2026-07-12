@@ -159,6 +159,8 @@ public sealed class ContaPagarLiquidacaoService(
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
 
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
         if (conta.StatusContaId == StatusConta.ParcialId)
         {
             // Cancela apenas o restante: ajusta valor ao que já foi pago e liquida a conta
@@ -228,5 +230,28 @@ public sealed class ContaPagarLiquidacaoService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
+    }
+
+    private async Task BloquearSeFaturaFechadaOuPagaAsync(ContaPagar conta, CancellationToken cancellationToken)
+    {
+        if (!conta.CartaoId.HasValue) return;
+
+        var cartao = await dbContext.Cartoes.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == conta.CartaoId.Value, cancellationToken);
+        if (cartao is null) return;
+
+        var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
+            conta.DataVencimento, cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura).Competencia;
+
+        var fatura = await dbContext.FaturasCartao.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CartaoId == conta.CartaoId.Value && x.Competencia == competencia, cancellationToken);
+
+        if (fatura is null) return;
+
+        if (fatura.Status == StatusFaturaCartao.Fechada || fatura.Status == StatusFaturaCartao.Paga)
+        {
+            throw helper.ConverterParaValidacao(
+                new InvalidOperationException("Não é permitido editar ou cancelar lançamentos de faturas fechadas ou liquidadas."));
+        }
     }
 }

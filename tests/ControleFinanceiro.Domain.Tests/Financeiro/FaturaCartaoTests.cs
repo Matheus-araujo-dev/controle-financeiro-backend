@@ -1,4 +1,5 @@
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.SharedKernel.Common;
 using FluentAssertions;
 
 namespace ControleFinanceiro.Domain.Tests.Financeiro;
@@ -24,6 +25,46 @@ public sealed class FaturaCartaoTests
         fatura.DataPagamento.Should().Be(new DateOnly(2026, 4, 20));
         fatura.ContaBancariaPagamentoId.Should().Be(contaBancariaId);
         fatura.Observacao.Should().Be("Pagamento integral");
+    }
+
+    [Fact]
+    public void ReatribuirFaturaCartao_DeveAtualizarOuNulificarVinculo()
+    {
+        var faturaId = Guid.NewGuid();
+        var contaPagar = ContaPagar.Criar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 5),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            dataVencimento: new DateOnly(2026, 4, 20),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: Guid.NewGuid(),
+            contaBancariaId: null,
+            valorOriginal: 100m,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 1,
+            numeroParcela: 1,
+            grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
+            descricao: "Compra teste",
+            observacao: null,
+            statusContaId: StatusConta.EmFaturaId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Manual,
+            rateios: [new RateioPlano(Guid.NewGuid(), 100m)]);
+
+        contaPagar.VincularFaturaCartao(faturaId);
+        contaPagar.FaturaCartaoId.Should().Be(faturaId);
+
+        var novaFaturaId = Guid.NewGuid();
+        contaPagar.ReatribuirFaturaCartao(novaFaturaId);
+        contaPagar.FaturaCartaoId.Should().Be(novaFaturaId);
+
+        contaPagar.ReatribuirFaturaCartao(null);
+        contaPagar.FaturaCartaoId.Should().BeNull();
     }
 
     [Fact]

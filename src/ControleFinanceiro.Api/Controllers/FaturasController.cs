@@ -37,6 +37,18 @@ public sealed class FaturasController(
         return response is null ? NotFoundResponse() : Ok(response);
     }
 
+    [HttpGet("{id:guid}/itens")]
+    [ProducesResponseType(typeof(FaturaItensResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FaturaItensResponse>> ListarItens(
+        Guid id,
+        [FromQuery] FaturaItensQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.ListarItensPaginadoAsync(id, query, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
     [HttpPost("{id:guid}/pagar")]
     [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]

@@ -44,6 +44,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 conta.Descricao,
                 conta.RecebedorId,
                 RecebedorNome = recebedor.Nome,
+                conta.ResponsavelCompraId,
                 ResponsavelNome = dbContext.Pessoas
                     .Where(pessoa => pessoa.Id == conta.ResponsavelCompraId)
                     .Select(pessoa => pessoa.Nome)
@@ -87,6 +88,12 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         if (recebedorIds.Length > 0)
         {
             consulta = consulta.Where(x => recebedorIds.Contains(x.RecebedorId));
+        }
+
+        var responsavelIds = NormalizarIds(null, query.ResponsavelIds);
+        if (responsavelIds.Length > 0)
+        {
+            consulta = consulta.Where(x => x.ResponsavelCompraId.HasValue && responsavelIds.Contains(x.ResponsavelCompraId.Value));
         }
 
         var formaPagamentoIds = NormalizarIds(query.FormaPagamentoId, query.FormaPagamentoIds);

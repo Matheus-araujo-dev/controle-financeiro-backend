@@ -37,6 +37,8 @@ public sealed record ContaPagarListQueryRequest : ListQueryRequest
 
     public IReadOnlyCollection<Guid>? FormaPagamentoIds { get; init; }
 
+    public IReadOnlyCollection<Guid>? ResponsavelIds { get; init; }
+
     public string? StatusCodigo { get; init; }
 
     public IReadOnlyCollection<string>? StatusCodigos { get; init; }

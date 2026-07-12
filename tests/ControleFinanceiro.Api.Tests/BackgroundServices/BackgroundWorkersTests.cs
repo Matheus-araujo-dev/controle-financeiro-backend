@@ -75,6 +75,24 @@ public sealed class BackgroundWorkersTests(CustomWebApplicationFactory factory)
         await parar.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task TransicaoStatusFuturoWorker_DeveRodarPrimeiraIteracaoSemErros()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        await FinancialFixtureSeed.CreateAsync(client);
+
+        var worker = new TransicaoStatusFuturoWorker(
+            _factory.Services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<TransicaoStatusFuturoWorker>.Instance);
+
+        await worker.StartAsync(CancellationToken.None);
+        await Task.Delay(1000);
+        var parar = async () => await worker.StopAsync(CancellationToken.None);
+
+        await parar.Should().NotThrowAsync();
+    }
+
     private async Task<string?> ObterStatusAsync(HttpClient client, Guid id)
     {
         var detalhe = await client.GetFromJsonAsync<JsonElement>($"/api/v1/contas-pagar/{id}", JsonOptions);

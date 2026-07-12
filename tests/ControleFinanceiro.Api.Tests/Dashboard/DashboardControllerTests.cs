@@ -981,6 +981,33 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         response.Itens.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetComparativoMensal_DeveRetornarOkComItens()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        await FinancialFixtureSeed.CreateAsync(client);
+
+        var resp = await client.GetAsync("/api/v1/dashboard/comparativo-mensal?meses=3");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var data = await resp.Content.ReadFromJsonAsync<DashboardComparativoMensalResponse>();
+        data.Should().NotBeNull();
+        data!.Itens.Should().NotBeNull();
+    }
+
+    private sealed record DashboardComparativoMensalResponse(
+        IReadOnlyList<DashboardComparativoMensalItemResponse> Itens);
+
+    private sealed record DashboardComparativoMensalItemResponse(
+        string Competencia,
+        string CompetenciaLabel,
+        decimal Receitas,
+        decimal Despesas,
+        decimal Saldo,
+        decimal? VariacaoReceitas,
+        decimal? VariacaoDespesas);
+
     private static async Task<Guid> CriarContaPagarAsync(
         HttpClient client,
         FinancialFixtureSeed.FixtureIds fixture,

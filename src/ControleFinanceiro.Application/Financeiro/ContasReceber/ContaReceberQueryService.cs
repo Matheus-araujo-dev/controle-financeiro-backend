@@ -30,6 +30,7 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
                 conta.Descricao,
                 conta.PagadorId,
                 PagadorNome = pagador.Nome,
+                conta.ResponsavelId,
                 ResponsavelNome = dbContext.Pessoas
                     .Where(pessoa => pessoa.Id == conta.ResponsavelId)
                     .Select(pessoa => pessoa.Nome)
@@ -72,6 +73,10 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
         var pagadorIds = NormalizarIds(query.PagadorId, query.PagadorIds);
         if (pagadorIds.Length > 0)
             consulta = consulta.Where(x => pagadorIds.Contains(x.PagadorId));
+
+        var responsavelIds = NormalizarIds(null, query.ResponsavelIds);
+        if (responsavelIds.Length > 0)
+            consulta = consulta.Where(x => x.ResponsavelId.HasValue && responsavelIds.Contains(x.ResponsavelId.Value));
 
         var formaPagamentoIds = NormalizarIds(query.FormaPagamentoId, query.FormaPagamentoIds);
         if (formaPagamentoIds.Length > 0)

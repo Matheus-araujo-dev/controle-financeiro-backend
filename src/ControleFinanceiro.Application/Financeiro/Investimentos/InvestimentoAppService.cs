@@ -120,7 +120,7 @@ public sealed class InvestimentoAppService(IAppDbContext dbContext, IMemoryCache
         var total = await q.CountAsync(cancellationToken);
         var totalPages = (int)Math.Ceiling((double)total / query.PageSize);
 
-        var items = await q
+        var raw = await q
             .OrderByDescending(x => x.DataAplicacao)
             .ThenBy(x => x.Nome)
             .Skip((query.Page - 1) * query.PageSize)
@@ -129,26 +129,21 @@ public sealed class InvestimentoAppService(IAppDbContext dbContext, IMemoryCache
                 inv => inv.ContaBancariaVinculadaId,
                 cb => cb.Id,
                 (inv, cb) => new { inv, cb })
-            .Select(x => new InvestimentoResumoResponse(
-                x.inv.Id,
-                x.inv.Nome,
-                x.inv.Emissor,
-                x.inv.Tipo,
-                TipoLabels[x.inv.Tipo],
-                x.inv.Liquidez,
-                LiquidezLabels[x.inv.Liquidez],
-                x.inv.ValorInvestido,
-                x.inv.ValorAtual,
-                x.inv.ValorAtual - x.inv.ValorInvestido,
-                x.inv.ValorInvestido > 0 ? ((x.inv.ValorAtual - x.inv.ValorInvestido) / x.inv.ValorInvestido) * 100m : 0m,
-                x.inv.DataAplicacao,
-                x.inv.DataVencimento,
-                x.inv.TaxaAnual,
-                x.inv.ContaBancariaVinculadaId,
-                x.cb.Nome,
-                x.inv.Encerrado,
-                x.inv.CreatedAtUtc))
+            .Select(x => new
+            {
+                x.inv.Id, x.inv.Nome, x.inv.Emissor, x.inv.Tipo, x.inv.Liquidez,
+                x.inv.ValorInvestido, x.inv.ValorAtual, x.inv.DataAplicacao,
+                x.inv.DataVencimento, x.inv.TaxaAnual, x.inv.ContaBancariaVinculadaId,
+                ContaBancariaNome = x.cb.Nome, x.inv.Encerrado, x.inv.CreatedAtUtc
+            })
             .ToListAsync(cancellationToken);
+
+        var items = raw.Select(x => new InvestimentoResumoResponse(
+            x.Id, x.Nome, x.Emissor, x.Tipo, TipoLabels[x.Tipo], x.Liquidez, LiquidezLabels[x.Liquidez],
+            x.ValorInvestido, x.ValorAtual, x.ValorAtual - x.ValorInvestido,
+            x.ValorInvestido > 0 ? ((x.ValorAtual - x.ValorInvestido) / x.ValorInvestido) * 100m : 0m,
+            x.DataAplicacao, x.DataVencimento, x.TaxaAnual, x.ContaBancariaVinculadaId,
+            x.ContaBancariaNome, x.Encerrado, x.CreatedAtUtc)).ToList();
 
         return new InvestimentoListResponse(items, query.Page, query.PageSize, total, totalPages);
     }
@@ -224,30 +219,29 @@ public sealed class InvestimentoAppService(IAppDbContext dbContext, IMemoryCache
     }
 
     private async Task<InvestimentoResumoResponse?> ProjetarAsync(Guid id, CancellationToken cancellationToken)
-        => await dbContext.Investimentos
+    {
+        var raw = await dbContext.Investimentos
             .Where(x => x.Id == id)
             .Join(dbContext.ContasBancarias,
                 inv => inv.ContaBancariaVinculadaId,
                 cb => cb.Id,
                 (inv, cb) => new { inv, cb })
-            .Select(x => new InvestimentoResumoResponse(
-                x.inv.Id,
-                x.inv.Nome,
-                x.inv.Emissor,
-                x.inv.Tipo,
-                TipoLabels[x.inv.Tipo],
-                x.inv.Liquidez,
-                LiquidezLabels[x.inv.Liquidez],
-                x.inv.ValorInvestido,
-                x.inv.ValorAtual,
-                x.inv.ValorAtual - x.inv.ValorInvestido,
-                x.inv.ValorInvestido > 0 ? ((x.inv.ValorAtual - x.inv.ValorInvestido) / x.inv.ValorInvestido) * 100m : 0m,
-                x.inv.DataAplicacao,
-                x.inv.DataVencimento,
-                x.inv.TaxaAnual,
-                x.inv.ContaBancariaVinculadaId,
-                x.cb.Nome,
-                x.inv.Encerrado,
-                x.inv.CreatedAtUtc))
+            .Select(x => new
+            {
+                x.inv.Id, x.inv.Nome, x.inv.Emissor, x.inv.Tipo, x.inv.Liquidez,
+                x.inv.ValorInvestido, x.inv.ValorAtual, x.inv.DataAplicacao,
+                x.inv.DataVencimento, x.inv.TaxaAnual, x.inv.ContaBancariaVinculadaId,
+                ContaBancariaNome = x.cb.Nome, x.inv.Encerrado, x.inv.CreatedAtUtc
+            })
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (raw is null) return null;
+
+        return new InvestimentoResumoResponse(
+            raw.Id, raw.Nome, raw.Emissor, raw.Tipo, TipoLabels[raw.Tipo], raw.Liquidez, LiquidezLabels[raw.Liquidez],
+            raw.ValorInvestido, raw.ValorAtual, raw.ValorAtual - raw.ValorInvestido,
+            raw.ValorInvestido > 0 ? ((raw.ValorAtual - raw.ValorInvestido) / raw.ValorInvestido) * 100m : 0m,
+            raw.DataAplicacao, raw.DataVencimento, raw.TaxaAnual, raw.ContaBancariaVinculadaId,
+            raw.ContaBancariaNome, raw.Encerrado, raw.CreatedAtUtc);
+    }
 }

@@ -101,6 +101,12 @@ public sealed class AppDbContext(
 
     public DbSet<AlertaWhatsappEnviado> AlertasWhatsappEnviados => Set<AlertaWhatsappEnviado>();
 
+    public DbSet<ConfiguracaoNotificacao> ConfiguracoesNotificacao => Set<ConfiguracaoNotificacao>();
+
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+
+    public DbSet<AlertaDigitalEnviado> AlertasDigitaisEnviados => Set<AlertaDigitalEnviado>();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
 
     public DbSet<Familia> Familias => Set<Familia>();

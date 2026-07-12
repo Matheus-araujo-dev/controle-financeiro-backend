@@ -45,7 +45,7 @@ public sealed class FaturaCartao : TenantEntity
         DateOnly dataVencimento,
         decimal valorTotal)
     {
-        if (Status == StatusFaturaCartao.Paga)
+        if (Status == StatusFaturaCartao.Paga || Status == StatusFaturaCartao.Fechada)
         {
             return;
         }
@@ -93,6 +93,21 @@ public sealed class FaturaCartao : TenantEntity
         ContaBancariaPagamentoId = contaBancariaPagamentoId;
         Status = StatusFaturaCartao.Paga;
         Observacao = string.IsNullOrWhiteSpace(observacao) ? Observacao : observacao.Trim();
+    }
+
+    public void Fechar()
+    {
+        if (Status == StatusFaturaCartao.Paga)
+        {
+            throw new InvalidOperationException("Fatura ja foi paga e nao pode ser fechada.");
+        }
+
+        if (Status == StatusFaturaCartao.Fechada)
+        {
+            throw new InvalidOperationException("Fatura ja esta fechada.");
+        }
+
+        Status = StatusFaturaCartao.Fechada;
     }
 
     public void ReabrirPagamento()

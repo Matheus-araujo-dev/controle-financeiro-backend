@@ -1,5 +1,6 @@
 ﻿using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Application.Cadastros.Pessoas;
+using ControleFinanceiro.Application.Common.Alertas;
 using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
@@ -10,6 +11,7 @@ using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Events;
 using ControleFinanceiro.Domain.Financeiro.Events;
+using ControleFinanceiro.Infrastructure.Alertas;
 using ControleFinanceiro.Infrastructure.Events;
 using ControleFinanceiro.Infrastructure.Events.Handlers;
 using ControleFinanceiro.Infrastructure.FinanceAI;
@@ -102,6 +104,24 @@ public static class DependencyInjection
 
         services.Configure<WhatsappBridgeOptions>(configuration.GetSection(WhatsappBridgeOptions.SectionName));
         services.Configure<AlertasWhatsappOptions>(configuration.GetSection(AlertasWhatsappOptions.SectionName));
+
+        // Alertas email/push
+        services.Configure<ResendOptions>(configuration.GetSection(ResendOptions.SectionName));
+        services.Configure<VapidOptions>(configuration.GetSection(VapidOptions.SectionName));
+        services.AddScoped<AlertasEmailPushService>();
+
+        var resendOpts = configuration.GetSection(ResendOptions.SectionName).Get<ResendOptions>() ?? new ResendOptions();
+        services.AddHttpClient<ResendEmailService>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.resend.com/");
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {resendOpts.ApiKey}");
+        });
+        services.AddScoped<IEmailAlertaService, ResendEmailService>();
+
+        services.AddHttpClient<WebPushService>();
+        services.AddScoped<IPushAlertaService, WebPushService>();
+
+        services.AddHostedService<AlertasEmailPushHostedService>();
         services.Configure<LlmOptions>(configuration.GetSection(LlmOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
 

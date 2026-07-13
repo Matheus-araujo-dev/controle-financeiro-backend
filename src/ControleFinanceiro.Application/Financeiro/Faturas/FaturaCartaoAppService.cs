@@ -586,6 +586,8 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         FaturaItensQueryRequest query,
         CancellationToken cancellationToken)
     {
+        await SincronizarFaturasAsync(cancellationToken);
+
         var fatura = await dbContext.FaturasCartao
             .AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == faturaId, cancellationToken);

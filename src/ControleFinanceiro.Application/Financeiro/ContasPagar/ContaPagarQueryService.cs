@@ -379,6 +379,12 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 conta.DataVencimento,
                 cartao.DiaFechamentoFatura,
                 cartao.DiaVencimentoFatura);
+        var statusFaturaCartao = competenciaFatura is null
+            ? null
+            : await dbContext.FaturasCartao.AsNoTracking()
+                .Where(x => x.CartaoId == conta.CartaoId!.Value && x.Competencia == competenciaFatura.Competencia)
+                .Select(x => (StatusFaturaCartao?)x.Status)
+                .FirstOrDefaultAsync(cancellationToken);
         var contaBancaria = conta.ContaBancariaId.HasValue
             ? await dbContext.ContasBancarias.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.ContaBancariaId.Value, cancellationToken)
             : null;
@@ -452,6 +458,13 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             competenciaFatura?.Competencia,
             competenciaFatura?.DataFechamento,
             competenciaFatura?.DataVencimento,
+            statusFaturaCartao switch
+            {
+                StatusFaturaCartao.Paga => "PAGA",
+                StatusFaturaCartao.Fechada => "FECHADA",
+                StatusFaturaCartao.Aberta => "ABERTA",
+                _ => null
+            },
             rateios,
             conta.CreatedAtUtc,
             conta.UpdatedAtUtc);

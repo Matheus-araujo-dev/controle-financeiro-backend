@@ -121,6 +121,8 @@ public sealed class ContaPagarLiquidacaoService(
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
 
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
         try { conta.Estornar(StatusConta.PendenteId); }
         catch (InvalidOperationException ex) { throw helper.ConverterParaValidacao(ex); }
 

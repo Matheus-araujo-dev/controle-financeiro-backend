@@ -78,7 +78,8 @@ public sealed record CriarContaPagarRequest(
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia,
-    DateOnly? DataCompra = null);
+    DateOnly? DataCompra = null,
+    bool ForcarProximaFatura = false);
 
 public sealed record AtualizarContaPagarRequest(
     Guid Id,
@@ -101,7 +102,8 @@ public sealed record AtualizarContaPagarRequest(
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia,
     bool AtualizarParcelasFuturas = false,
-    DateOnly? DataCompra = null);
+    DateOnly? DataCompra = null,
+    bool ForcarProximaFatura = false);
 
 public sealed record LiquidarContaPagarRequest(
     decimal ValorLiquidacao,
@@ -193,6 +195,7 @@ public sealed record ContaPagarDetalheResponse(
     string? CompetenciaFaturaCartao,
     DateOnly? DataFechamentoFaturaCartao,
     DateOnly? DataVencimentoFaturaCartao,
+    string? StatusFaturaCartao,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

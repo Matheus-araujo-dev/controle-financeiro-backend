@@ -30,7 +30,7 @@ public sealed class ContaPagarCriacaoService(
             request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
-            request.DataCompra);
+            request.DataCompra, request.ForcarProximaFatura);
 
         RegraRecorrencia? regra = null;
         if (request.Recorrencia is not null)

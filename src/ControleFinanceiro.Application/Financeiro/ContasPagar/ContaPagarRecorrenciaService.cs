@@ -68,7 +68,7 @@ public sealed class ContaPagarRecorrenciaService(
             request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
-            request.DataCompra);
+            request.DataCompra, request.ForcarProximaFatura);
 
         var dataVencimentoAnterior = conta.DataVencimento;
         var requestEfetivo = contexto.DataVencimentoEfetivo.HasValue
@@ -135,7 +135,7 @@ public sealed class ContaPagarRecorrenciaService(
             request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
-            request.DataCompra);
+            request.DataCompra, request.ForcarProximaFatura);
 
         regra.Atualizar(
             helper.MapearTipoPeriodicidadeDominio(recorrencia.TipoPeriodicidade),
@@ -165,7 +165,7 @@ public sealed class ContaPagarRecorrenciaService(
                 requestAjustado.DataEmissao, requestAjustado.RecebedorId, requestAjustado.ResponsavelCompraId,
                 requestAjustado.FormaPagamentoId, requestAjustado.CartaoId, requestAjustado.ContaBancariaId,
                 requestAjustado.DataLiquidacao, requestAjustado.QuantidadeParcelas, requestAjustado.Rateios, cancellationToken,
-                requestAjustado.DataCompra);
+                requestAjustado.DataCompra, request.ForcarProximaFatura);
             await helper.CancelarMovimentacaoEconomicaAsync(contaFutura, cancellationToken);
         }
 

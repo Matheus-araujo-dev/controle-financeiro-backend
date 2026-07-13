@@ -93,11 +93,29 @@ public sealed class ContaPagarSharedHelper(
             var dataCompraCartao = dataCompra ?? dataLiquidacao ?? dataEmissao;
             var competencia = FaturaCartaoCompetencia.Calcular(dataCompraCartao, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
 
-            if (await dbContext.FaturasCartao.AnyAsync(
-                    x => x.CartaoId == cartaoId.Value &&
-                         x.Competencia == competencia.Competencia &&
-                         (x.Status == StatusFaturaCartao.Paga || x.Status == StatusFaturaCartao.Fechada), cancellationToken))
-                throw validationFactory.Create("DataLiquidacao", "Já existe fatura paga ou fechada para a competência desta compra em cartão.");
+            var statusFaturaExistente = await dbContext.FaturasCartao
+                .Where(x => x.CartaoId == cartaoId.Value && x.Competencia == competencia.Competencia)
+                .Select(x => (StatusFaturaCartao?)x.Status)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (statusFaturaExistente == StatusFaturaCartao.Paga)
+                throw validationFactory.Create("DataCompra", "Já existe fatura paga para a competência desta compra em cartão.");
+
+            DateOnly? dataVencimentoEfetivo = null;
+            if (statusFaturaExistente == StatusFaturaCartao.Fechada)
+            {
+                // Fatura fechada antecipadamente pelo banco: redireciona para a competência seguinte
+                var proximaCompetencia = FaturaCartaoCompetencia.Calcular(
+                    competencia.DataFechamento.AddDays(1), cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
+                dataVencimentoEfetivo = proximaCompetencia.DataVencimento;
+            }
+
+            return new ContaPagarValidationContext(
+                formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao,
+                formaPagamento.EhCartao,
+                cartao,
+                dataCompraCartao,
+                dataVencimentoEfetivo);
         }
         else if (cartaoId.HasValue)
         {

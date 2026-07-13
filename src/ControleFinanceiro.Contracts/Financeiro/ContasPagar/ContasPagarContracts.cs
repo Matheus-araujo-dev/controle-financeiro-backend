@@ -195,6 +195,7 @@ public sealed record ContaPagarDetalheResponse(
     string? CompetenciaFaturaCartao,
     DateOnly? DataFechamentoFaturaCartao,
     DateOnly? DataVencimentoFaturaCartao,
+    string? StatusFaturaCartao,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

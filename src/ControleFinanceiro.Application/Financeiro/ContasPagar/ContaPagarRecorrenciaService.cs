@@ -71,7 +71,10 @@ public sealed class ContaPagarRecorrenciaService(
             request.DataCompra);
 
         var dataVencimentoAnterior = conta.DataVencimento;
-        helper.AtualizarContaExistente(conta, request);
+        var requestEfetivo = contexto.DataVencimentoEfetivo.HasValue
+            ? request with { DataVencimento = contexto.DataVencimentoEfetivo.Value }
+            : request;
+        helper.AtualizarContaExistente(conta, requestEfetivo);
         if (regraRecorrenciaCriadaId.HasValue) conta.VincularRecorrencia(regraRecorrenciaCriadaId.Value);
 
         await helper.SincronizarRateiosContaAsync(conta, cancellationToken);

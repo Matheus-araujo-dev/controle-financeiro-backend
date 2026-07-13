@@ -35,6 +35,15 @@ public sealed class ExceptionHandlingMiddleware(
                 exception.Message,
                 new Dictionary<string, string[]>());
         }
+        catch (FaturaIndisponivelException exception)
+        {
+            await WriteErrorAsync(
+                context,
+                StatusCodes.Status422UnprocessableEntity,
+                "FATURA_INDISPONIVEL",
+                exception.Message,
+                new Dictionary<string, string[]>());
+        }
         catch (ApplicationValidationException exception)
         {
             await WriteErrorAsync(

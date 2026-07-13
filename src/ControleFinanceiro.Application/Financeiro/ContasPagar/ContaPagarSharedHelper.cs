@@ -35,7 +35,8 @@ public sealed class ContaPagarSharedHelper(
         int quantidadeParcelas,
         IReadOnlyCollection<RateioRequest> rateios,
         CancellationToken cancellationToken,
-        DateOnly? dataCompra = null)
+        DateOnly? dataCompra = null,
+        bool forcarProximaFatura = false)
     {
         var recebedor = await dbContext.Pessoas.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == recebedorId, cancellationToken)
@@ -98,13 +99,13 @@ public sealed class ContaPagarSharedHelper(
                 .Select(x => (StatusFaturaCartao?)x.Status)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (statusFaturaExistente == StatusFaturaCartao.Paga)
-                throw validationFactory.Create("DataCompra", "Já existe fatura paga para a competência desta compra em cartão.");
-
             DateOnly? dataVencimentoEfetivo = null;
-            if (statusFaturaExistente == StatusFaturaCartao.Fechada)
+            if (statusFaturaExistente == StatusFaturaCartao.Paga || statusFaturaExistente == StatusFaturaCartao.Fechada)
             {
-                // Fatura fechada antecipadamente pelo banco: redireciona para a competência seguinte
+                if (!forcarProximaFatura)
+                    throw new FaturaIndisponivelException(competencia.Competencia, statusFaturaExistente == StatusFaturaCartao.Paga);
+
+                // Usuário confirmou: redirecionar para a competência seguinte
                 var proximaCompetencia = FaturaCartaoCompetencia.Calcular(
                     competencia.DataFechamento.AddDays(1), cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
                 dataVencimentoEfetivo = proximaCompetencia.DataVencimento;

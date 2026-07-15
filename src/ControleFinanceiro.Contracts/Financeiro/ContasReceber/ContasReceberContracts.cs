@@ -57,7 +57,8 @@ public sealed record CriarContaReceberRequest(
     string Descricao,
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
-    RecorrenciaConfigRequest? Recorrencia);
+    RecorrenciaConfigRequest? Recorrencia,
+    Guid? ContaVinculadaOrigemId = null);
 
 public sealed record AtualizarContaReceberRequest(
     Guid Id,

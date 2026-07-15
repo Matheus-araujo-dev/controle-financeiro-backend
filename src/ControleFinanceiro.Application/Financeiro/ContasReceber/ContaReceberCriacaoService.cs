@@ -1,6 +1,8 @@
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Application.Common.Validation;
 using ControleFinanceiro.Contracts.Financeiro.ContasReceber;
 using ControleFinanceiro.Domain.Financeiro;
+using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Financeiro.ContasReceber;
 
@@ -61,7 +63,28 @@ public sealed class ContaReceberCriacaoService(
         if (regra is not null)
             await recorrenciaService.GerarPorRegraAsync(regra, HorizonteSeisMeses(), cancellationToken);
 
-        return await queryService.ObterPorIdAsync(contas.First().Id, cancellationToken)
+        var primeiraConta = contas.First();
+
+        if (request.ContaVinculadaOrigemId.HasValue)
+            await VincularContaPagarOrigemAsync(primeiraConta, request.ContaVinculadaOrigemId.Value, cancellationToken);
+
+        return await queryService.ObterPorIdAsync(primeiraConta.Id, cancellationToken)
             ?? throw new InvalidOperationException("Falha ao mapear conta criada.");
+    }
+
+    private async Task VincularContaPagarOrigemAsync(
+        ContaReceber novaConta,
+        Guid contaPagarOrigemId,
+        CancellationToken cancellationToken)
+    {
+        var contaPagar = await dbContext.ContasPagar
+            .SingleOrDefaultAsync(x => x.Id == contaPagarOrigemId, cancellationToken)
+            ?? throw ValidationExceptionFactory.Create(
+                "ContaVinculadaOrigemId",
+                "Conta a pagar de origem não encontrada.");
+
+        novaConta.VincularContaContraria(contaPagar.Id, TipoContaVinculada.Pagar);
+        contaPagar.VincularContaContraria(novaConta.Id, TipoContaVinculada.Receber);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

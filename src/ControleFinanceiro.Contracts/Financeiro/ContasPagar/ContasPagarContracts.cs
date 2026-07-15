@@ -79,7 +79,8 @@ public sealed record CriarContaPagarRequest(
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia,
     DateOnly? DataCompra = null,
-    bool ForcarProximaFatura = false);
+    bool ForcarProximaFatura = false,
+    Guid? ContaVinculadaOrigemId = null);
 
 public sealed record AtualizarContaPagarRequest(
     Guid Id,
@@ -198,4 +199,5 @@ public sealed record ContaPagarDetalheResponse(
     string? StatusFaturaCartao,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    ContaVinculadaResumo? ContaVinculada = null);

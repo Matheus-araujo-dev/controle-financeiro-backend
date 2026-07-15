@@ -393,6 +393,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         var regra = conta.RegraRecorrenciaId.HasValue
             ? await dbContext.RegrasRecorrencia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken)
             : null;
+        var contaVinculada = await ObterContaVinculadaAsync(conta.ContaVinculadaId, conta.TipoContaVinculada, cancellationToken);
 
         if (rateios is null)
         {
@@ -467,7 +468,50 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             },
             rateios,
             conta.CreatedAtUtc,
-            conta.UpdatedAtUtc);
+            conta.UpdatedAtUtc,
+            contaVinculada);
+    }
+
+    private async Task<ContaVinculadaResumo?> ObterContaVinculadaAsync(
+        Guid? contaVinculadaId,
+        Domain.Financeiro.TipoContaVinculada? tipoContaVinculada,
+        CancellationToken cancellationToken)
+    {
+        if (!contaVinculadaId.HasValue || !tipoContaVinculada.HasValue)
+        {
+            return null;
+        }
+
+        if (tipoContaVinculada == Domain.Financeiro.TipoContaVinculada.Receber)
+        {
+            return await (
+                from cr in dbContext.ContasReceber.AsNoTracking()
+                join s in dbContext.StatusContas.AsNoTracking() on cr.StatusContaId equals s.Id
+                where cr.Id == contaVinculadaId.Value
+                select new ContaVinculadaResumo(
+                    cr.Id,
+                    Contracts.Financeiro.Common.TipoContaVinculada.Receber,
+                    cr.Descricao,
+                    cr.ValorLiquido,
+                    s.Codigo,
+                    s.Nome,
+                    cr.DataVencimento))
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return await (
+            from cp in dbContext.ContasPagar.AsNoTracking()
+            join s in dbContext.StatusContas.AsNoTracking() on cp.StatusContaId equals s.Id
+            where cp.Id == contaVinculadaId.Value
+            select new ContaVinculadaResumo(
+                cp.Id,
+                Contracts.Financeiro.Common.TipoContaVinculada.Pagar,
+                cp.Descricao,
+                cp.ValorLiquido,
+                s.Codigo,
+                s.Nome,
+                cp.DataVencimento))
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     private static LancamentoOrigem MapearOrigem(OrigemLancamento origem)

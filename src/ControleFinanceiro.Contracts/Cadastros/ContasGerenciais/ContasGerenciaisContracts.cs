@@ -36,7 +36,8 @@ public sealed record CriarContaGerencialRequest(
     Guid? ContaPaiId,
     Guid? ResponsavelPadraoId,
     bool Ativo,
-    bool EhPadraoRecebimentoFaturaCartao);
+    bool EhPadraoRecebimentoFaturaCartao,
+    Guid? ContaGerencialContrariaId = null);
 
 public sealed record AtualizarContaGerencialRequest(
     string? Codigo,
@@ -45,7 +46,8 @@ public sealed record AtualizarContaGerencialRequest(
     Guid? ContaPaiId,
     Guid? ResponsavelPadraoId,
     bool Ativo,
-    bool EhPadraoRecebimentoFaturaCartao);
+    bool EhPadraoRecebimentoFaturaCartao,
+    Guid? ContaGerencialContrariaId = null);
 
 public sealed record ContaGerencialResumoResponse(
     Guid Id,
@@ -58,7 +60,9 @@ public sealed record ContaGerencialResumoResponse(
     string? ResponsavelPadraoNome,
     bool Ativo,
     bool AceitaLancamentos,
-    bool EhPadraoRecebimentoFaturaCartao);
+    bool EhPadraoRecebimentoFaturaCartao,
+    Guid? ContaGerencialContrariaId = null,
+    string? ContaGerencialContrariaNome = null);
 
 public sealed record ContaGerencialDetalheResponse(
     Guid Id,
@@ -73,6 +77,8 @@ public sealed record ContaGerencialDetalheResponse(
     bool AceitaLancamentos,
     bool EhPadraoRecebimentoFaturaCartao,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    Guid? ContaGerencialContrariaId = null,
+    string? ContaGerencialContrariaNome = null);
 
 public sealed record SeedPlanoInicialResponse(int ContasCriadas);

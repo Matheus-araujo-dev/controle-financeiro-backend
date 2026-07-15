@@ -247,6 +247,7 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
         var regra = conta.RegraRecorrenciaId.HasValue
             ? await dbContext.RegrasRecorrencia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken)
             : null;
+        var contaVinculada = await ObterContaVinculadaAsync(conta.ContaVinculadaId, conta.TipoContaVinculada, cancellationToken);
 
         var rateios = await (
             from rateio in dbContext.RateiosContaGerencial.AsNoTracking()
@@ -280,7 +281,49 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
             conta.EhRecorrente,
             ContaReceberSharedHelper.MapearOrigem(conta.Origem),
             ContaReceberSharedHelper.MapearRecorrencia(regra),
-            rateios, conta.CreatedAtUtc, conta.UpdatedAtUtc);
+            rateios, conta.CreatedAtUtc, conta.UpdatedAtUtc, contaVinculada);
+    }
+
+    private async Task<ContaVinculadaResumo?> ObterContaVinculadaAsync(
+        Guid? contaVinculadaId,
+        Domain.Financeiro.TipoContaVinculada? tipoContaVinculada,
+        CancellationToken cancellationToken)
+    {
+        if (!contaVinculadaId.HasValue || !tipoContaVinculada.HasValue)
+        {
+            return null;
+        }
+
+        if (tipoContaVinculada == Domain.Financeiro.TipoContaVinculada.Pagar)
+        {
+            return await (
+                from cp in dbContext.ContasPagar.AsNoTracking()
+                join s in dbContext.StatusContas.AsNoTracking() on cp.StatusContaId equals s.Id
+                where cp.Id == contaVinculadaId.Value
+                select new ContaVinculadaResumo(
+                    cp.Id,
+                    Contracts.Financeiro.Common.TipoContaVinculada.Pagar,
+                    cp.Descricao,
+                    cp.ValorLiquido,
+                    s.Codigo,
+                    s.Nome,
+                    cp.DataVencimento))
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return await (
+            from cr in dbContext.ContasReceber.AsNoTracking()
+            join s in dbContext.StatusContas.AsNoTracking() on cr.StatusContaId equals s.Id
+            where cr.Id == contaVinculadaId.Value
+            select new ContaVinculadaResumo(
+                cr.Id,
+                Contracts.Financeiro.Common.TipoContaVinculada.Receber,
+                cr.Descricao,
+                cr.ValorLiquido,
+                s.Codigo,
+                s.Nome,
+                cr.DataVencimento))
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     private static Guid[] NormalizarIds(Guid? idSingular, IReadOnlyCollection<Guid>? ids)

@@ -198,4 +198,5 @@ public sealed record ContaPagarDetalheResponse(
     string? StatusFaturaCartao,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    ContaVinculadaResumo? ContaVinculada = null);

@@ -110,5 +110,11 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
             .WithMany()
             .HasForeignKey(x => x.FaturaCartaoId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.TipoContaVinculada)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.HasIndex(x => x.ContaVinculadaId);
     }
 }

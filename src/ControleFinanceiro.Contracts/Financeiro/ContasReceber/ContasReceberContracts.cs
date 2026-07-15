@@ -165,4 +165,5 @@ public sealed record ContaReceberDetalheResponse(
     RecorrenciaResponse? Recorrencia,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    ContaVinculadaResumo? ContaVinculada = null);

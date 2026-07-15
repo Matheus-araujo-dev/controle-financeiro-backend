@@ -166,6 +166,14 @@ public sealed class ContaGerencialAppService(
         var responsaveisPadrao = await dbContext.Pessoas.AsNoTracking()
             .Where(x => responsaveisPadraoIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Nome, cancellationToken);
+        var contasContrariaIds = entidades
+            .Where(x => x.ContaGerencialContrariaId.HasValue)
+            .Select(x => x.ContaGerencialContrariaId!.Value)
+            .Distinct()
+            .ToArray();
+        var contasContrarias = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => contasContrariaIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Descricao, cancellationToken);
         var contasComFilhosSet = contasComFilhos.ToHashSet();
         var items = entidades
             .Select(x => new ContaGerencialResumoResponse(
@@ -183,7 +191,11 @@ public sealed class ContaGerencialAppService(
                     : null,
                 x.Ativo,
                 !contasComFilhosSet.Contains(x.Id),
-                x.EhPadraoRecebimentoFaturaCartao))
+                x.EhPadraoRecebimentoFaturaCartao,
+                x.ContaGerencialContrariaId,
+                x.ContaGerencialContrariaId.HasValue && contasContrarias.TryGetValue(x.ContaGerencialContrariaId.Value, out var contaContrariaNome)
+                    ? contaContrariaNome
+                    : null))
             .ToArray();
 
         return PagedResult<ContaGerencialResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -214,6 +226,12 @@ public sealed class ContaGerencialAppService(
             : null;
         var aceitaLancamentos = !await dbContext.ContasGerenciais.AsNoTracking()
             .AnyAsync(x => x.ContaPaiId == conta.Id, cancellationToken);
+        var contaContrariaNome = conta.ContaGerencialContrariaId.HasValue
+            ? await dbContext.ContasGerenciais.AsNoTracking()
+                .Where(x => x.Id == conta.ContaGerencialContrariaId.Value)
+                .Select(x => x.Descricao)
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
 
         return new ContaGerencialDetalheResponse(
             conta.Id,
@@ -228,7 +246,9 @@ public sealed class ContaGerencialAppService(
             aceitaLancamentos,
             conta.EhPadraoRecebimentoFaturaCartao,
             conta.CreatedAtUtc,
-            conta.UpdatedAtUtc);
+            conta.UpdatedAtUtc,
+            conta.ContaGerencialContrariaId,
+            contaContrariaNome);
     }
 
     public async Task<ContaGerencialDetalheResponse> CriarAsync(
@@ -239,6 +259,7 @@ public sealed class ContaGerencialAppService(
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(null, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
         await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        await ValidarContaContrariaAsync(null, request.ContaGerencialContrariaId, MapearTipo(tipoEfetivo), cancellationToken);
         var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken);
 
         ContaGerencial conta;
@@ -252,7 +273,8 @@ public sealed class ContaGerencialAppService(
                 request.ContaPaiId,
                 request.ResponsavelPadraoId,
                 request.Ativo,
-                request.EhPadraoRecebimentoFaturaCartao);
+                request.EhPadraoRecebimentoFaturaCartao,
+                request.ContaGerencialContrariaId);
         }
         catch (ArgumentException exception)
         {
@@ -282,6 +304,7 @@ public sealed class ContaGerencialAppService(
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(id, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
         await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        await ValidarContaContrariaAsync(id, request.ContaGerencialContrariaId, MapearTipo(tipoEfetivo), cancellationToken);
         var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken, id);
 
         try
@@ -293,7 +316,8 @@ public sealed class ContaGerencialAppService(
                 request.ContaPaiId,
                 request.ResponsavelPadraoId,
                 request.Ativo,
-                request.EhPadraoRecebimentoFaturaCartao);
+                request.EhPadraoRecebimentoFaturaCartao,
+                request.ContaGerencialContrariaId);
         }
         catch (ArgumentException exception)
         {
@@ -455,6 +479,45 @@ public sealed class ContaGerencialAppService(
         }
     }
 
+    private async Task ValidarContaContrariaAsync(
+        Guid? contaId,
+        Guid? contaContrariaId,
+        TipoContaGerencial tipoAtual,
+        CancellationToken cancellationToken)
+    {
+        if (!contaContrariaId.HasValue)
+        {
+            return;
+        }
+
+        if (contaId.HasValue && contaContrariaId.Value == contaId.Value)
+        {
+            throw ValidationExceptionFactory.Create("ContaGerencialContrariaId", "Conta contrária não pode ser a própria conta.");
+        }
+
+        var contaContraria = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.Id == contaContrariaId.Value)
+            .Select(x => new { x.Tipo })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (contaContraria is null)
+        {
+            throw ValidationExceptionFactory.Create("ContaGerencialContrariaId", "Conta gerencial contrária não encontrada.");
+        }
+
+        var tipoEsperado = tipoAtual == TipoContaGerencial.Despesa
+            ? TipoContaGerencial.Receita
+            : TipoContaGerencial.Despesa;
+
+        if (contaContraria.Tipo != tipoEsperado)
+        {
+            var tipoEsperadoNome = tipoEsperado == TipoContaGerencial.Receita ? "Receita" : "Despesa";
+            throw ValidationExceptionFactory.Create(
+                "ContaGerencialContrariaId",
+                $"A conta contrária deve ser do tipo {tipoEsperadoNome}.");
+        }
+    }
+
     private async Task ValidarResponsavelPadraoAsync(Guid? responsavelPadraoId, CancellationToken cancellationToken)
     {
         if (!responsavelPadraoId.HasValue)
@@ -479,6 +542,7 @@ public sealed class ContaGerencialAppService(
             "contaPaiId" => "ContaPaiId",
             "ehPadraoRecebimentoFaturaCartao" => "EhPadraoRecebimentoFaturaCartao",
             "responsavelPadraoId" => "ResponsavelPadraoId",
+            "contaGerencialContrariaId" => "ContaGerencialContrariaId",
             _ => "Request"
         };
 

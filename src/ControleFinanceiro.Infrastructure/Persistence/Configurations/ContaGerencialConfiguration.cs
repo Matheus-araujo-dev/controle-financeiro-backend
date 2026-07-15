@@ -40,6 +40,13 @@ public sealed class ContaGerencialConfiguration : IEntityTypeConfiguration<Conta
             .HasForeignKey(x => x.ContaPaiId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasIndex(x => x.ContaGerencialContrariaId);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialContrariaId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasOne<Pessoa>()
             .WithMany()
             .HasForeignKey(x => x.ResponsavelPadraoId)

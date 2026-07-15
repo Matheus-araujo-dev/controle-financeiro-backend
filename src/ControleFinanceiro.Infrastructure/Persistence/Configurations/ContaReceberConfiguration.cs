@@ -79,5 +79,11 @@ public sealed class ContaReceberConfiguration : IEntityTypeConfiguration<ContaRe
             .WithMany()
             .HasForeignKey(x => x.RegraRecorrenciaId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.TipoContaVinculada)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.HasIndex(x => x.ContaVinculadaId);
     }
 }

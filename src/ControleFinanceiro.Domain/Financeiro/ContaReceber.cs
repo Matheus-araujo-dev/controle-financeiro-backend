@@ -57,6 +57,10 @@ public sealed class ContaReceber : TenantEntity
 
     public OrigemLancamento Origem { get; private set; }
 
+    public Guid? ContaVinculadaId { get; private set; }
+
+    public TipoContaVinculada? TipoContaVinculada { get; private set; }
+
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
     public static ContaReceber Criar(
@@ -412,6 +416,23 @@ public sealed class ContaReceber : TenantEntity
         {
             throw new ArgumentException("Valor líquido deve ser maior que zero.", nameof(valorOriginal));
         }
+    }
+
+    public void VincularContaContraria(Guid contaVinculadaId, TipoContaVinculada tipo)
+    {
+        if (contaVinculadaId == Guid.Empty)
+        {
+            throw new ArgumentException("Conta vinculada é obrigatória.", nameof(contaVinculadaId));
+        }
+
+        ContaVinculadaId = contaVinculadaId;
+        TipoContaVinculada = tipo;
+    }
+
+    public void DesvincularContaContraria()
+    {
+        ContaVinculadaId = null;
+        TipoContaVinculada = null;
     }
 
     private void SubstituirRateios(IReadOnlyCollection<RateioPlano> rateios)

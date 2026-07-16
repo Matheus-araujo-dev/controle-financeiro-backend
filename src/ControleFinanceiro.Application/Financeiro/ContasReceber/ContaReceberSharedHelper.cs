@@ -317,6 +317,10 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
         ContaReceberRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento)
     {
         var monthOffset = RecorrenciaDateHelper.CalculateMonthOffset(template.DataVencimento, dataVencimento);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var statusInicial = dataVencimento.Year > hoje.Year || (dataVencimento.Year == hoje.Year && dataVencimento.Month > hoje.Month)
+            ? StatusConta.FuturoId
+            : StatusConta.PendenteId;
         return ContaReceber.Criar(
             template.NumeroDocumento,
             RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
@@ -324,7 +328,7 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
             template.FormaPagamentoId, template.CartaoId, template.ContaBancariaId,
             template.ValorOriginal, template.ValorDesconto, template.ValorJuros, template.ValorMulta,
             1, 1, null, template.Descricao, template.Observacao,
-            StatusConta.PendenteId, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
+            statusInicial, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
             template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray());
     }
 

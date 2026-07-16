@@ -123,13 +123,12 @@ public sealed class ContaPagarSharedHelper(
             throw validationFactory.Create("CartaoId", "Cartão informado para uma forma de pagamento que não é cartão.");
         }
 
-        if (formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao && !contaBancariaId.HasValue)
-            throw validationFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para baixa automática.");
+        var liquidarNaCriacao = !formaPagamento.EhCartao && (formaPagamento.BaixarAutomaticamente || dataLiquidacao.HasValue);
 
-        if (!formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao && dataLiquidacao.HasValue)
-            throw validationFactory.Create("DataLiquidacao", "Data de liquidação só pode ser informada com baixa automática.");
+        if (liquidarNaCriacao && !contaBancariaId.HasValue)
+            throw validationFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para liquidação.");
 
-        return new ContaPagarValidationContext(formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao, formaPagamento.EhCartao, cartao,
+        return new ContaPagarValidationContext(liquidarNaCriacao, formaPagamento.EhCartao, cartao,
             formaPagamento.EhCartao ? (dataCompra ?? dataLiquidacao ?? dataEmissao) : null);
     }
 

@@ -65,13 +65,12 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
             "Contas a receber aceitam apenas contas gerenciais de receita.",
             cancellationToken);
 
-        if (!formaPagamento.BaixarAutomaticamente && dataLiquidacao.HasValue)
-            throw ValidationExceptionFactory.Create("DataLiquidacao", "Data de liquidação só pode ser informada com baixa automática.");
+        var liquidarNaCriacao = formaPagamento.BaixarAutomaticamente || dataLiquidacao.HasValue;
 
-        if (formaPagamento.BaixarAutomaticamente && !contaBancariaId.HasValue)
-            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para baixa automática.");
+        if (liquidarNaCriacao && !contaBancariaId.HasValue)
+            throw ValidationExceptionFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para liquidação.");
 
-        return formaPagamento.BaixarAutomaticamente;
+        return liquidarNaCriacao;
     }
 
     internal async Task<RegraRecorrencia> ObterRegraRecorrenciaObrigatoriaAsync(

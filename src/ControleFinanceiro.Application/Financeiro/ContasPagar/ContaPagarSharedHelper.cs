@@ -297,6 +297,10 @@ public sealed class ContaPagarSharedHelper(
     internal static ContaPagar CriarOcorrenciaRecorrente(ContaPagarRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento)
     {
         var monthOffset = RecorrenciaDateHelper.CalculateMonthOffset(template.DataVencimento, dataVencimento);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var statusInicial = dataVencimento.Year > hoje.Year || (dataVencimento.Year == hoje.Year && dataVencimento.Month > hoje.Month)
+            ? StatusConta.FuturoId
+            : StatusConta.PendenteId;
         return ContaPagar.Criar(
             template.NumeroDocumento,
             RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
@@ -304,7 +308,7 @@ public sealed class ContaPagarSharedHelper(
             template.FormaPagamentoId, template.CartaoId, template.ContaBancariaId,
             template.ValorOriginal, template.ValorDesconto, template.ValorJuros, template.ValorMulta,
             1, 1, null, null, template.Descricao, template.Observacao,
-            StatusConta.PendenteId, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
+            statusInicial, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
             template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray());
     }
 

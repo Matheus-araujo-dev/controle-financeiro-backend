@@ -15,12 +15,16 @@ public sealed class PlanoAppService(IAppDbContext dbContext)
         if (!await dbContext.ContasBancarias.AnyAsync(x => x.Id == request.ContaBancariaCaixaId, cancellationToken))
             throw ValidationExceptionFactory.Create("ContaBancariaCaixaId", "Conta bancária não encontrada.");
 
+        await ValidarFksContaPagarAsync(request.FormaPagamentoId, request.RecebedorId, request.ContaGerencialId, cancellationToken);
+
         var plano = Plano.Criar(
             request.Nome,
             request.Descricao,
             request.ValorMensal,
             request.NumParcelas,
             request.ContaBancariaCaixaId);
+
+        plano.ConfigurarContaPagar(request.FormaPagamentoId, request.RecebedorId, request.ContaGerencialId);
 
         dbContext.Planos.Add(plano);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -39,7 +43,10 @@ public sealed class PlanoAppService(IAppDbContext dbContext)
 
         if (plano is null) return null;
 
+        await ValidarFksContaPagarAsync(request.FormaPagamentoId, request.RecebedorId, request.ContaGerencialId, cancellationToken);
+
         plano.Atualizar(request.Nome, request.Descricao, request.ValorMensal, request.NumParcelas);
+        plano.ConfigurarContaPagar(request.FormaPagamentoId, request.RecebedorId, request.ContaGerencialId);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await ProjetarAsync(id, cancellationToken);
@@ -103,6 +110,41 @@ public sealed class PlanoAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("Id", "Plano já está concluído.");
 
         plano.AdiantarParcela();
+
+        if (plano.FormaPagamentoId.HasValue && plano.RecebedorId.HasValue && plano.ContaGerencialId.HasValue)
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+            var descricao = $"{plano.Nome} - Parcela {plano.ParcelasPagas}/{plano.NumParcelas}";
+            var rateio = RateioPlano.Create(plano.ContaGerencialId.Value, plano.ValorMensal);
+            var conta = ContaPagar.Criar(
+                numeroDocumento: null,
+                dataEmissao: hoje,
+                responsavelCompraId: null,
+                recebedorId: plano.RecebedorId.Value,
+                dataVencimento: hoje,
+                formaPagamentoId: plano.FormaPagamentoId.Value,
+                cartaoId: null,
+                contaBancariaId: null,
+                valorOriginal: plano.ValorMensal,
+                valorDesconto: 0,
+                valorJuros: 0,
+                valorMulta: 0,
+                quantidadeParcelas: 1,
+                numeroParcela: 1,
+                grupoParcelamentoId: null,
+                origemCompraPlanejadaId: null,
+                descricao: descricao,
+                observacao: null,
+                statusContaId: StatusConta.PendenteId,
+                ehRecorrente: false,
+                regraRecorrenciaId: null,
+                origem: OrigemLancamento.Plano,
+                rateios: [rateio]);
+            conta.AtribuirFamilia(plano.FamiliaId);
+            dbContext.ContasPagar.Add(conta);
+            dbContext.RateiosContaGerencial.AddRange(conta.Rateios);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await ProjetarAsync(id, cancellationToken);
@@ -162,6 +204,9 @@ public sealed class PlanoAppService(IAppDbContext dbContext)
                     p.NumParcelas,
                     p.ContaBancariaCaixaId,
                     c.Nome,
+                    p.FormaPagamentoId,
+                    p.RecebedorId,
+                    p.ContaGerencialId,
                     p.ParcelasPagas,
                     p.TotalRetirado,
                     p.ValorMensal * p.NumParcelas,
@@ -170,5 +215,21 @@ public sealed class PlanoAppService(IAppDbContext dbContext)
                     p.Cancelado,
                     p.CreatedAtUtc))
             .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task ValidarFksContaPagarAsync(
+        Guid? formaPagamentoId,
+        Guid? recebedorId,
+        Guid? contaGerencialId,
+        CancellationToken cancellationToken)
+    {
+        if (formaPagamentoId.HasValue && !await dbContext.FormasPagamento.AnyAsync(x => x.Id == formaPagamentoId.Value, cancellationToken))
+            throw ValidationExceptionFactory.Create("FormaPagamentoId", "Forma de pagamento não encontrada.");
+
+        if (recebedorId.HasValue && !await dbContext.Pessoas.AnyAsync(x => x.Id == recebedorId.Value, cancellationToken))
+            throw ValidationExceptionFactory.Create("RecebedorId", "Recebedor não encontrado.");
+
+        if (contaGerencialId.HasValue && !await dbContext.ContasGerenciais.AnyAsync(x => x.Id == contaGerencialId.Value, cancellationToken))
+            throw ValidationExceptionFactory.Create("ContaGerencialId", "Conta gerencial não encontrada.");
     }
 }

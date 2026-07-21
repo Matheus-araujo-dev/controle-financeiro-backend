@@ -1,4 +1,7 @@
 using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
+using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
+using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
+using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -38,6 +41,24 @@ public sealed class PlanoConfiguration : IEntityTypeConfiguration<Plano>
         builder.HasOne<ContaBancaria>()
             .WithMany()
             .HasForeignKey(x => x.ContaBancariaCaixaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<FormaPagamento>()
+            .WithMany()
+            .HasForeignKey(x => x.FormaPagamentoId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Pessoa>()
+            .WithMany()
+            .HasForeignKey(x => x.RecebedorId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

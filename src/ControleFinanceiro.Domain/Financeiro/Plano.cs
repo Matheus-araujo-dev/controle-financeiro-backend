@@ -18,6 +18,12 @@ public sealed class Plano : TenantEntity
 
     public Guid ContaBancariaCaixaId { get; private set; }
 
+    public Guid? FormaPagamentoId { get; private set; }
+
+    public Guid? RecebedorId { get; private set; }
+
+    public Guid? ContaGerencialId { get; private set; }
+
     public int ParcelasPagas { get; private set; }
 
     public decimal TotalRetirado { get; private set; }
@@ -57,6 +63,13 @@ public sealed class Plano : TenantEntity
             NumParcelas = numParcelas,
             ContaBancariaCaixaId = contaBancariaCaixaId
         };
+    }
+
+    public void ConfigurarContaPagar(Guid? formaPagamentoId, Guid? recebedorId, Guid? contaGerencialId)
+    {
+        FormaPagamentoId = formaPagamentoId;
+        RecebedorId = recebedorId;
+        ContaGerencialId = contaGerencialId;
     }
 
     public void Atualizar(string nome, string? descricao, decimal valorMensal, int numParcelas)

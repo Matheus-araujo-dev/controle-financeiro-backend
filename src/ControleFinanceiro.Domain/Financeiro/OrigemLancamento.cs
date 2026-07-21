@@ -5,5 +5,6 @@ public enum OrigemLancamento
     Manual = 1,
     Recorrencia = 2,
     Importacao = 3,
-    AgenteIA = 4
+    AgenteIA = 4,
+    Plano = 5
 }

@@ -51,24 +51,17 @@ public static class QueryableExtensions
             return query;
         }
 
-        if (valueList.Count <= LargeListThreshold)
-        {
-            var constant = Expression.Constant(valueList, typeof(List<TKey>));
-            var contains = Expression.Call(
-                typeof(Enumerable),
-                "Contains",
-                [typeof(TKey)],
-                constant,
-                keySelector.Body);
-            var lambda = Expression.Lambda<Func<T, bool>>(contains, keySelector.Parameters);
-            return query.Where(lambda);
-        }
-
-        var idsQuery = valueList.AsQueryable();
-        return query.Join(
-            idsQuery,
-            keySelector,
-            id => id,
-            (entity, _) => entity);
+        var constant = Expression.Constant(valueList, typeof(List<TKey>));
+        var bodyAsNonNullable = Expression.Convert(keySelector.Body, typeof(TKey));
+        var contains = Expression.Call(
+            typeof(Enumerable),
+            "Contains",
+            [typeof(TKey)],
+            constant,
+            bodyAsNonNullable);
+        var nullCheck = Expression.NotEqual(keySelector.Body, Expression.Constant(null, typeof(TKey?)));
+        var combined = Expression.AndAlso(nullCheck, contains);
+        var lambda = Expression.Lambda<Func<T, bool>>(combined, keySelector.Parameters);
+        return query.Where(lambda);
     }
 }

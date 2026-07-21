@@ -5,13 +5,19 @@ public record CriarPlanoRequest(
     string? Descricao,
     decimal ValorMensal,
     int NumParcelas,
-    Guid ContaBancariaCaixaId);
+    Guid ContaBancariaCaixaId,
+    Guid? FormaPagamentoId = null,
+    Guid? RecebedorId = null,
+    Guid? ContaGerencialId = null);
 
 public record AtualizarPlanoRequest(
     string Nome,
     string? Descricao,
     decimal ValorMensal,
-    int NumParcelas);
+    int NumParcelas,
+    Guid? FormaPagamentoId = null,
+    Guid? RecebedorId = null,
+    Guid? ContaGerencialId = null);
 
 public record RetirarDinheiroRequest(decimal Valor);
 
@@ -23,6 +29,9 @@ public record PlanoResumoResponse(
     int NumParcelas,
     Guid ContaBancariaCaixaId,
     string ContaBancariaNome,
+    Guid? FormaPagamentoId,
+    Guid? RecebedorId,
+    Guid? ContaGerencialId,
     int ParcelasPagas,
     decimal TotalRetirado,
     decimal ValorTotal,

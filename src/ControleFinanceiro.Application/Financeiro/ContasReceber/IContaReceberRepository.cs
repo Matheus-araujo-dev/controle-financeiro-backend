@@ -5,7 +5,6 @@ namespace ControleFinanceiro.Application.Financeiro.ContasReceber;
 
 public interface IContaReceberRepository : IRepository<ContaReceber>
 {
-    Task<ContaReceber?> GetByIdWithRateiosAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ContaReceber>> ListByStatusAsync(Guid statusId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ContaReceber>> ListByPagadorAsync(Guid pagadorId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ContaReceber>> ListByGrupoParcelamentoAsync(Guid grupoParcelamentoId, CancellationToken cancellationToken = default);

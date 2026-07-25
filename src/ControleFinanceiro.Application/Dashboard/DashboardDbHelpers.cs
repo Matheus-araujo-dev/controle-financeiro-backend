@@ -28,15 +28,14 @@ public sealed class DashboardDbHelpers(
         var saldoInicialContas = await contasQuery
             .SumAsync(c => (decimal?)c.SaldoInicial, cancellationToken) ?? 0m;
 
-        var movQuery = dbContext.MovimentacoesFinanceiras
-            .AsNoTracking()
-            .Where(m =>
-                m.Natureza == NaturezaMovimentacao.Realizada &&
-                m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId &&
-                m.DataMovimentacao <= dataLimite);
-
-        if (contaBancariaIds is { Count: > 0 })
-            movQuery = movQuery.Where(m => m.ContaBancariaId != null && contaBancariaIds.Contains(m.ContaBancariaId.Value));
+        var movQuery =
+            from m in dbContext.MovimentacoesFinanceiras.AsNoTracking()
+            join c in contasQuery on m.ContaBancariaId equals c.Id
+            where m.Natureza == NaturezaMovimentacao.Realizada
+               && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
+               && m.DataMovimentacao <= dataLimite
+               && m.DataMovimentacao >= c.DataSaldoInicial
+            select m;
 
         var movimentos = await movQuery
             .GroupBy(_ => 1)

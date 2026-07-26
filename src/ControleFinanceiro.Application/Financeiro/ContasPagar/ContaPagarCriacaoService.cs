@@ -25,11 +25,21 @@ public sealed class ContaPagarCriacaoService(
 
     public async Task<ContaPagarDetalheResponse> CriarAsync(CriarContaPagarRequest request, CancellationToken cancellationToken)
     {
+        var responsaveisIds = request.ResponsaveisAdicionaisIds?.Where(id => id != Guid.Empty).Distinct().ToArray();
+        if (responsaveisIds is { Length: >= 2 })
+            return await CriarComMultiplosResponsaveisAsync(request, responsaveisIds, cancellationToken);
+
+        return await CriarSimplexAsync(request, request.ResponsavelCompraId, cancellationToken);
+    }
+
+    private async Task<ContaPagarDetalheResponse> CriarSimplexAsync(
+        CriarContaPagarRequest request, Guid? responsavelId, CancellationToken cancellationToken)
+    {
         helper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
         var compraPlanejada = await helper.ObterCompraPlanejadaOrigemAsync(request.OrigemCompraPlanejadaId, cancellationToken);
 
         var contexto = await helper.ValidarCriacaoOuAtualizacaoAsync(
-            request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
+            request.DataEmissao, request.RecebedorId, responsavelId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
             request.DataCompra, request.ForcarProximaFatura);
@@ -44,7 +54,7 @@ public sealed class ContaPagarCriacaoService(
         var rateios = helper.ConverterRateios(request.Rateios);
         var contas = contexto.CompraCartao
             ? ContaPagar.CriarParcelasCartao(
-                request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
+                request.NumeroDocumento, request.DataEmissao, responsavelId,
                 request.RecebedorId, request.FormaPagamentoId, contexto.Cartao!.Id,
                 request.ValorOriginal, request.ValorDesconto, request.ValorJuros, request.ValorMulta,
                 request.QuantidadeParcelas, request.OrigemCompraPlanejadaId, request.Descricao,
@@ -53,7 +63,7 @@ public sealed class ContaPagarCriacaoService(
                 contexto.Cartao.DiaFechamentoFatura, contexto.Cartao.DiaVencimentoFatura,
                 contexto.DataCompraCartao, contexto.DataVencimentoEfetivo)
             : ContaPagar.CriarParcelas(
-                request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
+                request.NumeroDocumento, request.DataEmissao, responsavelId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -81,6 +91,76 @@ public sealed class ContaPagarCriacaoService(
             await VincularContaReceberOrigemAsync(primeiraConta, request.ContaVinculadaOrigemId.Value, cancellationToken);
 
         return await queryService.ObterPorIdAsync(primeiraConta.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Falha ao mapear conta criada.");
+    }
+
+    private async Task<ContaPagarDetalheResponse> CriarComMultiplosResponsaveisAsync(
+        CriarContaPagarRequest request, Guid[] responsaveisIds, CancellationToken cancellationToken)
+    {
+        helper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
+
+        // Validate base context with first responsável
+        var contexto = await helper.ValidarCriacaoOuAtualizacaoAsync(
+            request.DataEmissao, request.RecebedorId, responsaveisIds[0],
+            request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
+            request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
+            request.DataCompra, request.ForcarProximaFatura);
+
+        // Validate all other responsáveis
+        for (var i = 1; i < responsaveisIds.Length; i++)
+        {
+            var resp = await dbContext.Pessoas.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == responsaveisIds[i], cancellationToken)
+                ?? throw ValidationExceptionFactory.Create("ResponsaveisAdicionaisIds", $"Responsável {i + 1} não encontrado.");
+            if (!resp.EhResponsavel)
+                throw ValidationExceptionFactory.Create("ResponsaveisAdicionaisIds", $"A pessoa '{resp.Nome}' não está marcada como responsável.");
+        }
+
+        var grupoResponsaveisId = Guid.NewGuid();
+        var valoresPorResponsavel = ParcelamentoHelper.Distribuir(request.ValorOriginal, responsaveisIds.Length).ToArray();
+        var baseRateios = helper.ConverterRateios(request.Rateios);
+        var valorLiquidoBase = request.ValorOriginal - request.ValorDesconto + request.ValorJuros + request.ValorMulta;
+        var todasContas = new List<ContaPagar>();
+
+        for (var i = 0; i < responsaveisIds.Length; i++)
+        {
+            var responsavelId = responsaveisIds[i];
+            var valorResponsavel = valoresPorResponsavel[i];
+            var rateiosParcela = ParcelamentoHelper.DistribuirRateios(baseRateios, valorResponsavel, valorLiquidoBase > 0 ? valorLiquidoBase : request.ValorOriginal);
+
+            var contas = ContaPagar.CriarParcelas(
+                request.NumeroDocumento, request.DataEmissao, responsavelId,
+                request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
+                request.CartaoId, request.ContaBancariaId, valorResponsavel,
+                request.ValorDesconto / responsaveisIds.Length,
+                request.ValorJuros / responsaveisIds.Length,
+                request.ValorMulta / responsaveisIds.Length,
+                request.QuantidadeParcelas, request.OrigemCompraPlanejadaId, request.Descricao,
+                request.Observacao, StatusConta.PendenteId, false, null,
+                OrigemLancamento.Manual, rateiosParcela, DateOnly.FromDateTime(DateTime.Today));
+
+            foreach (var conta in contas)
+                conta.DefinirGrupoResponsaveis(grupoResponsaveisId);
+
+            todasContas.AddRange(contas);
+        }
+
+        dbContext.ContasPagar.AddRange(todasContas);
+        dbContext.RateiosContaGerencial.AddRange(todasContas.SelectMany(x => x.Rateios));
+
+        if (contexto.LiquidarNaCriacao)
+            dbContext.MovimentacoesFinanceiras.AddRange(
+                ContaPagarSharedHelper.AplicarLiquidacaoAutomatica(
+                    todasContas.Where(c => c.ResponsavelCompraId == responsaveisIds[0]).ToList(),
+                    request.DataLiquidacao, request.ContaBancariaId!.Value));
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var primeira = todasContas.First();
+        if (request.ContaVinculadaOrigemId.HasValue)
+            await VincularContaReceberOrigemAsync(primeira, request.ContaVinculadaOrigemId.Value, cancellationToken);
+
+        return await queryService.ObterPorIdAsync(primeira.Id, cancellationToken)
             ?? throw new InvalidOperationException("Falha ao mapear conta criada.");
     }
 

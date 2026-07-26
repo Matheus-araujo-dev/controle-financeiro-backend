@@ -1,6 +1,7 @@
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Contracts.Financeiro.Common;
+using ControleFinanceiro.Contracts.Financeiro.Reembolsos;
 
 namespace ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 
@@ -80,7 +81,9 @@ public sealed record CriarContaPagarRequest(
     RecorrenciaConfigRequest? Recorrencia,
     DateOnly? DataCompra = null,
     bool ForcarProximaFatura = false,
-    Guid? ContaVinculadaOrigemId = null);
+    Guid? ContaVinculadaOrigemId = null,
+    /// <summary>Quando informado com 2+ ids, cria uma conta por responsável com valor dividido igualmente.</summary>
+    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null);
 
 public sealed record AtualizarContaPagarRequest(
     Guid Id,
@@ -200,4 +203,8 @@ public sealed record ContaPagarDetalheResponse(
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
-    ContaVinculadaResumo? ContaVinculada = null);
+    ContaVinculadaResumo? ContaVinculada = null,
+    Guid? GrupoReembolsoId = null,
+    Guid? GrupoResponsaveisId = null,
+    GrupoReembolsoInfo? GrupoReembolso = null,
+    GrupoResponsaveisInfo? GrupoResponsaveis = null);

@@ -335,4 +335,26 @@ public sealed class ContaPagarTests
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("*Apenas contas liquidadas ou com pagamento parcial podem ser estornadas.*");
     }
+
+    [Fact]
+    public void DefinirGrupoReembolso_DeveDefinirPropriedade()
+    {
+        var conta = CriarContaSimples();
+        var grupoId = Guid.NewGuid();
+
+        conta.DefinirGrupoReembolso(grupoId);
+
+        conta.GrupoReembolsoId.Should().Be(grupoId);
+    }
+
+    [Fact]
+    public void DefinirGrupoResponsaveis_DeveDefinirPropriedade()
+    {
+        var conta = CriarContaSimples();
+        var grupoId = Guid.NewGuid();
+
+        conta.DefinirGrupoResponsaveis(grupoId);
+
+        conta.GrupoResponsaveisId.Should().Be(grupoId);
+    }
 }

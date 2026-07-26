@@ -76,6 +76,10 @@ public sealed class ContaPagar : TenantEntity
 
     public TipoContaVinculada? TipoContaVinculada { get; private set; }
 
+    public Guid? GrupoReembolsoId { get; private set; }
+
+    public Guid? GrupoResponsaveisId { get; private set; }
+
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
     public static ContaPagar Criar(
@@ -499,6 +503,16 @@ public sealed class ContaPagar : TenantEntity
         }
 
         StatusContaId = statusContaCanceladaId;
+    }
+
+    public void DefinirGrupoReembolso(Guid grupoReembolsoId)
+    {
+        GrupoReembolsoId = grupoReembolsoId;
+    }
+
+    public void DefinirGrupoResponsaveis(Guid grupoResponsaveisId)
+    {
+        GrupoResponsaveisId = grupoResponsaveisId;
     }
 
     public void VincularOrigemImportacao(Guid importacaoWhatsappId)

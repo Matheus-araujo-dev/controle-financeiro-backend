@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ControleFinanceiro.Domain.Financeiro.Events;
 using ControleFinanceiro.SharedKernel.Common;
 
@@ -5,6 +6,10 @@ namespace ControleFinanceiro.Domain.Financeiro;
 
 public sealed class ContaReceber : TenantEntity
 {
+    private static readonly Regex ParcelaDescricaoRegex = new(
+        @"(?<!\d)(?<atual>\d{1,2})\s*/\s*(?<total>\d{1,2})(?!\d)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private readonly List<RateioContaGerencial> _rateios = [];
 
     private ContaReceber()
@@ -191,6 +196,8 @@ public sealed class ContaReceber : TenantEntity
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
 
+            var descricaoParcela = AjustarDescricaoParcela(descricao, index + 1, quantidadeParcelas);
+
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissao,
@@ -207,7 +214,7 @@ public sealed class ContaReceber : TenantEntity
                 quantidadeParcelas,
                 index + 1,
                 grupoParcelamentoId,
-                descricao,
+                descricaoParcela,
                 observacao,
                 statusParaParcela,
                 ehRecorrente,
@@ -455,6 +462,15 @@ public sealed class ContaReceber : TenantEntity
         {
             throw new ArgumentException("A soma dos rateios deve fechar exatamente o valor líquido.", nameof(rateios));
         }
+    }
+
+    private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)
+    {
+        if (string.IsNullOrWhiteSpace(descricao))
+            return descricao;
+
+        var semMarcador = ParcelaDescricaoRegex.Replace(descricao, string.Empty).Trim();
+        return $"{semMarcador} {numeroParcela}/{quantidadeParcelas}";
     }
 
     private static decimal CalcularValorLiquido(decimal valorOriginal, decimal valorDesconto, decimal valorJuros, decimal valorMulta)

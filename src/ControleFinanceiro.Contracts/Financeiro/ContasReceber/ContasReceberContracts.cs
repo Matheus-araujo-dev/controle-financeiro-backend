@@ -1,6 +1,7 @@
 using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
+using ControleFinanceiro.Contracts.Financeiro.Reembolsos;
 
 namespace ControleFinanceiro.Contracts.Financeiro.ContasReceber;
 
@@ -58,7 +59,9 @@ public sealed record CriarContaReceberRequest(
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia,
-    Guid? ContaVinculadaOrigemId = null);
+    Guid? ContaVinculadaOrigemId = null,
+    /// <summary>Quando informado com 2+ ids, cria uma conta por pagador com valor dividido igualmente.</summary>
+    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null);
 
 public sealed record AtualizarContaReceberRequest(
     Guid Id,
@@ -167,4 +170,8 @@ public sealed record ContaReceberDetalheResponse(
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
-    ContaVinculadaResumo? ContaVinculada = null);
+    ContaVinculadaResumo? ContaVinculada = null,
+    Guid? GrupoReembolsoId = null,
+    Guid? GrupoResponsaveisId = null,
+    GrupoReembolsoInfo? GrupoReembolso = null,
+    GrupoResponsaveisInfo? GrupoResponsaveis = null);

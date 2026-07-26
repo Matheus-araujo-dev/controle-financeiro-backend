@@ -336,4 +336,26 @@ public sealed class ContaReceberTests
         parcelas[1].Descricao.Should().Be("Reembolso 2/3");
         parcelas[2].Descricao.Should().Be("Reembolso 3/3");
     }
+
+    [Fact]
+    public void DefinirGrupoReembolso_DeveDefinirPropriedade()
+    {
+        var conta = CriarConta();
+        var grupoId = Guid.NewGuid();
+
+        conta.DefinirGrupoReembolso(grupoId);
+
+        conta.GrupoReembolsoId.Should().Be(grupoId);
+    }
+
+    [Fact]
+    public void DefinirGrupoResponsaveis_DeveDefinirPropriedade()
+    {
+        var conta = CriarConta();
+        var grupoId = Guid.NewGuid();
+
+        conta.DefinirGrupoResponsaveis(grupoId);
+
+        conta.GrupoResponsaveisId.Should().Be(grupoId);
+    }
 }

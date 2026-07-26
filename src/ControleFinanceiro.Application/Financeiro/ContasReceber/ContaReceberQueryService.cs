@@ -5,6 +5,7 @@ using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 using ControleFinanceiro.Contracts.Financeiro.ContasReceber;
+using ControleFinanceiro.Contracts.Financeiro.Reembolsos;
 using ControleFinanceiro.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 
@@ -248,6 +249,8 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
             ? await dbContext.RegrasRecorrencia.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken)
             : null;
         var contaVinculada = await ObterContaVinculadaAsync(conta.ContaVinculadaId, conta.TipoContaVinculada, cancellationToken);
+        var grupoReembolso = await ObterGrupoReembolsoAsync(conta.GrupoReembolsoId, cancellationToken);
+        var grupoResponsaveis = await ObterGrupoResponsaveisAsync(conta.GrupoResponsaveisId, cancellationToken);
 
         var rateios = await (
             from rateio in dbContext.RateiosContaGerencial.AsNoTracking()
@@ -281,7 +284,8 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
             conta.EhRecorrente,
             ContaReceberSharedHelper.MapearOrigem(conta.Origem),
             ContaReceberSharedHelper.MapearRecorrencia(regra),
-            rateios, conta.CreatedAtUtc, conta.UpdatedAtUtc, contaVinculada);
+            rateios, conta.CreatedAtUtc, conta.UpdatedAtUtc, contaVinculada,
+            conta.GrupoReembolsoId, conta.GrupoResponsaveisId, grupoReembolso, grupoResponsaveis);
     }
 
     private async Task<ContaVinculadaResumo?> ObterContaVinculadaAsync(
@@ -307,7 +311,10 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
                     cp.ValorLiquido,
                     s.Codigo,
                     s.Nome,
-                    cp.DataVencimento))
+                    cp.DataVencimento,
+                    null,
+                    1,
+                    1))
                 .SingleOrDefaultAsync(cancellationToken);
         }
 
@@ -322,8 +329,63 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
                 cr.ValorLiquido,
                 s.Codigo,
                 s.Nome,
-                cr.DataVencimento))
+                cr.DataVencimento,
+                null,
+                1,
+                1))
             .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<GrupoReembolsoInfo?> ObterGrupoReembolsoAsync(Guid? grupoReembolsoId, CancellationToken cancellationToken)
+    {
+        if (!grupoReembolsoId.HasValue) return null;
+
+        var contas = await (
+            from cr in dbContext.ContasReceber.AsNoTracking()
+            join s in dbContext.StatusContas.AsNoTracking() on cr.StatusContaId equals s.Id
+            join p in dbContext.Pessoas.AsNoTracking() on cr.PagadorId equals p.Id
+            where cr.GrupoReembolsoId == grupoReembolsoId.Value
+            orderby cr.NumeroParcela
+            select new ContaVinculadaResumo(
+                cr.Id,
+                Contracts.Financeiro.Common.TipoContaVinculada.Receber,
+                cr.Descricao,
+                cr.ValorLiquido,
+                s.Codigo,
+                s.Nome,
+                cr.DataVencimento,
+                p.Nome,
+                cr.NumeroParcela,
+                cr.QuantidadeParcelas))
+            .ToArrayAsync(cancellationToken);
+
+        return contas.Length == 0 ? null : new GrupoReembolsoInfo(grupoReembolsoId.Value, contas);
+    }
+
+    private async Task<GrupoResponsaveisInfo?> ObterGrupoResponsaveisAsync(Guid? grupoResponsaveisId, CancellationToken cancellationToken)
+    {
+        if (!grupoResponsaveisId.HasValue) return null;
+
+        var contas = await (
+            from cr in dbContext.ContasReceber.AsNoTracking()
+            join s in dbContext.StatusContas.AsNoTracking() on cr.StatusContaId equals s.Id
+            join p in dbContext.Pessoas.AsNoTracking() on cr.PagadorId equals p.Id
+            where cr.GrupoResponsaveisId == grupoResponsaveisId.Value
+            orderby cr.NumeroParcela
+            select new ContaVinculadaResumo(
+                cr.Id,
+                Contracts.Financeiro.Common.TipoContaVinculada.Receber,
+                cr.Descricao,
+                cr.ValorLiquido,
+                s.Codigo,
+                s.Nome,
+                cr.DataVencimento,
+                p.Nome,
+                cr.NumeroParcela,
+                cr.QuantidadeParcelas))
+            .ToArrayAsync(cancellationToken);
+
+        return contas.Length == 0 ? null : new GrupoResponsaveisInfo(grupoResponsaveisId.Value, contas);
     }
 
     private static Guid[] NormalizarIds(Guid? idSingular, IReadOnlyCollection<Guid>? ids)

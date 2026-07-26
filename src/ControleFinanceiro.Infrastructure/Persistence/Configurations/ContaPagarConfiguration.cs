@@ -116,5 +116,7 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
             .HasMaxLength(20);
 
         builder.HasIndex(x => x.ContaVinculadaId);
+        builder.HasIndex(x => x.GrupoReembolsoId).HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
+        builder.HasIndex(x => x.GrupoResponsaveisId).HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
     }
 }

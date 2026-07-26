@@ -13,4 +13,11 @@ public sealed record ContaVinculadaResumo(
     decimal ValorLiquido,
     string StatusCodigo,
     string StatusNome,
-    DateOnly DataVencimento);
+    DateOnly DataVencimento,
+    string? PessoaNome = null,
+    int NumeroParcela = 1,
+    int QuantidadeParcelas = 1);
+
+/// <summary>Campo adicional de request que suporta lista de responsáveis.
+/// Quando informado com 2+ itens, cria uma conta por responsável com valor dividido igualmente.</summary>
+public sealed record ResponsaveisAdicionaisRequest(IReadOnlyList<Guid> ResponsaveisIds);

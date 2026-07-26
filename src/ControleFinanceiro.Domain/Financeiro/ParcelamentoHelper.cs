@@ -1,6 +1,6 @@
 namespace ControleFinanceiro.Domain.Financeiro;
 
-internal static class ParcelamentoHelper
+public static class ParcelamentoHelper
 {
     public static IReadOnlyCollection<decimal> Distribuir(decimal valorTotal, int quantidadeParcelas)
     {

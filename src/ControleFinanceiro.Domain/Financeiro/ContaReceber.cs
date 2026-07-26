@@ -66,6 +66,10 @@ public sealed class ContaReceber : TenantEntity
 
     public TipoContaVinculada? TipoContaVinculada { get; private set; }
 
+    public Guid? GrupoReembolsoId { get; private set; }
+
+    public Guid? GrupoResponsaveisId { get; private set; }
+
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
     public static ContaReceber Criar(
@@ -462,6 +466,16 @@ public sealed class ContaReceber : TenantEntity
         {
             throw new ArgumentException("A soma dos rateios deve fechar exatamente o valor líquido.", nameof(rateios));
         }
+    }
+
+    public void DefinirGrupoReembolso(Guid grupoReembolsoId)
+    {
+        GrupoReembolsoId = grupoReembolsoId;
+    }
+
+    public void DefinirGrupoResponsaveis(Guid grupoResponsaveisId)
+    {
+        GrupoResponsaveisId = grupoResponsaveisId;
     }
 
     private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)

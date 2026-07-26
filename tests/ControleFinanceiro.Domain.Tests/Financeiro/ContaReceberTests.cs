@@ -288,4 +288,52 @@ public sealed class ContaReceberTests
         parcelas.Select(p => p.GrupoParcelamentoId).Distinct().Should().HaveCount(1);
         parcelas.Select(p => p.NumeroParcela).Should().BeEquivalentTo([1, 2, 3]);
     }
+
+    [Fact]
+    public void CriarParcelas_TresParcelas_AdicionaSufixoNaDescricao()
+    {
+        var contaGerId = Guid.NewGuid();
+        var rateios = new[] { RateioPlano.Create(contaGerId, 300m) };
+
+        var parcelas = ContaReceber.CriarParcelas(
+            null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(),
+            new DateOnly(2026, 1, 10), Guid.NewGuid(), null, null,
+            300m, 0, 0, 0, 3, "Reembolso: Marmoraria", null, StatusConta.PendenteId,
+            false, null, OrigemLancamento.Manual, rateios).ToList();
+
+        parcelas[0].Descricao.Should().Be("Reembolso: Marmoraria 1/3");
+        parcelas[1].Descricao.Should().Be("Reembolso: Marmoraria 2/3");
+        parcelas[2].Descricao.Should().Be("Reembolso: Marmoraria 3/3");
+    }
+
+    [Fact]
+    public void CriarParcelas_QuantidadeUm_NaoAdicionaSufixoNaDescricao()
+    {
+        var rateios = new[] { RateioPlano.Create(Guid.NewGuid(), 300m) };
+
+        var parcelas = ContaReceber.CriarParcelas(
+            null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(),
+            new DateOnly(2026, 1, 10), Guid.NewGuid(), null, null,
+            300m, 0, 0, 0, 1, "Reembolso: Marmoraria", null, StatusConta.PendenteId,
+            false, null, OrigemLancamento.Manual, rateios).ToList();
+
+        parcelas[0].Descricao.Should().Be("Reembolso: Marmoraria");
+    }
+
+    [Fact]
+    public void CriarParcelas_DescricaoJaTemMarcador_SubstituiMarcador()
+    {
+        var contaGerId = Guid.NewGuid();
+        var rateios = new[] { RateioPlano.Create(contaGerId, 300m) };
+
+        var parcelas = ContaReceber.CriarParcelas(
+            null, new DateOnly(2026, 1, 1), null, Guid.NewGuid(),
+            new DateOnly(2026, 1, 10), Guid.NewGuid(), null, null,
+            300m, 0, 0, 0, 3, "Reembolso 1/2", null, StatusConta.PendenteId,
+            false, null, OrigemLancamento.Manual, rateios).ToList();
+
+        parcelas[0].Descricao.Should().Be("Reembolso 1/3");
+        parcelas[1].Descricao.Should().Be("Reembolso 2/3");
+        parcelas[2].Descricao.Should().Be("Reembolso 3/3");
+    }
 }

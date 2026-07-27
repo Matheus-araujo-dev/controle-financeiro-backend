@@ -82,8 +82,9 @@ public sealed record CriarContaPagarRequest(
     DateOnly? DataCompra = null,
     bool ForcarProximaFatura = false,
     Guid? ContaVinculadaOrigemId = null,
-    /// <summary>Quando informado com 2+ ids, cria uma conta por responsável com valor dividido igualmente.</summary>
-    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null);
+    /// <summary>Quando informado com 2+ ids, cria uma conta por responsável. Se ValoresPorResponsavel tiver o mesmo comprimento, usa valores customizados; caso contrário divide igualmente.</summary>
+    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null,
+    IReadOnlyList<decimal>? ValoresPorResponsavel = null);
 
 public sealed record AtualizarContaPagarRequest(
     Guid Id,

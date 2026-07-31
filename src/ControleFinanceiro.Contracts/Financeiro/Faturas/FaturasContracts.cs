@@ -63,12 +63,16 @@ public sealed record FaturaListResponse(
     int TotalPages,
     FaturaListSummaryResponse Summary);
 
-public sealed record FaturaItensQueryRequest : ListQueryRequest;
+public sealed record FaturaItensQueryRequest : ListQueryRequest
+{
+    public Guid? ResponsavelId { get; init; }
+}
 
 public sealed record FaturaItemResponse(
     Guid ContaPagarId,
     string Descricao,
     string RecebedorNome,
+    string? ResponsavelNome,
     DateOnly DataCompra,
     decimal ValorLiquido,
     string StatusCodigo,

@@ -267,7 +267,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             return null;
         }
 
-        var itens = await ListarItensAsync(item.CartaoId, item.Competencia, cancellationToken);
+        var itens = await ListarItensAsync(item.CartaoId, item.Competencia, responsavelId: null, cancellationToken);
         var status = MapearStatus(item.Status);
 
         return new FaturaDetalheResponse(
@@ -594,7 +594,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
 
         if (fatura is null) return null;
 
-        var todos = await ListarItensAsync(fatura.CartaoId, fatura.Competencia, cancellationToken);
+        var todos = await ListarItensAsync(fatura.CartaoId, fatura.Competencia, query.ResponsavelId, cancellationToken);
 
         var ordenados = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
@@ -604,6 +604,9 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             "recebedornome" => query.SortDirection == SortDirection.Desc
                 ? todos.OrderByDescending(x => x.RecebedorNome).ToArray()
                 : todos.OrderBy(x => x.RecebedorNome).ToArray(),
+            "responsavelnome" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.ResponsavelNome).ToArray()
+                : todos.OrderBy(x => x.ResponsavelNome).ToArray(),
             "valorliquido" or "valor" => query.SortDirection == SortDirection.Desc
                 ? todos.OrderByDescending(x => x.ValorLiquido).ToArray()
                 : todos.OrderBy(x => x.ValorLiquido).ToArray(),
@@ -618,7 +621,8 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             var termo = query.Search.Trim().ToLowerInvariant();
             ordenados = ordenados
                 .Where(x => x.Descricao.Contains(termo, StringComparison.OrdinalIgnoreCase)
-                         || x.RecebedorNome.Contains(termo, StringComparison.OrdinalIgnoreCase))
+                         || x.RecebedorNome.Contains(termo, StringComparison.OrdinalIgnoreCase)
+                         || (x.ResponsavelNome?.Contains(termo, StringComparison.OrdinalIgnoreCase) ?? false))
                 .ToArray();
         }
 
@@ -634,6 +638,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
     private async Task<IReadOnlyCollection<FaturaItemResponse>> ListarItensAsync(
         Guid cartaoId,
         string competencia,
+        Guid? responsavelId,
         CancellationToken cancellationToken)
     {
         var cartao = await dbContext.Cartoes
@@ -644,12 +649,16 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into respJoin
+            from responsavel in respJoin.DefaultIfEmpty()
             where conta.CartaoId == cartaoId
             select new
             {
                 conta.Id,
                 conta.Descricao,
                 RecebedorNome = recebedor.Nome,
+                ResponsavelNome = (string?)responsavel.Nome,
+                conta.ResponsavelCompraId,
                 conta.DataEmissao,
                 conta.DataCompra,
                 conta.DataVencimento,
@@ -666,6 +675,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                     conta.DataVencimento,
                     cartao.DiaFechamentoFatura,
                     cartao.DiaVencimentoFatura).Competencia == competencia)
+            .Where(conta => !responsavelId.HasValue || conta.ResponsavelCompraId == responsavelId)
             .OrderBy(conta => conta.DataEmissao)
             .ThenBy(conta => conta.NumeroParcela)
             .ToArray();
@@ -673,22 +683,26 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         var resultado = new List<FaturaItemResponse>(filtrados.Length);
         foreach (var conta in filtrados)
         {
-            resultado.Add(new FaturaItemResponse(
-                conta.Id,
-                conta.Descricao,
-                conta.RecebedorNome,
-                conta.DataCompra ?? conta.DataEmissao,
-                conta.ValorLiquido,
-                conta.StatusCodigo,
-                conta.NumeroParcela,
-                conta.QuantidadeParcelas));
-
-            if (conta.EhCancelada)
+            if (!conta.EhCancelada)
+            {
+                resultado.Add(new FaturaItemResponse(
+                    conta.Id,
+                    conta.Descricao,
+                    conta.RecebedorNome,
+                    conta.ResponsavelNome,
+                    conta.DataCompra ?? conta.DataEmissao,
+                    conta.ValorLiquido,
+                    conta.StatusCodigo,
+                    conta.NumeroParcela,
+                    conta.QuantidadeParcelas));
+            }
+            else
             {
                 resultado.Add(new FaturaItemResponse(
                     conta.Id,
                     $"Estorno: {conta.Descricao}",
                     conta.RecebedorNome,
+                    conta.ResponsavelNome,
                     conta.DataCompra ?? conta.DataEmissao,
                     -conta.ValorLiquido,
                     "ESTORNO",

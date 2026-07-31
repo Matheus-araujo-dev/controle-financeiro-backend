@@ -117,9 +117,7 @@ public sealed class ContaPagarCriacaoService(
         }
 
         var grupoResponsaveisId = Guid.NewGuid();
-        var valoresPorResponsavel = (request.ValoresPorResponsavel?.Count == responsaveisIds.Length)
-            ? request.ValoresPorResponsavel.ToArray()
-            : ParcelamentoHelper.Distribuir(request.ValorOriginal, responsaveisIds.Length).ToArray();
+        var valoresPorResponsavel = ParcelamentoHelper.Distribuir(request.ValorOriginal, responsaveisIds.Length).ToArray();
         var baseRateios = helper.ConverterRateios(request.Rateios);
         var valorLiquidoBase = request.ValorOriginal - request.ValorDesconto + request.ValorJuros + request.ValorMulta;
         var todasContas = new List<ContaPagar>();

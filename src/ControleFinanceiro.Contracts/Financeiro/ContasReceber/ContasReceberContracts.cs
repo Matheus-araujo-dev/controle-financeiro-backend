@@ -60,9 +60,8 @@ public sealed record CriarContaReceberRequest(
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia,
     Guid? ContaVinculadaOrigemId = null,
-    /// <summary>Quando informado com 2+ ids, cria uma conta por pagador. Se ValoresPorPagador tiver o mesmo comprimento, usa valores customizados; caso contrário divide igualmente.</summary>
-    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null,
-    IReadOnlyList<decimal>? ValoresPorPagador = null);
+    /// <summary>Quando informado com 2+ ids, cria uma conta por pagador com valor dividido igualmente.</summary>
+    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null);
 
 public sealed record AtualizarContaReceberRequest(
     Guid Id,

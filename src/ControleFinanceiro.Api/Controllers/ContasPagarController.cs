@@ -153,4 +153,14 @@ public sealed class ContasPagarController(ContaPagarAppService service, ISender 
         var response = await service.CancelarAsync(id, request, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
+
+    [HttpDelete("{id:guid}/remover-da-fatura")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoverDaFatura(Guid id, CancellationToken cancellationToken)
+    {
+        var found = await service.RemoverDaFaturaAsync(id, cancellationToken);
+        return found ? NoContent() : NotFoundResponse();
+    }
 }

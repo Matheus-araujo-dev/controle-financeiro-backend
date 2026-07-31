@@ -10,6 +10,7 @@ public interface IContaPagarLiquidacaoService
     Task<ContaPagarDetalheResponse?> LiquidarAsync(Guid id, LiquidarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken);
+    Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public sealed class ContaPagarLiquidacaoService(
@@ -232,6 +233,29 @@ public sealed class ContaPagarLiquidacaoService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
+    }
+
+    public async Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (conta is null) return false;
+
+        if (!conta.CartaoId.HasValue || conta.StatusContaId != StatusConta.EmFaturaId)
+        {
+            throw helper.ConverterParaValidacao(
+                new InvalidOperationException("Este lançamento não está em uma fatura aberta."));
+        }
+
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
+        var movimentoEconomico = await dbContext.MovimentacoesFinanceiras
+            .SingleOrDefaultAsync(x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica, cancellationToken);
+        if (movimentoEconomico is not null)
+            dbContext.MovimentacoesFinanceiras.Remove(movimentoEconomico);
+
+        dbContext.ContasPagar.Remove(conta);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     private async Task BloquearSeFaturaFechadaOuPagaAsync(ContaPagar conta, CancellationToken cancellationToken)

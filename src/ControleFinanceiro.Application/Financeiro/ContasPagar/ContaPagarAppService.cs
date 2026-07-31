@@ -51,4 +51,7 @@ public sealed class ContaPagarAppService(
 
     public Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken)
         => _commandService.CancelarAsync(id, request, cancellationToken);
+
+    public Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken)
+        => _commandService.RemoverDaFaturaAsync(id, cancellationToken);
 }

@@ -14,4 +14,5 @@ public interface IContaPagarCommandService
     Task<ContaPagarDetalheResponse?> LiquidarAsync(Guid id, LiquidarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken);
+    Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken);
 }

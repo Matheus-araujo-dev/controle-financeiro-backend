@@ -154,6 +154,7 @@ public sealed class ContasPagarController(ContaPagarAppService service, ISender 
         return response is null ? NotFoundResponse() : Ok(response);
     }
 
+    [HttpPost("{id:guid}/remover-da-fatura")]
     [HttpDelete("{id:guid}/remover-da-fatura")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]

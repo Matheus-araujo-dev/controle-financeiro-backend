@@ -241,19 +241,64 @@ public sealed class ContaPagarLiquidacaoService(
         if (conta is null) return false;
 
         if (!conta.CartaoId.HasValue || conta.StatusContaId != StatusConta.EmFaturaId)
-        {
-            throw helper.ConverterParaValidacao(
-                new InvalidOperationException("Este lançamento não está em uma fatura aberta."));
-        }
+            throw helper.ConverterParaValidacao(new InvalidOperationException("Este lançamento não está em uma fatura aberta."));
 
+        // Validação 1: fatura da parcela atual não pode estar fechada ou paga
         await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
 
-        var movimentoEconomico = await dbContext.MovimentacoesFinanceiras
-            .SingleOrDefaultAsync(x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica, cancellationToken);
-        if (movimentoEconomico is not null)
-            dbContext.MovimentacoesFinanceiras.Remove(movimentoEconomico);
+        // Parcelas futuras do mesmo grupo de parcelamento
+        var parcelasFuturas = conta.GrupoParcelamentoId.HasValue
+            ? await dbContext.ContasPagar
+                .Where(x => x.GrupoParcelamentoId == conta.GrupoParcelamentoId && x.NumeroParcela > conta.NumeroParcela)
+                .ToListAsync(cancellationToken)
+            : [];
 
-        dbContext.ContasPagar.Remove(conta);
+        // Validação 2: faturas das parcelas futuras também não podem estar fechadas ou pagas
+        foreach (var parcela in parcelasFuturas)
+            await BloquearSeFaturaFechadaOuPagaAsync(parcela, cancellationToken);
+
+        // Todas as ContasPagar a excluir (atual + futuras)
+        var todasContasPagar = new List<ContaPagar>(parcelasFuturas.Count + 1) { conta };
+        todasContasPagar.AddRange(parcelasFuturas);
+
+        // Validação 3: reembolsos gerados por qualquer parcela não podem estar recebidos
+        var grupoReembolsoIds = todasContasPagar
+            .Where(x => x.GrupoReembolsoId.HasValue)
+            .Select(x => x.GrupoReembolsoId!.Value)
+            .Distinct()
+            .ToList();
+
+        List<ContaReceber> contasReceberParaExcluir = [];
+        if (grupoReembolsoIds.Count > 0)
+        {
+            contasReceberParaExcluir = await dbContext.ContasReceber
+                .Where(x => x.GrupoReembolsoId.HasValue && grupoReembolsoIds.Contains(x.GrupoReembolsoId!.Value))
+                .ToListAsync(cancellationToken);
+
+            if (contasReceberParaExcluir.Any(x => x.StatusContaId == StatusConta.LiquidadaId))
+                throw helper.ConverterParaValidacao(new InvalidOperationException(
+                    "Não é possível remover este lançamento pois o reembolso gerado já foi recebido."));
+        }
+
+        // Excluir movimentos das ContasReceber de reembolso
+        if (contasReceberParaExcluir.Count > 0)
+        {
+            var idsContasReceber = contasReceberParaExcluir.Select(x => x.Id).ToList();
+            var movimentosCr = await dbContext.MovimentacoesFinanceiras
+                .Where(x => x.ContaReceberId.HasValue && idsContasReceber.Contains(x.ContaReceberId.Value))
+                .ToListAsync(cancellationToken);
+            dbContext.MovimentacoesFinanceiras.RemoveRange(movimentosCr);
+            dbContext.ContasReceber.RemoveRange(contasReceberParaExcluir);
+        }
+
+        // Excluir movimentos de todas as ContasPagar
+        var idsContasPagar = todasContasPagar.Select(x => x.Id).ToList();
+        var movimentosCp = await dbContext.MovimentacoesFinanceiras
+            .Where(x => x.ContaPagarId.HasValue && idsContasPagar.Contains(x.ContaPagarId.Value))
+            .ToListAsync(cancellationToken);
+        dbContext.MovimentacoesFinanceiras.RemoveRange(movimentosCp);
+
+        dbContext.ContasPagar.RemoveRange(todasContasPagar);
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }

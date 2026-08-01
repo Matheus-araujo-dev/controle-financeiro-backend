@@ -188,4 +188,73 @@ public sealed class ContasPagarFluxoTests(CustomWebApplicationFactory factory)
     }
 
     private sealed record ContaDetalhe(Guid Id, string StatusCodigo, decimal ValorLiquido, decimal? ValorPago);
+
+    // ── helpers para testes de fatura ────────────────────────────────────────
+
+    private static async Task<Guid> CriarCompraCartaoAsync(HttpClient client, FinancialFixtureSeed.FixtureIds fixture, decimal valor = 200m)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-05",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoCartaoId,
+            cartaoId = fixture.CartaoId,
+            valorOriginal = valor,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Compra no cartao",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor } }
+        });
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<ContaResumo>();
+        return created!.Id;
+    }
+
+    // ── RemoverDaFatura ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RemoverDaFatura_ComContaEmFatura_DeveRetornar204EExcluirConta()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+
+        var detalhe = await client.GetFromJsonAsync<ContaResumo>($"/api/v1/contas-pagar/{id}");
+        detalhe!.StatusCodigo.Should().Be("EM_FATURA");
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var aposRemocao = await client.GetAsync($"/api/v1/contas-pagar/{id}");
+        aposRemocao.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_ContaInexistente_DeveRetornar404()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{Guid.NewGuid()}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_ContaPendente_DeveRetornar400()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture);
+
+        var detalhe = await client.GetFromJsonAsync<ContaResumo>($"/api/v1/contas-pagar/{id}");
+        detalhe!.StatusCodigo.Should().Be("PENDENTE");
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

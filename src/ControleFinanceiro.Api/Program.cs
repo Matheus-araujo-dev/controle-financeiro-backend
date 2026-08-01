@@ -122,6 +122,10 @@ var healthChecks = builder.Services.AddHealthChecks()
     .AddCheck("logging", () => HealthCheckResult.Healthy("Logging is available"), tags: ["logging", "infra"]);
 
 healthChecks.AddCheck<DistributedCacheHealthCheck>("cache", tags: ["cache", "infra"]);
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.MigrationStartupService>();
+}
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker>();
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.AtualizacaoStatusContasWorker>();
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.TransicaoStatusFuturoWorker>();
@@ -249,14 +253,6 @@ else
         context.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         await next();
     });
-}
-
-// Auto-migrate on startup (Railway/cloud deployments â€” skipped in Testing environment)
-if (!app.Environment.IsEnvironment("Testing"))
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<ControleFinanceiro.Infrastructure.Persistence.AppDbContext>();
-    db.Database.Migrate();
 }
 
 app.UseAuthentication();

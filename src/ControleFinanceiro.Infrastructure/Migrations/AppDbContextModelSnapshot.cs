@@ -1099,7 +1099,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
 
                     b.HasIndex("GrupoResponsaveisId")
-                        .HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
+                        .HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
 
                     b.HasIndex("RegraRecorrenciaId");
 

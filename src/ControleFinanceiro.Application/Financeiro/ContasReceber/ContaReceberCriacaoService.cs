@@ -101,7 +101,9 @@ public sealed class ContaReceberCriacaoService(
         }
 
         var grupoResponsaveisId = Guid.NewGuid();
-        var valoresPorPagador = ParcelamentoHelper.Distribuir(request.ValorOriginal, pagadoresIds.Length).ToArray();
+        var valoresPorPagador = (request.ValoresPorPagador?.Count == pagadoresIds.Length)
+            ? request.ValoresPorPagador.ToArray()
+            : ParcelamentoHelper.Distribuir(request.ValorOriginal, pagadoresIds.Length).ToArray();
         var baseRateios = ContaReceberSharedHelper.ConverterRateios(request.Rateios);
         var valorBase = request.ValorOriginal > 0 ? request.ValorOriginal : 1m;
         var todasContas = new List<ContaReceber>();

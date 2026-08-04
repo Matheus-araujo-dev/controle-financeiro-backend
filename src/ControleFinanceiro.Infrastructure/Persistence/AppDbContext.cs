@@ -45,6 +45,8 @@ public sealed class AppDbContext(
 
     public void DefinirFamiliaCorrente(Guid familiaId) => DefinirWorkspaceCorrente(familiaId);
 
+    public void LimparChangeTracker() => ChangeTracker.Clear();
+
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();

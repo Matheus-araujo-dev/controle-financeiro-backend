@@ -26,4 +26,6 @@ public interface IAppDbContext :
     void DefinirWorkspaceCorrente(Guid workspaceId);
 
     void DefinirFamiliaCorrente(Guid familiaId);
+
+    void LimparChangeTracker();
 }

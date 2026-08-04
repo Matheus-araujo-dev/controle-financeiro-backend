@@ -75,6 +75,8 @@ public sealed class RecorrenciaAppService(
             {
                 totalErros++;
                 logger.LogError(ex, "Erro ao gerar ocorrências para a regra {RegraId} (família {FamiliaId}).", regra.Id, regra.FamiliaId);
+                // Entidades com falha ficam no change tracker; limpar para não contaminar iterações seguintes.
+                dbContext.LimparChangeTracker();
             }
         }
 

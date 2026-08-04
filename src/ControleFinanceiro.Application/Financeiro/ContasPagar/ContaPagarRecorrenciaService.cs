@@ -12,7 +12,7 @@ public interface IContaPagarRecorrenciaService
     Task<ContaPagarDetalheResponse?> AtualizarAsync(Guid id, AtualizarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> AlterarFuturasAsync(Guid id, AtualizarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> GerarOcorrenciasAsync(Guid id, GerarOcorrenciasRecorrenciaRequest request, CancellationToken cancellationToken);
-    Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken);
+    Task<int> GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken);
     Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> EncerrarRecorrenciaAsync(Guid id, EncerrarRecorrenciaRequest request, CancellationToken cancellationToken);
@@ -202,7 +202,7 @@ public sealed class ContaPagarRecorrenciaService(
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }
 
-    public async Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken)
+    public async Task<int> GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken)
     {
         var datasExistentes = await dbContext.ContasPagar
             .Where(x => x.RegraRecorrenciaId == regra.Id)
@@ -210,7 +210,7 @@ public sealed class ContaPagarRecorrenciaService(
             .ToArrayAsync(cancellationToken);
 
         var datasPendentes = regra.CalcularDatasPendentes(datasExistentes, ateData);
-        if (datasPendentes.Count == 0) return;
+        if (datasPendentes.Count == 0) return 0;
 
         var template = ContaPagarSharedHelper.DesserializarTemplate(regra.TemplateJson);
         var novasContas = datasPendentes
@@ -220,6 +220,7 @@ public sealed class ContaPagarRecorrenciaService(
         dbContext.ContasPagar.AddRange(novasContas);
         dbContext.RateiosContaGerencial.AddRange(novasContas.SelectMany(x => x.Rateios));
         await dbContext.SaveChangesAsync(cancellationToken);
+        return novasContas.Length;
     }
 
     public async Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken)

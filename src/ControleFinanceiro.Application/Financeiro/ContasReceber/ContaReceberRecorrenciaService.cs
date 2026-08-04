@@ -13,7 +13,7 @@ public interface IContaReceberRecorrenciaService
     Task<ContaReceberDetalheResponse?> AtualizarAsync(Guid id, AtualizarContaReceberRequest request, CancellationToken cancellationToken);
     Task<ContaReceberDetalheResponse?> AlterarFuturasAsync(Guid id, AtualizarContaReceberRequest request, CancellationToken cancellationToken);
     Task<ContaReceberDetalheResponse?> GerarOcorrenciasAsync(Guid id, GerarOcorrenciasRecorrenciaRequest request, CancellationToken cancellationToken);
-    Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken);
+    Task<int> GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken);
     Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken);
     Task<ContaReceberDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken);
     Task<ContaReceberDetalheResponse?> EncerrarRecorrenciaAsync(Guid id, EncerrarRecorrenciaRequest request, CancellationToken cancellationToken);
@@ -166,7 +166,7 @@ public sealed class ContaReceberRecorrenciaService(
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }
 
-    public async Task GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken)
+    public async Task<int> GerarPorRegraAsync(RegraRecorrencia regra, DateOnly ateData, CancellationToken cancellationToken)
     {
         var datasExistentes = await dbContext.ContasReceber
             .Where(x => x.RegraRecorrenciaId == regra.Id)
@@ -174,7 +174,7 @@ public sealed class ContaReceberRecorrenciaService(
             .ToArrayAsync(cancellationToken);
 
         var datasPendentes = regra.CalcularDatasPendentes(datasExistentes, ateData);
-        if (datasPendentes.Count == 0) return;
+        if (datasPendentes.Count == 0) return 0;
 
         var template = ContaReceberSharedHelper.DesserializarTemplate(regra.TemplateJson);
         var novasContas = datasPendentes
@@ -184,6 +184,7 @@ public sealed class ContaReceberRecorrenciaService(
         dbContext.ContasReceber.AddRange(novasContas);
         dbContext.RateiosContaGerencial.AddRange(novasContas.SelectMany(x => x.Rateios));
         await dbContext.SaveChangesAsync(cancellationToken);
+        return novasContas.Length;
     }
 
     public async Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken)

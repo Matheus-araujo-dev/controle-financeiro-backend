@@ -12,7 +12,7 @@ public sealed class AtualizacaoStatusContasWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<AtualizacaoStatusContasWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromHours(12);
+    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromHours(4);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

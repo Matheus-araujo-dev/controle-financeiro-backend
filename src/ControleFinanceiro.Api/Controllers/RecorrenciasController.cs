@@ -46,4 +46,13 @@ public sealed class RecorrenciasController(RecorrenciaAppService service) : ApiC
         var response = await service.RetomarAsync(id, cancellationToken);
         return Ok(response);
     }
+
+    [HttpPost("gerar-ocorrencias")]
+    [ProducesResponseType(typeof(GerarOcorrenciasResultResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<GerarOcorrenciasResultResponse>> GerarOcorrencias(CancellationToken cancellationToken)
+    {
+        var resultado = await service.GerarOcorrenciasRecorrentesNoMesAsync(
+            DateOnly.FromDateTime(DateTime.Now), cancellationToken);
+        return Ok(resultado);
+    }
 }

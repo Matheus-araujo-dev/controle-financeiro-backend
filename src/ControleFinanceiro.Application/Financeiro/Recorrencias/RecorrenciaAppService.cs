@@ -24,20 +24,26 @@ public sealed class RecorrenciaAppService(
         return new DateOnly(horizonte.Year, horizonte.Month, DateTime.DaysInMonth(horizonte.Year, horizonte.Month));
     }
 
-    public async Task GerarOcorrenciasRecorrentesNoMesAsync(DateOnly dataReferencia, CancellationToken cancellationToken)
+    public async Task<GerarOcorrenciasResultResponse> GerarOcorrenciasRecorrentesNoMesAsync(DateOnly dataReferencia, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Iniciando geração automática de recorrências — horizonte 6 meses a partir de {Mes}/{Ano}.", dataReferencia.Month, dataReferencia.Year);
-
         var ateData = HorizonteSeisMeses(dataReferencia);
+        logger.LogInformation(
+            "Iniciando geração automática de recorrências — referência {Data}, horizonte até {AteData}.",
+            dataReferencia, ateData);
 
         var regrasAtivas = await dbContext.RegrasRecorrencia
             .Where(x => x.Ativa)
             .ToArrayAsync(cancellationToken);
 
-        int totalGerado = 0;
+        logger.LogInformation("Regras ativas encontradas: {Total}.", regrasAtivas.Length);
+
+        int totalProcessadas = 0;
+        int totalGeradas = 0;
+        int totalErros = 0;
 
         foreach (var regra in regrasAtivas)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 if (regra.FamiliaId != Guid.Empty)
@@ -45,23 +51,38 @@ public sealed class RecorrenciaAppService(
                     dbContext.DefinirFamiliaCorrente(regra.FamiliaId);
                 }
 
+                int geradas;
                 if (regra.TipoLancamento == Domain.Financeiro.TipoLancamentoRecorrencia.ContaPagar)
                 {
-                    await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+                    geradas = await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
                 }
                 else
                 {
-                    await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+                    geradas = await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
                 }
-                totalGerado++;
+
+                if (geradas > 0)
+                    logger.LogInformation("Regra {RegraId}: {Geradas} ocorrência(s) gerada(s).", regra.Id, geradas);
+
+                totalGeradas += geradas;
+                totalProcessadas++;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Erro ao gerar ocorrências para a regra {RegraId}.", regra.Id);
+                totalErros++;
+                logger.LogError(ex, "Erro ao gerar ocorrências para a regra {RegraId} (família {FamiliaId}).", regra.Id, regra.FamiliaId);
             }
         }
 
-        logger.LogInformation("Geração automática concluída. Total de regras processadas: {Total}.", totalGerado);
+        logger.LogInformation(
+            "Geração automática concluída. Processadas: {Processadas}, Geradas: {Geradas}, Erros: {Erros}.",
+            totalProcessadas, totalGeradas, totalErros);
+
+        return new GerarOcorrenciasResultResponse(regrasAtivas.Length, totalProcessadas, totalGeradas, totalErros);
     }
 
     public async Task<RecorrenciaListResponse> ListarAsync(RecorrenciaListQueryRequest query, CancellationToken cancellationToken)

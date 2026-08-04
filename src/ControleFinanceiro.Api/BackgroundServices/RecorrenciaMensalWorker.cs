@@ -6,7 +6,7 @@ public sealed class RecorrenciaMensalWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<RecorrenciaMensalWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromHours(12);
+    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromHours(4);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -23,8 +23,7 @@ public sealed class RecorrenciaMensalWorker(
                 var service = scope.ServiceProvider.GetRequiredService<RecorrenciaAppService>();
 
                 await service.GerarOcorrenciasRecorrentesNoMesAsync(
-                    DateOnly.FromDateTime(DateTime.Now),
-                    stoppingToken);
+                    DateOnly.FromDateTime(DateTime.Now), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

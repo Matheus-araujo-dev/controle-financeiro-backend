@@ -76,3 +76,9 @@ public sealed record RecorrenciaListResponse(
 public sealed record GerarOcorrenciasRecorrenciaRequest(DateOnly AteData);
 
 public sealed record EncerrarRecorrenciaRequest(DateOnly DataFim);
+
+public sealed record GerarOcorrenciasResultResponse(
+    int RegrasEncontradas,
+    int RegrasProcessadas,
+    int OcorrenciasGeradas,
+    int Erros);

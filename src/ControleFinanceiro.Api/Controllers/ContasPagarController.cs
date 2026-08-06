@@ -164,4 +164,11 @@ public sealed class ContasPagarController(ContaPagarAppService service, ISender 
         var found = await service.RemoverDaFaturaAsync(id, cancellationToken);
         return found ? NoContent() : NotFoundResponse();
     }
+
+    [HttpGet("{id:guid}/historico")]
+    [ProducesResponseType(typeof(IReadOnlyList<HistoricoEntradaResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<HistoricoEntradaResponse>>> ObterHistorico(Guid id, CancellationToken cancellationToken)
+    {
+        return Ok(await service.ObterHistoricoAsync(id, cancellationToken));
+    }
 }

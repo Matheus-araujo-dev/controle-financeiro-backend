@@ -49,6 +49,19 @@ public sealed class AppDbContext(
 
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
+    public async Task<IReadOnlyList<AuditEntryDto>> GetAuditEntriesAsync(
+        string entityName,
+        Guid entityId,
+        CancellationToken cancellationToken)
+    {
+        return await AuditTrailEntries
+            .AsNoTracking()
+            .Where(e => e.EntityName == entityName && e.EntityId == entityId)
+            .OrderBy(e => e.OccurredAtUtc)
+            .Select(e => new AuditEntryDto(e.Id, e.EntityName, e.EntityId, e.Action, e.ExecutedBy, e.OccurredAtUtc, e.BeforeJson, e.AfterJson))
+            .ToListAsync(cancellationToken);
+    }
+
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
 
     public DbSet<PessoaChavePix> PessoasChavesPix => Set<PessoaChavePix>();

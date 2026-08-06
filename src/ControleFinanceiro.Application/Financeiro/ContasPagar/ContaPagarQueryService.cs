@@ -2,6 +2,7 @@ using ControleFinanceiro.Application.Common.Cache;
 using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Application.Common.Pagination;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Application.Financeiro.Common;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
@@ -721,5 +722,11 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             TipoDiaRecorrenciaDomain.DiaUtil => Contracts.Financeiro.Common.TipoDiaRecorrencia.DiaUtil,
             _ => throw new ArgumentOutOfRangeException(nameof(tipo))
         };
+    }
+
+    public async Task<IReadOnlyList<HistoricoEntradaResponse>> ObterHistoricoAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var entries = await dbContext.GetAuditEntriesAsync("ContaPagar", id, cancellationToken);
+        return HistoricoMapper.Mapear(entries);
     }
 }

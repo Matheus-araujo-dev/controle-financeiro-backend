@@ -138,4 +138,11 @@ public sealed class ContasReceberController(ContaReceberAppService service) : Ap
         var response = await service.CancelarAsync(id, request, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
+
+    [HttpGet("{id:guid}/historico")]
+    [ProducesResponseType(typeof(IReadOnlyList<HistoricoEntradaResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<HistoricoEntradaResponse>>> ObterHistorico(Guid id, CancellationToken cancellationToken)
+    {
+        return Ok(await service.ObterHistoricoAsync(id, cancellationToken));
+    }
 }

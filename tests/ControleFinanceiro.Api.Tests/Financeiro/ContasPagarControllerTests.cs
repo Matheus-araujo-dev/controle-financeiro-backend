@@ -1017,6 +1017,51 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         error!.Errors.Should().ContainKey("Recorrencia");
     }
 
+    [Fact]
+    public async Task GetHistorico_DeveRetornarEntradaCriacaoELiquidacao()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 100m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Conta historico",
+            rateios = new[]
+            {
+                new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 100m }
+            }
+        });
+
+        var created = await createResponse.Content.ReadFromJsonAsync<ContaDetalheResponse>();
+
+        await client.PostAsJsonAsync($"/api/v1/contas-pagar/{created!.Id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-20",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 100m,
+            atualizarValorConta = false
+        });
+
+        var historicoResponse = await client.GetAsync($"/api/v1/contas-pagar/{created.Id}/historico");
+        var historico = await historicoResponse.Content.ReadFromJsonAsync<HistoricoEntradaResponse[]>();
+
+        historicoResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        historico.Should().NotBeNull();
+        historico!.Should().HaveCountGreaterThanOrEqualTo(1);
+        historico.Should().Contain(h => h.Acao == "Criação" || h.Acao == "Liquidação" || h.Acao == "Edição");
+    }
+
     private static async Task<Guid> CriarCompraPlanejadaAsync(HttpClient client, FinancialFixtureSeed.FixtureIds fixture)
     {
         var response = await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
@@ -1126,6 +1171,15 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         Guid? ContaPagarId,
         Guid? ContaReceberId,
         string? Observacao);
+
+    private sealed record AlteracaoCampoResponse(string Campo, string? Antes, string? Depois);
+
+    private sealed record HistoricoEntradaResponse(
+        Guid Id,
+        string Acao,
+        string RealizadoPor,
+        DateTime OcorreuEmUtc,
+        IReadOnlyList<AlteracaoCampoResponse> Alteracoes);
 
     private sealed record CompraPlanejadaDetalheResponse(
         Guid Id,

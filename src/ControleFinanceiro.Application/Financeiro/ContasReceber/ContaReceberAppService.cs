@@ -41,4 +41,7 @@ public sealed class ContaReceberAppService(
 
     public Task<ContaReceberDetalheResponse?> CancelarAsync(Guid id, CancelarContaReceberRequest? request, CancellationToken cancellationToken) =>
         commandService.CancelarAsync(id, request, cancellationToken);
+
+    public Task<IReadOnlyList<HistoricoEntradaResponse>> ObterHistoricoAsync(Guid id, CancellationToken cancellationToken) =>
+        queryService.ObterHistoricoAsync(id, cancellationToken);
 }

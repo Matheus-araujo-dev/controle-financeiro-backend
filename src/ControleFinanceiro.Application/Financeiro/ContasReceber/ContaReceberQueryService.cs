@@ -1,6 +1,7 @@
 using ControleFinanceiro.Application.Common.Cache;
 using ControleFinanceiro.Application.Common.Pagination;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Application.Financeiro.Common;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
@@ -413,4 +414,10 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
         statusCodigo == "PENDENTE" && dataVencimento < hoje
             ? ("VENCIDA", "Vencida")
             : (statusCodigo, statusNome);
+
+    public async Task<IReadOnlyList<HistoricoEntradaResponse>> ObterHistoricoAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var entries = await dbContext.GetAuditEntriesAsync("ContaReceber", id, cancellationToken);
+        return HistoricoMapper.Mapear(entries);
+    }
 }

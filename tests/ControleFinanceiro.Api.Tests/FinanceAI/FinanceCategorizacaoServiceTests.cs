@@ -39,6 +39,7 @@ public sealed class FinanceCategorizacaoServiceTests(CustomWebApplicationFactory
     {
         public bool IsAuthenticated => userId is not null;
         public string? UserId => userId;
+        public string? UserEmail => null;
         public Guid? WorkspaceId => familiaId;
         public Guid? FamiliaId => WorkspaceId;
         public string? Papel => "Administrador";

@@ -21,6 +21,7 @@ public sealed class PrivacidadeAppServiceTests(CustomWebApplicationFactory facto
     {
         public bool IsAuthenticated => userId is not null;
         public string? UserId => userId;
+        public string? UserEmail => null;
         public Guid? WorkspaceId => null;
         public Guid? FamiliaId => null;
         public string? Papel => "Administrador";

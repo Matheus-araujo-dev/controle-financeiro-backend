@@ -47,13 +47,19 @@ public static class HistoricoMapper
     {
         var acao = InferirAcao(entry);
         var alteracoes = ExtrairAlteracoes(entry);
+        var regraId = ExtrairRegraRecorrenciaId(entry);
+
+        var realizadoPor = string.IsNullOrWhiteSpace(entry.ExecutedBy) || entry.ExecutedBy == "system"
+            ? (regraId.HasValue ? "Recorrência automática" : "Sistema")
+            : entry.ExecutedBy;
 
         return new HistoricoEntradaResponse(
             entry.Id,
             acao,
-            entry.ExecutedBy,
+            realizadoPor,
             entry.OccurredAtUtc,
-            alteracoes);
+            alteracoes,
+            regraId);
     }
 
     private static string InferirAcao(AuditEntryDto entry)
@@ -81,13 +87,14 @@ public static class HistoricoMapper
 
     private static IReadOnlyList<AlteracaoCampoResponse> ExtrairAlteracoes(AuditEntryDto entry)
     {
-        if (entry.Action == "Created" || entry.AfterJson == null)
+        if (entry.AfterJson == null)
             return [];
 
         var result = new List<AlteracaoCampoResponse>();
 
         using var after = JsonDocument.Parse(entry.AfterJson);
         var before = entry.BeforeJson != null ? JsonDocument.Parse(entry.BeforeJson) : null;
+        var isCriacao = entry.Action == "Created";
 
         try
         {
@@ -97,6 +104,14 @@ public static class HistoricoMapper
                 if (!NomesCampos.TryGetValue(prop.Name, out var label)) continue;
 
                 var afterVal = FormatarValor(prop.Name, prop.Value);
+
+                if (isCriacao)
+                {
+                    if (afterVal != null)
+                        result.Add(new AlteracaoCampoResponse(label, null, afterVal));
+                    continue;
+                }
+
                 var beforeVal = before != null && before.RootElement.TryGetProperty(prop.Name, out var bv)
                     ? FormatarValor(prop.Name, bv)
                     : null;
@@ -111,6 +126,18 @@ public static class HistoricoMapper
         }
 
         return result;
+    }
+
+    private static Guid? ExtrairRegraRecorrenciaId(AuditEntryDto entry)
+    {
+        var json = entry.AfterJson ?? entry.BeforeJson;
+        if (json == null) return null;
+
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("RegraRecorrenciaId", out var prop)) return null;
+        if (prop.ValueKind == JsonValueKind.Null) return null;
+
+        return prop.TryGetGuid(out var id) ? id : null;
     }
 
     private static string? FormatarValor(string propName, JsonElement element)

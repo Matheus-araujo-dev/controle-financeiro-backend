@@ -106,6 +106,8 @@ public sealed class AppDbContextAuditingTests
 
         public string? UserId { get; } = userId;
 
+        public string? UserEmail => null;
+
         public Guid? WorkspaceId => null;
 
         public Guid? FamiliaId => WorkspaceId;

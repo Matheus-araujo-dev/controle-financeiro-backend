@@ -106,6 +106,8 @@ public sealed class FinanceAgentServiceTenantTests
 
         public string? UserId => null;
 
+        public string? UserEmail => null;
+
         public Guid? WorkspaceId => null;
 
         public Guid? FamiliaId => WorkspaceId;

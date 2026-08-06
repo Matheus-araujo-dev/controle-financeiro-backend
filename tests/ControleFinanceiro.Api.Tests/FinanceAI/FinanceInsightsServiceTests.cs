@@ -21,6 +21,7 @@ public sealed class FinanceInsightsServiceTests(CustomWebApplicationFactory fact
     {
         public bool IsAuthenticated => familiaId is not null;
         public string? UserId => Guid.NewGuid().ToString();
+        public string? UserEmail => null;
         public Guid? WorkspaceId => familiaId;
         public Guid? FamiliaId => WorkspaceId;
         public string? Papel => "Administrador";

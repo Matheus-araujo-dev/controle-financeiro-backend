@@ -87,6 +87,7 @@ public sealed class AppDbContextConcurrencyTests
     {
         public bool IsAuthenticated => true;
         public string? UserId { get; } = userId;
+        public string? UserEmail => null;
         public Guid? WorkspaceId => null;
         public Guid? FamiliaId => WorkspaceId;
         public string? Papel => null;

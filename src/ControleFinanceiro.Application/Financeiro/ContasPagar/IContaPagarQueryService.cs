@@ -1,4 +1,5 @@
 using ControleFinanceiro.Contracts.Common;
+using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 
 namespace ControleFinanceiro.Application.Financeiro.ContasPagar;
@@ -14,4 +15,6 @@ public interface IContaPagarQueryService
         CancellationToken cancellationToken);
 
     Task<ContaPagarDetalheResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<HistoricoEntradaResponse>> ObterHistoricoAsync(Guid id, CancellationToken cancellationToken);
 }

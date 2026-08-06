@@ -19,6 +19,7 @@ public interface IAppDbContext :
     IIdentidadeDbContext,
     IFinanceAiDbContext,
     IWhatsappDbContext,
+    IAuditDbContext,
     IUnitOfWork
 {
     Guid? WorkspaceCorrente { get; }

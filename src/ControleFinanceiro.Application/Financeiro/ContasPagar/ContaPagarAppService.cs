@@ -54,4 +54,7 @@ public sealed class ContaPagarAppService(
 
     public Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken)
         => _commandService.RemoverDaFaturaAsync(id, cancellationToken);
+
+    public Task<IReadOnlyList<HistoricoEntradaResponse>> ObterHistoricoAsync(Guid id, CancellationToken cancellationToken)
+        => _queryService.ObterHistoricoAsync(id, cancellationToken);
 }

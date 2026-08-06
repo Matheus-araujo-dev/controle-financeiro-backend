@@ -285,7 +285,7 @@ public sealed class AppDbContext(
     private void PrepareAuditableEntities()
     {
         var utcNow = _clock.UtcNow;
-        var userId = _currentUser.UserId;
+        var userId = _currentUser.UserEmail ?? _currentUser.UserId;
 
         var auditableEntries = ChangeTracker
             .Entries<AuditableEntity>()
@@ -377,6 +377,8 @@ public sealed class AppDbContext(
         public bool IsAuthenticated => false;
 
         public string? UserId => null;
+
+        public string? UserEmail => null;
 
         public Guid? WorkspaceId => null;
 

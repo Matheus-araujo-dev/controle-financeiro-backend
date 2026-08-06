@@ -7,4 +7,5 @@ public sealed record HistoricoEntradaResponse(
     string Acao,
     string RealizadoPor,
     DateTime OcorreuEmUtc,
-    IReadOnlyList<AlteracaoCampoResponse> Alteracoes);
+    IReadOnlyList<AlteracaoCampoResponse> Alteracoes,
+    Guid? RegraRecorrenciaId = null);

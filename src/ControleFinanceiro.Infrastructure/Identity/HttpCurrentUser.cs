@@ -22,6 +22,10 @@ public sealed class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : 
         }
     }
 
+    public string? UserEmail =>
+        AuthenticatedUser()?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)
+        ?? AuthenticatedUser()?.FindFirstValue(ClaimTypes.Email);
+
     public Guid? WorkspaceId
     {
         get

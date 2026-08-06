@@ -73,11 +73,21 @@ public sealed class HistoricoMapperTests
     // --- Campos de alteracao ---
 
     [Fact]
-    public void Mapear_QuandoCreated_NaoDeveGerarAlteracoes()
+    public void Mapear_QuandoCreated_DeveExibirCamposIniciaisPreenchidos()
     {
         var entry = MakeEntry("Created", afterJson: """{"Descricao":"Compra","ValorOriginal":100}""");
         var result = HistoricoMapper.Mapear(entry);
-        result.Alteracoes.Should().BeEmpty();
+        result.Alteracoes.Should().HaveCount(2);
+        result.Alteracoes.Should().AllSatisfy(a => a.Antes.Should().BeNull());
+        result.Alteracoes.Single(a => a.Campo == "Descrição").Depois.Should().Be("Compra");
+    }
+
+    [Fact]
+    public void Mapear_QuandoCreated_NaoDeveIncluirCamposNulos()
+    {
+        var entry = MakeEntry("Created", afterJson: """{"Descricao":"Compra","DataLiquidacao":null}""");
+        var result = HistoricoMapper.Mapear(entry);
+        result.Alteracoes.Should().ContainSingle(a => a.Campo == "Descrição");
     }
 
     [Fact]
@@ -172,6 +182,33 @@ public sealed class HistoricoMapperTests
         result.Id.Should().Be(id);
         result.RealizadoPor.Should().Be("matheus@empresa.com");
         result.OcorreuEmUtc.Should().Be(new DateTime(2026, 7, 10, 15, 30, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void Mapear_QuandoExecutedBySystemSemRecorrencia_DeveExibirSistema()
+    {
+        var entry = MakeEntry("Created", afterJson: """{"Descricao":"X"}""", executedBy: "system");
+        var result = HistoricoMapper.Mapear(entry);
+        result.RealizadoPor.Should().Be("Sistema");
+    }
+
+    [Fact]
+    public void Mapear_QuandoExecutedBySystemComRecorrencia_DeveExibirRecorrenciaAutomatica()
+    {
+        var recorrenciaId = Guid.NewGuid();
+        var afterJson = $$"""{"Descricao":"X","RegraRecorrenciaId":"{{recorrenciaId}}"}""";
+        var entry = MakeEntry("Created", afterJson: afterJson, executedBy: "system");
+        var result = HistoricoMapper.Mapear(entry);
+        result.RealizadoPor.Should().Be("Recorrência automática");
+        result.RegraRecorrenciaId.Should().Be(recorrenciaId);
+    }
+
+    [Fact]
+    public void Mapear_QuandoExecutedByEmail_DeveExibirEmail()
+    {
+        var entry = MakeEntry("Created", afterJson: """{"Descricao":"X"}""", executedBy: "user@empresa.com");
+        var result = HistoricoMapper.Mapear(entry);
+        result.RealizadoPor.Should().Be("user@empresa.com");
     }
 
     [Fact]

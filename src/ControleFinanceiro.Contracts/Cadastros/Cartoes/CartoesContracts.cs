@@ -27,7 +27,9 @@ public sealed record CriarCartaoRequest(
     decimal? LimiteCredito,
     bool Ativo,
     string? Icone = null,
-    string? Cor = null);
+    string? Cor = null,
+    Guid? RecebedorPadraoFaturaId = null,
+    Guid? FormaPagamentoPadraoFaturaId = null);
 
 public sealed record AtualizarCartaoRequest(
     string Nome,
@@ -39,7 +41,9 @@ public sealed record AtualizarCartaoRequest(
     decimal? LimiteCredito,
     bool Ativo,
     string? Icone = null,
-    string? Cor = null);
+    string? Cor = null,
+    Guid? RecebedorPadraoFaturaId = null,
+    Guid? FormaPagamentoPadraoFaturaId = null);
 
 public sealed record CartaoResumoResponse(
     Guid Id,
@@ -56,7 +60,9 @@ public sealed record CartaoResumoResponse(
     decimal? LimiteDisponivel,
     bool Ativo,
     string? Icone,
-    string? Cor);
+    string? Cor,
+    Guid? RecebedorPadraoFaturaId = null,
+    Guid? FormaPagamentoPadraoFaturaId = null);
 
 public sealed record CartaoDetalheResponse(
     Guid Id,
@@ -75,4 +81,6 @@ public sealed record CartaoDetalheResponse(
     string? Icone,
     string? Cor,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    Guid? RecebedorPadraoFaturaId = null,
+    Guid? FormaPagamentoPadraoFaturaId = null);

@@ -407,6 +407,66 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             throw ValidationExceptionFactory.Create("Status", exception.Message);
         }
 
+        var cartao = await dbContext.Cartoes
+            .AsNoTracking()
+            .SingleAsync(x => x.Id == fatura.CartaoId, cancellationToken);
+
+        if (cartao.RecebedorPadraoFaturaId.HasValue && cartao.FormaPagamentoPadraoFaturaId.HasValue)
+        {
+            var contaPagarExistente = await dbContext.ContasPagar
+                .AnyAsync(x => x.FaturaCartaoId == fatura.Id && !x.CartaoId.HasValue, cancellationToken);
+
+            if (!contaPagarExistente)
+            {
+                var contaPagar = ContaPagar.CriarParaFatura(
+                    cartao.RecebedorPadraoFaturaId.Value,
+                    fatura.DataVencimento,
+                    cartao.FormaPagamentoPadraoFaturaId.Value,
+                    fatura.ValorTotal,
+                    $"Fatura {cartao.Nome} — {fatura.Competencia}");
+                contaPagar.VincularFaturaCartao(fatura.Id);
+                dbContext.ContasPagar.Add(contaPagar);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await ObterPorIdAsync(id, cancellationToken);
+    }
+
+    public async Task<FaturaDetalheResponse?> ReabrirAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await SincronizarFaturasAsync(cancellationToken);
+
+        var fatura = await dbContext.FaturasCartao.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (fatura is null)
+        {
+            return null;
+        }
+
+        var contaPagarFatura = await dbContext.ContasPagar
+            .SingleOrDefaultAsync(
+                x => x.FaturaCartaoId == fatura.Id && !x.CartaoId.HasValue && x.StatusContaId != StatusConta.CanceladaId,
+                cancellationToken);
+
+        if (contaPagarFatura is not null && contaPagarFatura.StatusContaId == StatusConta.LiquidadaId)
+        {
+            throw ValidationExceptionFactory.Create("Status", "Não é possível reabrir a fatura pois a conta a pagar já foi liquidada. Estorne o pagamento primeiro.");
+        }
+
+        try
+        {
+            fatura.Reabrir();
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw ValidationExceptionFactory.Create("Status", exception.Message);
+        }
+
+        if (contaPagarFatura is not null)
+        {
+            dbContext.ContasPagar.Remove(contaPagarFatura);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await ObterPorIdAsync(id, cancellationToken);
     }

@@ -37,5 +37,15 @@ public sealed class CartaoConfiguration : IEntityTypeConfiguration<Cartao>
             .WithMany()
             .HasForeignKey(x => x.ContaBancariaPagamentoPadraoId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa>()
+            .WithMany()
+            .HasForeignKey(x => x.RecebedorPadraoFaturaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<ControleFinanceiro.Domain.Cadastros.FormasPagamento.FormaPagamento>()
+            .WithMany()
+            .HasForeignKey(x => x.FormaPagamentoPadraoFaturaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

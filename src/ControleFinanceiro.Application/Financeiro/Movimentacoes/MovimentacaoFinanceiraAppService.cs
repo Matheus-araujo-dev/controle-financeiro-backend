@@ -44,6 +44,7 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 movimento.ContaPagarId,
                 movimento.ContaReceberId,
                 movimento.FaturaCartaoId,
+                movimento.TransferenciaId,
                 ContaPagarResponsavelId = contaPagar != null ? contaPagar.ResponsavelCompraId : null,
                 ContaReceberResponsavelId = contaReceber != null ? contaReceber.ResponsavelId : null,
                 ContaPagarRecebedorId = contaPagar != null ? (Guid?)contaPagar.RecebedorId : null,
@@ -148,10 +149,10 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
             .Select(group => new
             {
                 TotalEntradas = group
-                    .Where(x => x.Tipo == TipoMovimentacao.Entrada)
+                    .Where(x => x.Tipo == TipoMovimentacao.Entrada && x.TransferenciaId == null)
                     .Sum(x => x.Valor),
                 TotalSaidas = group
-                    .Where(x => x.Tipo == TipoMovimentacao.Saida)
+                    .Where(x => x.Tipo == TipoMovimentacao.Saida && x.TransferenciaId == null)
                     .Sum(x => x.Valor)
             })
             .SingleOrDefaultAsync(cancellationToken);

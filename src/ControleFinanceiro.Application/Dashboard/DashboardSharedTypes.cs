@@ -65,7 +65,8 @@ internal sealed record RateioLancamentoInfo(
     decimal ValorLancamento,
     decimal ValorRateio,
     Guid StatusContaId,
-    Guid ContaGerencialId);
+    Guid ContaGerencialId,
+    Guid? ResponsavelId);
 
 internal sealed record PrevisaoItem(
     string TipoReferencia,

@@ -28,6 +28,10 @@ public sealed class Cartao : TenantEntity
 
     public string? Cor { get; private set; }
 
+    public Guid? RecebedorPadraoFaturaId { get; private set; }
+
+    public Guid? FormaPagamentoPadraoFaturaId { get; private set; }
+
     public static Cartao Criar(
         string nome,
         string bandeira,
@@ -38,7 +42,9 @@ public sealed class Cartao : TenantEntity
         decimal? limiteCredito,
         bool ativo,
         string? icone = null,
-        string? cor = null)
+        string? cor = null,
+        Guid? recebedorPadraoFaturaId = null,
+        Guid? formaPagamentoPadraoFaturaId = null)
     {
         var cartao = new Cartao();
         cartao.Atualizar(
@@ -51,7 +57,9 @@ public sealed class Cartao : TenantEntity
             limiteCredito,
             ativo,
             icone,
-            cor);
+            cor,
+            recebedorPadraoFaturaId,
+            formaPagamentoPadraoFaturaId);
 
         return cartao;
     }
@@ -66,7 +74,9 @@ public sealed class Cartao : TenantEntity
         decimal? limiteCredito,
         bool ativo,
         string? icone = null,
-        string? cor = null)
+        string? cor = null,
+        Guid? recebedorPadraoFaturaId = null,
+        Guid? formaPagamentoPadraoFaturaId = null)
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
@@ -105,5 +115,7 @@ public sealed class Cartao : TenantEntity
         Ativo = ativo;
         Icone = string.IsNullOrWhiteSpace(icone) ? null : icone.Trim();
         Cor = string.IsNullOrWhiteSpace(cor) ? null : cor.Trim();
+        RecebedorPadraoFaturaId = recebedorPadraoFaturaId == Guid.Empty ? null : recebedorPadraoFaturaId;
+        FormaPagamentoPadraoFaturaId = formaPagamentoPadraoFaturaId == Guid.Empty ? null : formaPagamentoPadraoFaturaId;
     }
 }

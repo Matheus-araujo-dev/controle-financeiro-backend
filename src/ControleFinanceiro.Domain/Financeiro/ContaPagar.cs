@@ -149,6 +149,36 @@ public sealed class ContaPagar : TenantEntity
         return conta;
     }
 
+    public static ContaPagar CriarParaFatura(
+        Guid recebedorId,
+        DateOnly dataVencimento,
+        Guid formaPagamentoId,
+        decimal valorTotal,
+        string descricao)
+    {
+        var conta = new ContaPagar();
+        conta.DefinirCampos(
+            null,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            null,
+            recebedorId,
+            dataVencimento,
+            formaPagamentoId,
+            null,
+            null,
+            valorTotal,
+            0m, 0m, 0m,
+            1, 1,
+            null, null,
+            descricao,
+            null,
+            StatusConta.PendenteId,
+            false,
+            null,
+            OrigemLancamento.Manual);
+        return conta;
+    }
+
     public static IReadOnlyCollection<ContaPagar> CriarParcelas(
         string? numeroDocumento,
         DateOnly dataEmissao,

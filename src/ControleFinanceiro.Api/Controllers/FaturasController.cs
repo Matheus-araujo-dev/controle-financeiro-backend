@@ -82,6 +82,16 @@ public sealed class FaturasController(
         return response is null ? NotFoundResponse() : Ok(response);
     }
 
+    [HttpPost("{id:guid}/reabrir")]
+    [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<FaturaDetalheResponse>> Reabrir(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.ReabrirAsync(id, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
     // ── Importação de fatura CSV ──────────────────────────────────────────────
 
     [HttpPost("importar/preview")]

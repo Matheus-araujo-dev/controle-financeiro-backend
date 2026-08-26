@@ -122,6 +122,16 @@ public sealed class FaturaCartao : TenantEntity
         Status = StatusFaturaCartao.Aberta;
     }
 
+    public void Reabrir()
+    {
+        if (Status != StatusFaturaCartao.Fechada)
+        {
+            throw new InvalidOperationException("Apenas faturas fechadas podem ser reabertas por esta operação.");
+        }
+
+        Status = StatusFaturaCartao.Aberta;
+    }
+
     private void DefinirCampos(
         Guid cartaoId,
         string competencia,

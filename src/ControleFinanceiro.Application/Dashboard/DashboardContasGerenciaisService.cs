@@ -26,7 +26,11 @@ public sealed class DashboardContasGerenciaisService(IAppDbContext dbContext, Da
         var rateios = await db.CarregarRateiosPorEmissaoAsync(dataInicial, dataFinal, cancellationToken);
         var contasGerenciais = await db.CarregarContasGerenciaisAsync(cancellationToken);
 
-        var itens = rateios
+        var rateiosFiltrados = query.ResponsavelId.HasValue
+            ? rateios.Where(r => r.ResponsavelId == query.ResponsavelId.Value).ToList()
+            : rateios;
+
+        var itens = rateiosFiltrados
             .GroupBy(r => r.ContaGerencialId)
             .Where(g => contasGerenciais.ContainsKey(g.Key))
             .Select(g =>

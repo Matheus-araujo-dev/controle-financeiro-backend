@@ -102,7 +102,7 @@ public sealed class DashboardDbHelpers(
             select new RateioLancamentoInfo(
                 conta.Id, "ContaPagar", conta.Descricao, conta.RecebedorId,
                 conta.DataEmissao, conta.DataVencimento, conta.ValorLiquido,
-                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId))
+                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.ResponsavelCompraId))
             .ToListAsync(cancellationToken);
 
         var rateiosReceber = await (
@@ -114,7 +114,7 @@ public sealed class DashboardDbHelpers(
             select new RateioLancamentoInfo(
                 conta.Id, "ContaReceber", conta.Descricao, conta.PagadorId,
                 conta.DataEmissao, conta.DataVencimento, conta.ValorLiquido,
-                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId))
+                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.ResponsavelId))
             .ToListAsync(cancellationToken);
 
         rateiosPagar.AddRange(rateiosReceber);

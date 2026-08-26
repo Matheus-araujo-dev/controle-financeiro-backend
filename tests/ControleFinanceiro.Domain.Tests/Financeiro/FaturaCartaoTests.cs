@@ -85,4 +85,72 @@ public sealed class FaturaCartaoTests
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("*ja foi paga*");
     }
+
+    [Fact]
+    public void Fechar_DeveAlterarStatusParaFechada()
+    {
+        var fatura = FaturaCartao.Criar(
+            cartaoId: Guid.NewGuid(),
+            competencia: "2026-08",
+            dataFechamento: new DateOnly(2026, 8, 10),
+            dataVencimento: new DateOnly(2026, 8, 20),
+            valorTotal: 200m,
+            observacao: null);
+
+        fatura.Fechar();
+
+        fatura.Status.Should().Be(StatusFaturaCartao.Fechada);
+    }
+
+    [Fact]
+    public void Fechar_QuandoJaFechada_DeveFalhar()
+    {
+        var fatura = FaturaCartao.Criar(
+            cartaoId: Guid.NewGuid(),
+            competencia: "2026-08",
+            dataFechamento: new DateOnly(2026, 8, 10),
+            dataVencimento: new DateOnly(2026, 8, 20),
+            valorTotal: 200m,
+            observacao: null);
+
+        fatura.Fechar();
+        var action = () => fatura.Fechar();
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*ja esta fechada*");
+    }
+
+    [Fact]
+    public void Reabrir_QuandoFechada_DeveAlterarStatusParaAberta()
+    {
+        var fatura = FaturaCartao.Criar(
+            cartaoId: Guid.NewGuid(),
+            competencia: "2026-08",
+            dataFechamento: new DateOnly(2026, 8, 10),
+            dataVencimento: new DateOnly(2026, 8, 20),
+            valorTotal: 200m,
+            observacao: null);
+
+        fatura.Fechar();
+        fatura.Reabrir();
+
+        fatura.Status.Should().Be(StatusFaturaCartao.Aberta);
+    }
+
+    [Fact]
+    public void Reabrir_QuandoNaoFechada_DeveFalhar()
+    {
+        var fatura = FaturaCartao.Criar(
+            cartaoId: Guid.NewGuid(),
+            competencia: "2026-08",
+            dataFechamento: new DateOnly(2026, 8, 10),
+            dataVencimento: new DateOnly(2026, 8, 20),
+            valorTotal: 200m,
+            observacao: null);
+
+        var action = () => fatura.Reabrir();
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*fechadas*");
+    }
 }

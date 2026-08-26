@@ -82,6 +82,14 @@ public sealed class ContaPagarLiquidacaoService(
             else
             {
                 statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+
+                if (!deveAtualizarValor && conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
+                {
+                    var novosRateios = await helper.RecalcularRateiosAsync(conta.Id, request.ValorLiquidacao, cancellationToken);
+                    await helper.AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
+                    var proxima = conta.DataVencimento.AddDays(1);
+                    await helper.AtualizarValorFuturasAsync(conta.RegraRecorrenciaId.Value, proxima, request.ValorLiquidacao, cancellationToken);
+                }
             }
 
             valorMovimentacao = request.ValorLiquidacao;

@@ -111,4 +111,35 @@ public sealed class ContasPagarRecorrenciaTests(CustomWebApplicationFactory fact
 
         resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    // Regression: liquidar com valor menor e AtualizarRecorrencia=true deve atualizar o template
+    [Fact]
+    public async Task Liquidar_ComValorMenorEAtualizarRecorrencia_DeveAtualizarTemplateEFuturas()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarRecorrenteAsync(client, fixture); // valorOriginal = 99.90
+
+        // Gera ocorrência futura para validar que seu valor também será atualizado
+        await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/gerar-ocorrencias", new { ateData = "2026-06-01" });
+
+        // Liquida pagando 80.00 (menor que 99.90) e pede atualização da recorrência
+        var liquidar = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 80.00m,
+            atualizarValorConta = false,
+            atualizarRecorrencia = true,
+            cancelarValorRestante = true  // finaliza a conta
+        });
+        liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verifica que o template da recorrência foi atualizado para 80.00
+        var recorrencia = await client.GetFromJsonAsync<RecorrenciaListItemResponse>($"/api/v1/recorrencias/{id}");
+        recorrencia!.ValorLiquido.Should().Be(80.00m);
+    }
+
+    private sealed record RecorrenciaListItemResponse(Guid Id, decimal ValorLiquido);
 }

@@ -57,6 +57,8 @@ public sealed record DashboardContaGerencialResumoQueryRequest
     public int Dias { get; init; } = 30;
 
     public string? Tipo { get; init; }
+
+    public Guid? ResponsavelId { get; init; }
 }
 
 public sealed record DashboardContaGerencialSerieQueryRequest

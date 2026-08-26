@@ -136,10 +136,19 @@ public sealed class ContasPagarRecorrenciaTests(CustomWebApplicationFactory fact
         });
         liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
 
+        // Obtém o RegraRecorrencia.Id a partir do detalhe da ContaPagar
+        var detalhe = await client.GetFromJsonAsync<ContaPagarDetalheResponse>($"/api/v1/contas-pagar/{id}");
+        detalhe!.Recorrencia.Should().NotBeNull();
+        var regraId = detalhe.Recorrencia!.Id;
+
         // Verifica que o template da recorrência foi atualizado para 80.00
-        var recorrencia = await client.GetFromJsonAsync<RecorrenciaListItemResponse>($"/api/v1/recorrencias/{id}");
+        var recorrencia = await client.GetFromJsonAsync<RecorrenciaListItemResponse>($"/api/v1/recorrencias/{regraId}");
         recorrencia!.ValorLiquido.Should().Be(80.00m);
     }
 
     private sealed record RecorrenciaListItemResponse(Guid Id, decimal ValorLiquido);
+
+    private sealed record RecorrenciaResponse(Guid Id);
+
+    private sealed record ContaPagarDetalheResponse(Guid Id, RecorrenciaResponse? Recorrencia);
 }

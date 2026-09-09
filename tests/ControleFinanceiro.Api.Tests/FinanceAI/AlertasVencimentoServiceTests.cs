@@ -37,7 +37,7 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var outbound = new FakeOutbound();
         var servico = new AlertasVencimentoService(
             scope.ServiceProvider.GetRequiredService<IAppDbContext>(),
@@ -76,7 +76,7 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
         });
 
         // Usuário WhatsApp + config de alerta de vencimento (3 dias)
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
         var usuario = Usuario.Criar("sub-alerta", "alerta@test.local", "Usuário Alerta", null);
         db.Usuarios.Add(usuario);
@@ -127,7 +127,7 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
         });
         postResp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-limite-aviso", "limite-aviso@test.local", "Usuário Limite Aviso", null);
@@ -183,7 +183,7 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
         });
         postResp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-limite-crit", "limite-crit@test.local", "Usuário Limite Crítico", null);
@@ -237,7 +237,7 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
         });
         postResp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-limite-idem", "limite-idem@test.local", "Usuário Idempotente", null);
@@ -293,7 +293,7 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
             rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 999m } }
         });
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-sem-meta", "sem-meta@test.local", "Usuário Sem Meta", null);

@@ -31,15 +31,14 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
             dataFinal = dataReferencia.AddDays(query.DiasProjetados);
         }
 
-        var pessoas = await db.CarregarPessoasAsync(cancellationToken);
         var contaBancariaIds = query.ContaBancariaIds;
 
         var saldoAtual = await db.CalcularSaldoRealizadoAteAsync(hoje, contaBancariaIds, cancellationToken);
         var totalAPagar = await CalcularTotalPendenteContasPagarAsync(dataFinal, cancellationToken);
         var totalAReceber = await CalcularTotalPendenteContasReceberAsync(dataFinal, cancellationToken);
 
-        var contasVencidas = await CarregarContasVencidasAsync(dataReferencia, pessoas, cancellationToken);
-        var contasAVencer = await CarregarContasAVencerAsync(dataReferencia, dataFinal, pessoas, cancellationToken);
+        var contasVencidas = await CarregarContasVencidasAsync(dataReferencia, cancellationToken);
+        var contasAVencer = await CarregarContasAVencerAsync(dataReferencia, dataFinal, cancellationToken);
         var movimentacoesRecentes = await CarregarMovimentacoesRecentesAsync(dataReferencia, contaBancariaIds, cancellationToken);
 
         var saldoProjetado = decimal.Round(saldoAtual + totalAReceber - totalAPagar, 2, MidpointRounding.AwayFromZero);
@@ -55,6 +54,21 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
                         c.StatusContaId != StatusConta.CanceladaId &&
                         c.DataVencimento <= dataFinal)
+
+            // Antes de consolidar, os itens representam a obrigação. Depois, contamos
+            // somente a conta consolidada, inclusive quando o pagamento é estornado.
+            // Itens manuais não têm FaturaCartaoId: sincronização usa cartão e mês
+            // de vencimento, mesmo quando a competência pertence ao mês anterior.
+            .Where(c => c.StatusContaId != StatusConta.EmFaturaId ||
+                !dbContext.FaturasCartao.Any(f =>
+                    (c.FaturaCartaoId == f.Id ||
+                     (c.CartaoId == f.CartaoId &&
+                      c.DataVencimento.Year == f.DataVencimento.Year &&
+                      c.DataVencimento.Month == f.DataVencimento.Month)) &&
+                    dbContext.ContasPagar.Any(consolidada =>
+                        consolidada.FaturaCartaoId == f.Id &&
+                        consolidada.CartaoId == null &&
+                        consolidada.StatusContaId != StatusConta.CanceladaId)))
             .SumAsync(c => (decimal?)c.ValorLiquido, cancellationToken) ?? 0m;
 
     private async Task<decimal> CalcularTotalPendenteContasReceberAsync(DateOnly dataFinal, CancellationToken cancellationToken) =>
@@ -65,7 +79,7 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
             .SumAsync(c => (decimal?)c.ValorLiquido, cancellationToken) ?? 0m;
 
     private async Task<IReadOnlyList<DashboardContaResumoResponse>> CarregarContasVencidasAsync(
-        DateOnly dataReferencia, IReadOnlyDictionary<Guid, string> pessoas, CancellationToken cancellationToken)
+        DateOnly dataReferencia, CancellationToken cancellationToken)
     {
         var contasPagar = await dbContext.ContasPagar.AsNoTracking()
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
@@ -84,6 +98,10 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
             .Select(c => new { c.Id, c.Descricao, PessoaId = c.PagadorId, c.DataVencimento, c.ValorLiquido })
             .ToListAsync(cancellationToken);
 
+        var pessoas = await db.CarregarPessoasAsync(
+            contasPagar.Select(c => c.PessoaId).Concat(contasReceber.Select(c => c.PessoaId)).Distinct().ToArray(),
+            cancellationToken);
+
         return contasPagar
             .Select(c => new DashboardContaResumoResponse(c.Id, "ContaPagar", c.Descricao, pessoas.GetValueOrDefault(c.PessoaId, string.Empty), c.DataVencimento, c.ValorLiquido, "VENCIDA", "Vencida"))
             .Concat(contasReceber.Select(c => new DashboardContaResumoResponse(c.Id, "ContaReceber", c.Descricao, pessoas.GetValueOrDefault(c.PessoaId, string.Empty), c.DataVencimento, c.ValorLiquido, "VENCIDA", "Vencida")))
@@ -91,7 +109,7 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
     }
 
     private async Task<IReadOnlyList<DashboardContaResumoResponse>> CarregarContasAVencerAsync(
-        DateOnly dataInicial, DateOnly dataFinal, IReadOnlyDictionary<Guid, string> pessoas, CancellationToken cancellationToken)
+        DateOnly dataInicial, DateOnly dataFinal, CancellationToken cancellationToken)
     {
         var contasPagar = await dbContext.ContasPagar.AsNoTracking()
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
@@ -109,6 +127,10 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
             .OrderBy(c => c.DataVencimento).Take(10)
             .Select(c => new { c.Id, c.Descricao, PessoaId = c.PagadorId, c.DataVencimento, c.ValorLiquido, c.StatusContaId })
             .ToListAsync(cancellationToken);
+
+        var pessoas = await db.CarregarPessoasAsync(
+            contasPagar.Select(c => c.PessoaId).Concat(contasReceber.Select(c => c.PessoaId)).Distinct().ToArray(),
+            cancellationToken);
 
         return contasPagar
             .Select(c => MapearContaResumo(c.Id, "ContaPagar", c.Descricao, c.PessoaId, c.DataVencimento, c.ValorLiquido, c.StatusContaId, pessoas))

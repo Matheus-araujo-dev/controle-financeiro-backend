@@ -13,6 +13,7 @@ namespace ControleFinanceiro.Application.Common.Cache;
 public sealed class LookupCacheService : ILookupCacheService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IAppDbContext? _workspaceContext;
     private readonly ILogger<LookupCacheService> _logger;
     private readonly TimeSpan _defaultExpiration;
     private readonly ConcurrentDictionary<string, object> _cache = new();
@@ -26,9 +27,11 @@ public sealed class LookupCacheService : ILookupCacheService
     public LookupCacheService(
         IServiceScopeFactory scopeFactory,
         ILogger<LookupCacheService> logger,
-        TimeSpan? defaultExpiration = null)
+        TimeSpan? defaultExpiration = null,
+        IAppDbContext? workspaceContext = null)
     {
         _scopeFactory = scopeFactory;
+        _workspaceContext = workspaceContext;
         _logger = logger;
         _defaultExpiration = defaultExpiration ?? TimeSpan.FromMinutes(30);
     }
@@ -107,10 +110,7 @@ public sealed class LookupCacheService : ILookupCacheService
         try
         {
             _logger.LogInformation("Refreshing all lookup caches");
-            if (_cache.TryGetValue("StatusConta", out var sc)) ((IInvalidate)sc).Invalidate();
-            if (_cache.TryGetValue("StatusMovimentacao", out var sm)) ((IInvalidate)sm).Invalidate();
-            if (_cache.TryGetValue("FormaPagamento", out var fp)) ((IInvalidate)fp).Invalidate();
-            if (_cache.TryGetValue("ContaGerencial", out var cg)) ((IInvalidate)cg).Invalidate();
+            foreach (var entry in _cache.Values) ((IInvalidate)entry).Invalidate();
         }
         finally
         {
@@ -146,33 +146,33 @@ public sealed class LookupCacheService : ILookupCacheService
 
     private FormaPagamentoCacheEntry GetOrCreateFormaPagamentoEntry()
     {
-        const string key = "FormaPagamento";
+        var key = "FormaPagamento:" + _workspaceContext?.WorkspaceCorrente;
         if (_cache.TryGetValue(key, out var existingEntry))
         {
             return (FormaPagamentoCacheEntry)existingEntry;
         }
 
-        var newEntry = new FormaPagamentoCacheEntry(_scopeFactory, _defaultExpiration);
+        var newEntry = new FormaPagamentoCacheEntry(_scopeFactory, _defaultExpiration, _workspaceContext?.WorkspaceCorrente);
         _cache[key] = newEntry;
         return newEntry;
     }
 
     private ContaGerencialCacheEntry GetOrCreateContaGerencialEntry()
     {
-        const string key = "ContaGerencial";
+        var key = "ContaGerencial:" + _workspaceContext?.WorkspaceCorrente;
         if (_cache.TryGetValue(key, out var existingEntry))
         {
             return (ContaGerencialCacheEntry)existingEntry;
         }
 
-        var newEntry = new ContaGerencialCacheEntry(_scopeFactory, _defaultExpiration);
+        var newEntry = new ContaGerencialCacheEntry(_scopeFactory, _defaultExpiration, _workspaceContext?.WorkspaceCorrente);
         _cache[key] = newEntry;
         return newEntry;
     }
 
     private async ValueTask InvalidateEntryAsync(string key, CancellationToken cancellationToken)
     {
-        if (_cache.TryGetValue(key, out var entry))
+        foreach (var entry in _cache.Where(pair => pair.Key == key || pair.Key.StartsWith(key + ":", StringComparison.Ordinal)).Select(pair => pair.Value))
         {
             await _semaphore.WaitAsync(cancellationToken);
             try
@@ -296,14 +296,16 @@ public sealed class LookupCacheService : ILookupCacheService
 
     private sealed class FormaPagamentoCacheEntry : IInvalidate
     {
+        private readonly Guid? _workspaceId;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly TimeSpan _expiration;
         private IReadOnlyList<FormaPagamento>? _cachedItems;
         private DateTime _lastRefresh;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-        public FormaPagamentoCacheEntry(IServiceScopeFactory scopeFactory, TimeSpan expiration)
+        public FormaPagamentoCacheEntry(IServiceScopeFactory scopeFactory, TimeSpan expiration, Guid? workspaceId)
         {
+            _workspaceId = workspaceId;
             _scopeFactory = scopeFactory;
             _expiration = expiration;
             _lastRefresh = DateTime.MinValue;
@@ -325,7 +327,8 @@ public sealed class LookupCacheService : ILookupCacheService
                 }
 
                 using var scope = _scopeFactory.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<ICadastrosDbContext>();
+                var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+                if (_workspaceId.HasValue) dbContext.DefinirWorkspaceCorrente(_workspaceId.Value);
                 _cachedItems = await dbContext.FormasPagamento.AsNoTracking().ToListAsync(cancellationToken);
                 _lastRefresh = DateTime.UtcNow;
                 return _cachedItems;
@@ -347,14 +350,16 @@ public sealed class LookupCacheService : ILookupCacheService
 
     private sealed class ContaGerencialCacheEntry : IInvalidate
     {
+        private readonly Guid? _workspaceId;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly TimeSpan _expiration;
         private IReadOnlyList<ContaGerencial>? _cachedItems;
         private DateTime _lastRefresh;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-        public ContaGerencialCacheEntry(IServiceScopeFactory scopeFactory, TimeSpan expiration)
+        public ContaGerencialCacheEntry(IServiceScopeFactory scopeFactory, TimeSpan expiration, Guid? workspaceId)
         {
+            _workspaceId = workspaceId;
             _scopeFactory = scopeFactory;
             _expiration = expiration;
             _lastRefresh = DateTime.MinValue;
@@ -376,7 +381,8 @@ public sealed class LookupCacheService : ILookupCacheService
                 }
 
                 using var scope = _scopeFactory.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<ICadastrosDbContext>();
+                var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+                if (_workspaceId.HasValue) dbContext.DefinirWorkspaceCorrente(_workspaceId.Value);
                 _cachedItems = await dbContext.ContasGerenciais.AsNoTracking().ToListAsync(cancellationToken);
                 _lastRefresh = DateTime.UtcNow;
                 return _cachedItems;

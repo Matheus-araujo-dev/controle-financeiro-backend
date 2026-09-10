@@ -131,6 +131,9 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.HasIndex(x => x.TokenHash)
             .IsUnique();
 
+        // O UPDATE exige o valor original: apenas uma renovacao pode consumir o token ativo.
+        builder.Property(x => x.RevogadoEmUtc).IsConcurrencyToken();
+
         builder.Property(x => x.SubstituidoPorTokenHash)
             .HasMaxLength(128);
 

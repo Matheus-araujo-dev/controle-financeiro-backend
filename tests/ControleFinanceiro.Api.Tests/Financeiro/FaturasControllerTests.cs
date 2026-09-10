@@ -147,7 +147,7 @@ public sealed class FaturasControllerTests(CustomWebApplicationFactory factory) 
         detalheDepoisEstorno.ContaBancariaPagamentoId.Should().BeNull();
         detalheDepoisEstorno.Itens.Should().OnlyContain(item => item.StatusCodigo == "EM_FATURA");
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         dbContext.MovimentacoesFinanceiras.Count(x =>
@@ -223,7 +223,7 @@ public sealed class FaturasControllerTests(CustomWebApplicationFactory factory) 
         resultadoPrimeiraConfirmacao!.ContasCriadas.Should().Be(1);
         resultadoPrimeiraConfirmacao.ContasDuplicadas.Should().Be(0);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
         var contaCriada = await dbContext.ContasPagar
             .SingleAsync(x => x.ChaveSerieImportacaoCartao == $"{fixture.CartaoId}|2026-04-05|mercado-importado|123.45");

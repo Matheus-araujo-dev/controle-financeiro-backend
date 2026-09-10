@@ -22,10 +22,8 @@ public sealed class AtualizacaoStatusContasWorker(
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<AtualizacaoStatusContasService>();
-
-                await service.MarcarContasVencidasAsync(stoppingToken);
+                await ControleFinanceiro.Application.Common.WorkspaceJobRunner.RunAsync<AtualizacaoStatusContasService>(
+                    scopeFactory, (service, token) => service.MarcarContasVencidasAsync(token), logger, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

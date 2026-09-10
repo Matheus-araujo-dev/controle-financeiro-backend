@@ -15,6 +15,20 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
+    public async Task GetResumo_DeveContarFaturaUmaVezSemSomarComprasInternas()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        await CriarCompraCartaoAsync(client, fixture, "2026-04-05", 300m, "Compra interna");
+        var resumo = await client.GetFromJsonAsync<DashboardResumoResponse>(
+            "/api/v1/dashboard/resumo?mesReferencia=2026-04");
+        resumo.Should().NotBeNull();
+        resumo!.TotalAPagar.Should().Be(300m, "a obrigação é a fatura, não a fatura mais os itens internos");
+    }
+
+
+    [Fact]
     public async Task GetResumo_DeveConsolidarCardsListasMovimentosERisco()
     {
         await _factory.ResetDatabaseAsync();
@@ -176,7 +190,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         criarRecorrenciaResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -262,7 +276,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         criarRecorrenciaResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -701,7 +715,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             contaGerencialId: fixture.ContaGerencialDespesaId,
             origemCompraPlanejadaId: compraPlanejadaConvertidaId);
 
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 

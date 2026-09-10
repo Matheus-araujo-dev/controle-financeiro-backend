@@ -18,7 +18,9 @@ public sealed class WhatsappMensagemService(
     {
         var telefone = WhatsappUsuario.NormalizarTelefone(request.Telefone);
 
+        // Webhook autenticado: lookup pontual do remetente, antes do escopo financeiro.
         var wup = await db.WhatsappUsuarios
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(w => w.Telefone == telefone && w.Ativo, cancellationToken);
 
@@ -27,6 +29,8 @@ public sealed class WhatsappMensagemService(
             logger.LogDebug("Telefone {Telefone} não cadastrado ou inativo — mensagem ignorada.", telefone);
             return null;
         }
+
+        db.DefinirWorkspaceCorrente(wup.FamiliaId);
 
         var jaProcessado = await db.AiMensagens
             .AsNoTracking()

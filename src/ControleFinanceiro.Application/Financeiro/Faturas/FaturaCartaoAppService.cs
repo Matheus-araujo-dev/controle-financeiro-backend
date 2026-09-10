@@ -414,7 +414,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         if (cartao.RecebedorPadraoFaturaId.HasValue && cartao.FormaPagamentoPadraoFaturaId.HasValue)
         {
             var contaPagarExistente = await dbContext.ContasPagar
-                .AnyAsync(x => x.FaturaCartaoId == fatura.Id && !x.CartaoId.HasValue, cancellationToken);
+                .AnyAsync(x => x.FaturaCartaoId == fatura.Id && !x.CartaoId.HasValue && x.StatusContaId != StatusConta.CanceladaId, cancellationToken);
 
             if (!contaPagarExistente)
             {
@@ -464,7 +464,9 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
 
         if (contaPagarFatura is not null)
         {
-            dbContext.ContasPagar.Remove(contaPagarFatura);
+            // Movimentações estornadas continuam referenciando a obrigação antiga.
+            // Cancelar preserva esse histórico e permite consolidar novamente ao fechar.
+            contaPagarFatura.Cancelar(StatusConta.CanceladaId);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

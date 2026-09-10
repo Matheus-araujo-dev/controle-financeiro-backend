@@ -19,6 +19,7 @@ public sealed class BackgroundWorkersTests(CustomWebApplicationFactory factory)
     public async Task AtualizacaoStatusContasWorker_DeveMarcarContaVencidaNaPrimeiraIteracao()
     {
         await _factory.ResetDatabaseAsync();
+        await RegistrarWorkspaceAsync();
         using var client = _factory.CreateClient();
         var fixture = await FinancialFixtureSeed.CreateAsync(client);
 
@@ -60,6 +61,7 @@ public sealed class BackgroundWorkersTests(CustomWebApplicationFactory factory)
     public async Task RecorrenciaMensalWorker_DeveRodarPrimeiraIteracaoSemErros()
     {
         await _factory.ResetDatabaseAsync();
+        await RegistrarWorkspaceAsync();
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
@@ -79,6 +81,7 @@ public sealed class BackgroundWorkersTests(CustomWebApplicationFactory factory)
     public async Task TransicaoStatusFuturoWorker_DeveRodarPrimeiraIteracaoSemErros()
     {
         await _factory.ResetDatabaseAsync();
+        await RegistrarWorkspaceAsync();
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
@@ -91,6 +94,17 @@ public sealed class BackgroundWorkersTests(CustomWebApplicationFactory factory)
         var parar = async () => await worker.StopAsync(CancellationToken.None);
 
         await parar.Should().NotThrowAsync();
+    }
+
+    private async Task RegistrarWorkspaceAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ControleFinanceiro.Infrastructure.Persistence.AppDbContext>();
+        var workspaceId = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ControleFinanceiro.Api.Configuration.AuthOptions>>().Value.DevelopmentFamiliaId;
+        var familia = ControleFinanceiro.Domain.Identidade.Familia.Criar("Workspace de teste");
+        db.Familias.Add(familia);
+        db.Entry(familia).Property(f => f.Id).CurrentValue = workspaceId;
+        await db.SaveChangesAsync();
     }
 
     private async Task<string?> ObterStatusAsync(HttpClient client, Guid id)

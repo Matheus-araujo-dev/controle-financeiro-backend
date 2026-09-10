@@ -54,6 +54,15 @@ public sealed class DashboardDbHelpers(
     internal async Task<IReadOnlyDictionary<Guid, string>> CarregarPessoasAsync(CancellationToken cancellationToken) =>
         await dbContext.Pessoas.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nome, cancellationToken);
 
+    internal async Task<IReadOnlyDictionary<Guid, string>> CarregarPessoasAsync(
+        IReadOnlyCollection<Guid> pessoaIds, CancellationToken cancellationToken)
+    {
+        if (pessoaIds.Count == 0) return new Dictionary<Guid, string>();
+        return await dbContext.Pessoas.AsNoTracking()
+            .Where(p => pessoaIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Nome, cancellationToken);
+    }
+
     internal async Task<IReadOnlyDictionary<Guid, ContaGerencialInfo>> CarregarContasGerenciaisAsync(CancellationToken cancellationToken) =>
         await dbContext.ContasGerenciais
             .AsNoTracking()
@@ -123,15 +132,15 @@ public sealed class DashboardDbHelpers(
 
     internal async Task<List<ImportacaoCompraInfo>> CarregarComprasImportadasAsync(CancellationToken cancellationToken)
     {
-        var familiaId = currentUser.FamiliaId;
+        var familiaId = dbContext.WorkspaceCorrente ?? currentUser.WorkspaceId ?? currentUser.FamiliaId;
 
         var registros = await dbContext.ItensImportadosWhatsapp
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(i =>
                 i.TipoSugestao == TipoSugestaoImportacaoWhatsapp.CompraCartao &&
                 i.Status == StatusItemImportadoWhatsapp.Confirmado &&
-                (familiaId == null || i.FamiliaId == familiaId.Value || i.FamiliaId == Guid.Empty))
+                (familiaId.HasValue && i.FamiliaId == familiaId.Value))
+            .Select(i => new { i.Id, i.PayloadSugeridoJson, i.DescricaoAjustada, i.MarcarComoRecorrente, i.ContaGerencialId, i.ResponsavelId })
             .ToListAsync(cancellationToken);
 
         var compras = new List<ImportacaoCompraInfo>(registros.Count);

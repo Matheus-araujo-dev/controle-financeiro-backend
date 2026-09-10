@@ -64,6 +64,20 @@ jobs:
         shell: pwsh
         run: ./scripts/coverage-gate.ps1 -Threshold 80
 
+      - name: Publish validated API contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-contract
+          path: contracts/openapi.json
+          if-no-files-found: error
+
+      - name: Preserve coverage evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: TestResults/coverage-report/
+          if-no-files-found: error
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest

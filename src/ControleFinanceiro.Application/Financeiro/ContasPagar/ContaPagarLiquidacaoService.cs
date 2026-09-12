@@ -248,7 +248,7 @@ public sealed class ContaPagarLiquidacaoService(
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return false;
 
-        if (!conta.CartaoId.HasValue || conta.StatusContaId != StatusConta.EmFaturaId)
+        if (!conta.CartaoId.HasValue || (conta.StatusContaId != StatusConta.EmFaturaId && conta.StatusContaId != StatusConta.CanceladaId))
             throw helper.ConverterParaValidacao(new InvalidOperationException("Este lançamento não está em uma fatura aberta."));
 
         // Validação 1: fatura da parcela atual não pode estar fechada ou paga

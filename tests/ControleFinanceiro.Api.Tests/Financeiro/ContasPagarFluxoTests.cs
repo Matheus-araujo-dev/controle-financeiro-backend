@@ -398,6 +398,58 @@ public sealed class ContasPagarFluxoTests(CustomWebApplicationFactory factory)
         (await client.GetAsync($"/api/v1/contas-pagar/{parcelaJunhoId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RemoverDaFatura_Estorno_RespeitaBloqueioDaFatura(bool fecharFatura)
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+        await CriarCompraCartaoAsync(client, fixture, 500m);
+        var faturaId = await ObterFaturaIdAsync(client, "2026-04");
+        (await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/cancelar", new { })).EnsureSuccessStatusCode();
+        (await ObterTotalItensFaturaAsync(client, faturaId)).Should().Be(2);
+        if (fecharFatura)
+            (await client.PostAsync($"/api/v1/faturas/{faturaId}/fechar", null)).EnsureSuccessStatusCode();
+
+        var response = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        response.StatusCode.Should().Be(fecharFatura ? HttpStatusCode.BadRequest : HttpStatusCode.NoContent);
+        (await ObterTotalItensFaturaAsync(client, faturaId)).Should().Be(fecharFatura ? 2 : 1);
+        (await client.GetAsync($"/api/v1/contas-pagar/{id}")).StatusCode
+            .Should().Be(fecharFatura ? HttpStatusCode.OK : HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AtualizarCartao_CompraEmFaturaAberta_MoveItemParaNovoCartao()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+        await CriarCompraCartaoAsync(client, fixture, 500m);
+        var faturaOrigemId = await ObterFaturaIdAsync(client, "2026-04");
+        var novoCartao = await client.PostAsJsonAsync("/api/v1/cartoes", new {
+            nome = "Cartão correto", bandeira = "Visa", numeroFinal = "1234",
+            diaFechamentoFatura = 10, diaVencimentoFatura = 20,
+            contaBancariaPagamentoPadraoId = fixture.ContaBancariaId, limiteCredito = 5000m, ativo = true
+        });
+        novoCartao.EnsureSuccessStatusCode();
+        var cartao = await novoCartao.Content.ReadFromJsonAsync<ContaResumo>();
+        var atualizar = await client.PutAsJsonAsync($"/api/v1/contas-pagar/{id}", new {
+            dataEmissao = "2026-04-05", dataCompra = "2026-04-05", dataVencimento = "2026-04-20",
+            recebedorId = fixture.RecebedorId, formaPagamentoId = fixture.FormaPagamentoCartaoId,
+            cartaoId = cartao!.Id, valorOriginal = 200m, quantidadeParcelas = 1, descricao = "Tênis",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 200m } }
+        });
+        atualizar.EnsureSuccessStatusCode();
+        var faturas = await client.GetFromJsonAsync<FaturaListResponse>("/api/v1/faturas");
+        var destino = faturas!.Items.Single(x => x.Id != faturaOrigemId);
+        (await ObterTotalItensFaturaAsync(client, faturaOrigemId)).Should().Be(1);
+        (await ObterContaPagarIdDaFaturaAsync(client, destino.Id)).Should().Be(id);
+    }
+
     // ── helpers adicionais ───────────────────────────────────────────────────
 
     private static async Task<Guid> ObterFaturaIdAsync(HttpClient client, string competencia)

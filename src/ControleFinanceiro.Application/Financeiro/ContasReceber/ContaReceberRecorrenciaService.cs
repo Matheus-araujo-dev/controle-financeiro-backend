@@ -191,13 +191,12 @@ public sealed class ContaReceberRecorrenciaService(
     {
         var contasFuturas = await dbContext.ContasReceber
             .Where(x => x.RegraRecorrenciaId == regraId &&
-                        x.DataVencimento >= aPartirDe &&
-                        x.StatusContaId != StatusConta.LiquidadaId &&
+                        x.StatusContaId == StatusConta.FuturoId &&
                         x.StatusContaId != StatusConta.CanceladaId)
             .ToListAsync(cancellationToken);
 
         foreach (var conta in contasFuturas)
-            conta.Cancelar(StatusConta.CanceladaId);
+            conta.CancelarPorPausaRecorrencia();
     }
 
     public async Task<ContaReceberDetalheResponse?> PausarRecorrenciaAsync(Guid id, CancellationToken cancellationToken)

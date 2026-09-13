@@ -31,6 +31,12 @@ public sealed class RecorrenciaAppService(
             "Iniciando geração automática de recorrências — referência {Data}, horizonte até {AteData}.",
             dataReferencia, ateData);
 
+        var encerraveis = await dbContext.RegrasRecorrencia
+            .Where(x => !x.Encerrada && x.DataFim.HasValue && x.DataFim <= dataReferencia)
+            .ToArrayAsync(cancellationToken);
+        foreach (var regra in encerraveis) regra.Encerrar(regra.DataFim!.Value);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
         var regrasAtivas = await dbContext.RegrasRecorrencia
             .Where(x => x.Ativa)
             .ToArrayAsync(cancellationToken);
@@ -54,7 +60,7 @@ public sealed class RecorrenciaAppService(
                 int geradas;
                 if (regra.TipoLancamento == Domain.Financeiro.TipoLancamentoRecorrencia.ContaPagar)
                 {
-                    geradas = await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+                    geradas = await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken, dataReferencia);
                 }
                 else
                 {
@@ -162,7 +168,7 @@ public sealed class RecorrenciaAppService(
             orderby conta.CreatedAtUtc
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
-                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
                 recebedor.Nome, responsavel.Nome)
         ).FirstOrDefaultAsync(cancellationToken);
@@ -181,7 +187,7 @@ public sealed class RecorrenciaAppService(
             orderby conta.CreatedAtUtc
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
-                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
                 pagador.Nome, responsavel.Nome)
         ).FirstOrDefaultAsync(cancellationToken);
@@ -212,7 +218,15 @@ public sealed class RecorrenciaAppService(
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("Recorrência não encontrada.");
 
+        if (regra.Encerrada || (regra.DataFim.HasValue && regra.DataFim.Value <= DateOnly.FromDateTime(DateTime.Today)))
+            throw ControleFinanceiro.Application.Common.Validation.ValidationExceptionFactory.Create("Recorrencia", "Recorrência encerrada não pode ser retomada.");
         regra.Retomar();
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
+        var pagar = await dbContext.ContasPagar.Where(x => x.RegraRecorrenciaId == id && x.CanceladaPorPausaRecorrencia && x.DataVencimento >= inicioMes).ToArrayAsync(cancellationToken);
+        foreach (var conta in pagar) conta.RetomarAposPausaRecorrencia();
+        var receber = await dbContext.ContasReceber.Where(x => x.RegraRecorrenciaId == id && x.CanceladaPorPausaRecorrencia && x.DataVencimento >= inicioMes).ToArrayAsync(cancellationToken);
+        foreach (var conta in receber) conta.RetomarAposPausaRecorrencia();
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var ateData = HorizonteSeisMeses(DateOnly.FromDateTime(DateTime.UtcNow));
@@ -225,6 +239,20 @@ public sealed class RecorrenciaAppService(
             await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
         }
 
+        return (await ObterAsync(id, cancellationToken))!;
+    }
+
+    public async Task<RecorrenciaListItemResponse> EncerrarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Recorrência não encontrada.");
+        if (regra.Ativa) throw ControleFinanceiro.Application.Common.Validation.ValidationExceptionFactory.Create("Recorrencia", "Pause a recorrência antes de encerrá-la.");
+        if (!regra.Encerrada)
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            regra.Encerrar(hoje < regra.DataInicio ? regra.DataInicio : hoje);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
         return (await ObterAsync(id, cancellationToken))!;
     }
 
@@ -256,7 +284,7 @@ public sealed class RecorrenciaAppService(
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
-                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
                 recebedor.Nome, responsavel.Nome);
 
@@ -291,7 +319,7 @@ public sealed class RecorrenciaAppService(
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
-                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
                 pagador.Nome, responsavel.Nome);
 
@@ -325,7 +353,8 @@ public sealed class RecorrenciaAppService(
             row.Descricao,
             row.ValorLiquido,
             row.PessoaNome,
-            row.ResponsavelNome);
+            row.ResponsavelNome,
+            row.Encerrada);
     }
 
     private sealed record RecorrenciaRow(
@@ -336,6 +365,7 @@ public sealed class RecorrenciaAppService(
         DateOnly DataInicio,
         DateOnly? DataFim,
         bool Ativa,
+        bool Encerrada,
         bool PermiteEdicaoOcorrenciaIndividual,
         string? Observacao,
         string ContaOrigemTipo,

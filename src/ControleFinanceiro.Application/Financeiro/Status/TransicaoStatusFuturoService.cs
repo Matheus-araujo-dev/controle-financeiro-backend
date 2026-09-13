@@ -6,17 +6,16 @@ using Microsoft.Extensions.Logging;
 namespace ControleFinanceiro.Application.Financeiro.Status;
 
 /// <summary>
-/// Transiciona para "Pendente" as contas a pagar/receber com status "Futuro" cujo mês de
-/// vencimento chegou. Rodada por um worker sem tenant, cobre todas as famílias em duas
-/// instruções de UPDATE bulk, de forma idempotente.
+/// Promove contas futuras do mês: cartão para "Em fatura" e demais para "Pendente".
+/// Mantém os registros e os filtros de workspace, com atualizações idempotentes.
 /// </summary>
 public sealed class TransicaoStatusFuturoService(
     IAppDbContext dbContext,
     ILogger<TransicaoStatusFuturoService> logger)
 {
-    public async Task<int> TransicionarFuturoParaPendenteAsync(CancellationToken cancellationToken)
+    public async Task<int> TransicionarFuturoParaPendenteAsync(CancellationToken cancellationToken, DateOnly? dataReferencia = null)
     {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var hoje = dataReferencia ?? DateOnly.FromDateTime(DateTime.Today);
         var fimMesAtual = new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month));
         var agora = DateTime.UtcNow;
 
@@ -24,7 +23,7 @@ public sealed class TransicaoStatusFuturoService(
             .Where(conta => conta.StatusContaId == StatusConta.FuturoId && conta.DataVencimento <= fimMesAtual)
             .ExecuteUpdateAsync(
                 updates => updates
-                    .SetProperty(conta => conta.StatusContaId, StatusConta.PendenteId)
+                    .SetProperty(conta => conta.StatusContaId, conta => conta.CartaoId.HasValue ? StatusConta.EmFaturaId : StatusConta.PendenteId)
                     .SetProperty(conta => conta.UpdatedAtUtc, agora),
                 cancellationToken);
 
@@ -40,7 +39,7 @@ public sealed class TransicaoStatusFuturoService(
         if (total > 0)
         {
             logger.LogInformation(
-                "Transição FUTURO→PENDENTE: {Pagar} conta(s) a pagar e {Receber} conta(s) a receber atualizadas.",
+                "Transição das contas FUTURO para o status do mês: {Pagar} conta(s) a pagar e {Receber} conta(s) a receber atualizadas.",
                 contasPagarAtualizadas,
                 contasReceberAtualizadas);
         }

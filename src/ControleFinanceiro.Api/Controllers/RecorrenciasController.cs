@@ -47,6 +47,13 @@ public sealed class RecorrenciasController(RecorrenciaAppService service) : ApiC
         return Ok(response);
     }
 
+    [HttpPost("{id:guid}/encerrar")]
+    [ProducesResponseType(typeof(RecorrenciaListItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecorrenciaListItemResponse>> Encerrar(Guid id, CancellationToken cancellationToken)
+        => Ok(await service.EncerrarAsync(id, cancellationToken));
+
     [HttpPost("gerar-ocorrencias")]
     [ProducesResponseType(typeof(GerarOcorrenciasResultResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<GerarOcorrenciasResultResponse>> GerarOcorrencias(CancellationToken cancellationToken)

@@ -31,7 +31,8 @@ public sealed record RecorrenciaResponse(
     DateOnly? DataFim,
     bool Ativa,
     bool PermiteEdicaoOcorrenciaIndividual,
-    string? Observacao);
+    string? Observacao,
+    bool Encerrada = false);
 
 public sealed record RecorrenciaListQueryRequest : ListQueryRequest
 {
@@ -59,7 +60,8 @@ public sealed record RecorrenciaListItemResponse(
     string Descricao,
     decimal ValorLiquido,
     string PessoaNome,
-    string? ResponsavelNome);
+    string? ResponsavelNome,
+    bool Encerrada = false);
 
 public sealed record RecorrenciaListSummaryResponse(
     int TotalRegistros,

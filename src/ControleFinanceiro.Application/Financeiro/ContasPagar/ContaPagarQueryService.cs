@@ -603,7 +603,8 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 regra.DataFim,
                 regra.Ativa,
                 regra.PermiteEdicaoOcorrenciaIndividual,
-                regra.Observacao);
+                regra.Observacao,
+                regra.Encerrada);
     }
 
     private static Contracts.Financeiro.Common.TipoPeriodicidadeRecorrencia MapearTipoPeriodicidadeContrato(TipoPeriodicidadeRecorrenciaDomain tipo)

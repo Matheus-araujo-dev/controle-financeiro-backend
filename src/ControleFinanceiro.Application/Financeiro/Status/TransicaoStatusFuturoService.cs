@@ -1,4 +1,4 @@
-using ControleFinanceiro.Application.Common.Persistence;
+﻿using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -6,22 +6,31 @@ using Microsoft.Extensions.Logging;
 namespace ControleFinanceiro.Application.Financeiro.Status;
 
 /// <summary>
-/// Transiciona para "Pendente" as contas a pagar/receber com status "Futuro" cujo mês de
-/// vencimento chegou. Rodada por um worker sem tenant, cobre todas as famílias em duas
-/// instruções de UPDATE bulk, de forma idempotente.
+/// Promove contas futuras do mês: cartão para "Em fatura" e demais para "Pendente".
+/// Mantém os registros e os filtros de workspace, com atualizações idempotentes.
 /// </summary>
 public sealed class TransicaoStatusFuturoService(
     IAppDbContext dbContext,
     ILogger<TransicaoStatusFuturoService> logger)
 {
-    public async Task<int> TransicionarFuturoParaPendenteAsync(CancellationToken cancellationToken)
+    public async Task<int> TransicionarFuturoParaPendenteAsync(CancellationToken cancellationToken, DateOnly? dataReferencia = null)
     {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var hoje = dataReferencia ?? DateOnly.FromDateTime(DateTime.Today);
         var fimMesAtual = new DateOnly(hoje.Year, hoje.Month, DateTime.DaysInMonth(hoje.Year, hoje.Month));
         var agora = DateTime.UtcNow;
 
-        var contasPagarAtualizadas = await dbContext.ContasPagar
-            .Where(conta => conta.StatusContaId == StatusConta.FuturoId && conta.DataVencimento <= fimMesAtual)
+        // Contas a pagar de cartão → Em fatura (separado do ternário para evitar cast uuid/text no PostgreSQL)
+        var contasPagarCartao = await dbContext.ContasPagar
+            .Where(conta => conta.StatusContaId == StatusConta.FuturoId && conta.DataVencimento <= fimMesAtual && conta.CartaoId.HasValue)
+            .ExecuteUpdateAsync(
+                updates => updates
+                    .SetProperty(conta => conta.StatusContaId, StatusConta.EmFaturaId)
+                    .SetProperty(conta => conta.UpdatedAtUtc, agora),
+                cancellationToken);
+
+        // Contas a pagar sem cartão → Pendente
+        var contasPagarSemCartao = await dbContext.ContasPagar
+            .Where(conta => conta.StatusContaId == StatusConta.FuturoId && conta.DataVencimento <= fimMesAtual && !conta.CartaoId.HasValue)
             .ExecuteUpdateAsync(
                 updates => updates
                     .SetProperty(conta => conta.StatusContaId, StatusConta.PendenteId)
@@ -36,12 +45,12 @@ public sealed class TransicaoStatusFuturoService(
                     .SetProperty(conta => conta.UpdatedAtUtc, agora),
                 cancellationToken);
 
-        var total = contasPagarAtualizadas + contasReceberAtualizadas;
+        var total = contasPagarCartao + contasPagarSemCartao + contasReceberAtualizadas;
         if (total > 0)
         {
             logger.LogInformation(
-                "Transição FUTURO→PENDENTE: {Pagar} conta(s) a pagar e {Receber} conta(s) a receber atualizadas.",
-                contasPagarAtualizadas,
+                "Transição das contas FUTURO para o status do mês: {Pagar} conta(s) a pagar e {Receber} conta(s) a receber atualizadas.",
+                contasPagarCartao + contasPagarSemCartao,
                 contasReceberAtualizadas);
         }
 

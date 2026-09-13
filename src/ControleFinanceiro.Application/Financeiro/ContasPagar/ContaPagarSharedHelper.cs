@@ -264,12 +264,10 @@ public sealed class ContaPagarSharedHelper(
     {
         try
         {
-            // Preserve FUTURO: status transitions to PENDENTE only via the scheduled job.
-        var statusId = conta.StatusContaId == StatusConta.FuturoId
-            ? StatusConta.FuturoId
-            : StatusConta.PendenteId;
+            var statusId = request.CartaoId.HasValue ? StatusConta.EmFaturaId
+                : conta.StatusContaId == StatusConta.FuturoId ? StatusConta.FuturoId : StatusConta.PendenteId;
 
-        conta.Atualizar(
+            conta.Atualizar(
                 request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
@@ -278,8 +276,8 @@ public sealed class ContaPagarSharedHelper(
                 ConverterRateios(request.Rateios),
                 request.DataCompra);
 
-        // builder.Ignore(Rateios) impede EF de detectar mudança só em rateios; força Modified.
-        dbContext.ContasPagar.Update(conta);
+            // builder.Ignore(Rateios) impede EF de detectar mudança só em rateios; força Modified.
+            dbContext.ContasPagar.Update(conta);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
@@ -294,13 +292,13 @@ public sealed class ContaPagarSharedHelper(
             DataVencimento = RecorrenciaDateHelper.Shift(request.DataVencimento, monthOffset)
         };
 
-    internal static ContaPagar CriarOcorrenciaRecorrente(ContaPagarRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento)
+    internal static ContaPagar CriarOcorrenciaRecorrente(ContaPagarRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento, DateOnly? dataReferencia = null, DateOnly? dataCompraOrigem = null)
     {
         var monthOffset = RecorrenciaDateHelper.CalculateMonthOffset(template.DataVencimento, dataVencimento);
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var statusInicial = dataVencimento.Year > hoje.Year || (dataVencimento.Year == hoje.Year && dataVencimento.Month > hoje.Month)
-            ? StatusConta.FuturoId
-            : StatusConta.PendenteId;
+        var hoje = dataReferencia ?? DateOnly.FromDateTime(DateTime.Today);
+        var statusInicial = template.CartaoId.HasValue ? StatusConta.EmFaturaId
+            : dataVencimento.Year > hoje.Year || (dataVencimento.Year == hoje.Year && dataVencimento.Month > hoje.Month)
+                ? StatusConta.FuturoId : StatusConta.PendenteId;
         return ContaPagar.Criar(
             template.NumeroDocumento,
             RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
@@ -309,7 +307,8 @@ public sealed class ContaPagarSharedHelper(
             template.ValorOriginal, template.ValorDesconto, template.ValorJuros, template.ValorMulta,
             1, 1, null, null, template.Descricao, template.Observacao,
             statusInicial, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
-            template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray());
+            template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray(),
+            template.CartaoId.HasValue ? RecorrenciaDateHelper.Shift(dataCompraOrigem ?? template.DataEmissao, monthOffset) : null);
     }
 
     internal static IReadOnlyCollection<MovimentacaoFinanceira> AplicarLiquidacaoAutomatica(

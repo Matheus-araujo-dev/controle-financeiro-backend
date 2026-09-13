@@ -311,7 +311,8 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
                 regra.DataFim,
                 regra.Ativa,
                 regra.PermiteEdicaoOcorrenciaIndividual,
-                regra.Observacao);
+                regra.Observacao,
+                regra.Encerrada);
 
     internal static ContaReceber CriarOcorrenciaRecorrente(
         ContaReceberRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento)

@@ -17,7 +17,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.14")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -794,6 +794,9 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("CanceladaPorPausaRecorrencia")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("CartaoId")
                         .HasColumnType("uuid");
 
@@ -976,6 +979,9 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("CanceladaPorPausaRecorrencia")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid?>("CartaoId")
                         .HasColumnType("uuid");
@@ -1549,8 +1555,14 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<int>("DiaOrdemMensal")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Encerrada")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("FamiliaId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("GerarAPartirDe")
+                        .HasColumnType("date");
 
                     b.Property<string>("Observacao")
                         .HasMaxLength(1000)
@@ -1905,6 +1917,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("RevogadoEmUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SubstituidoPorTokenHash")

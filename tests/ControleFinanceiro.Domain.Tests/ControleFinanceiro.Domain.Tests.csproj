@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <!-- Cobertura via coverlet.collector (data collector "XPlat Code Coverage"); gate em scripts/coverage-gate.ps1. -->
   </PropertyGroup>

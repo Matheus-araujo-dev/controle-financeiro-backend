@@ -19,11 +19,8 @@ public sealed class RecorrenciaMensalWorker(
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<RecorrenciaAppService>();
-
-                await service.GerarOcorrenciasRecorrentesNoMesAsync(
-                    DateOnly.FromDateTime(DateTime.Now), stoppingToken);
+                await ControleFinanceiro.Application.Common.WorkspaceJobRunner.RunAsync<RecorrenciaAppService>(
+                    scopeFactory, (service, token) => service.GerarOcorrenciasRecorrentesNoMesAsync(DateOnly.FromDateTime(DateTime.Now), token), logger, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

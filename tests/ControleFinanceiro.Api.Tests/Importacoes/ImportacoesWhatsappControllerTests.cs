@@ -335,7 +335,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         detalheConfirmado.Should().NotBeNull();
         detalheConfirmado!.Itens.Single().ContaReceberId.Should().NotBeNull();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var contaReceber = dbContext.ContasReceber.Single(x => x.Id == detalheConfirmado.Itens.Single().ContaReceberId!.Value);
@@ -417,7 +417,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         itemConfirmado.DescricaoAjustada.Should().Be("Mercado da familia");
         itemConfirmado.MarcarComoRecorrente.Should().BeTrue();
 
-        using var scope = factory.Services.CreateScope();
+        using var scope = factory.Services.CreateWorkspaceScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var contaReceber = dbContext.ContasReceber.Single(x => x.Id == itemConfirmado.ContaReceberId!.Value);
@@ -757,7 +757,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         aprovarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        using var scope = factory.Services.CreateScope();
+        using var scope = factory.Services.CreateWorkspaceScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var contasOcultasCartao = dbContext.ContasPagar
@@ -864,7 +864,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         aprovarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = factory.Services.CreateWorkspaceAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var contasOcultasCartao = dbContext.ContasPagar
@@ -970,7 +970,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         aprovarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = factory.Services.CreateWorkspaceAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var faturas = dbContext.FaturasCartao
@@ -1040,7 +1040,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         confirmarResponse.EnsureSuccessStatusCode();
 
-        await using (var scope = factory.Services.CreateAsyncScope())
+        await using (var scope = factory.Services.CreateWorkspaceAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
             var importacao = dbContext.ImportacoesWhatsapp
@@ -1064,7 +1064,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         detalheComFechamento.Should().NotBeNull();
         detalheComFechamento!.PossuiGeracaoFinanceira.Should().BeTrue();
 
-        await using (var scope = factory.Services.CreateAsyncScope())
+        await using (var scope = factory.Services.CreateWorkspaceAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -1076,7 +1076,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 .Should().Be(3);
         }
 
-        await using (var scope = factory.Services.CreateAsyncScope())
+        await using (var scope = factory.Services.CreateWorkspaceAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
             dbContext.DefinirFamiliaCorrente(FamiliaDesenvolvimentoId);
@@ -1135,7 +1135,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         repetirResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await using (var scope = factory.Services.CreateAsyncScope())
+        await using (var scope = factory.Services.CreateWorkspaceAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -1162,7 +1162,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         Guid importacaoId;
 
-        await using (var scope = _factory.Services.CreateAsyncScope())
+        await using (var scope = _factory.Services.CreateWorkspaceAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
             dbContext.DefinirFamiliaCorrente(FamiliaDesenvolvimentoId);
@@ -1250,7 +1250,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         completarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await using (var scope = _factory.Services.CreateAsyncScope())
+        await using (var scope = _factory.Services.CreateWorkspaceAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -1386,7 +1386,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         aprovarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = factory.Services.CreateWorkspaceAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var faturas = dbContext.FaturasCartao

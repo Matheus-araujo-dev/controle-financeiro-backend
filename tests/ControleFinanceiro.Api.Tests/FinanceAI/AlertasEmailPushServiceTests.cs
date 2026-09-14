@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using ControleFinanceiro.Api.Configuration;
 using ControleFinanceiro.Api.Tests.Financeiro;
 using ControleFinanceiro.Api.Tests.Infrastructure;
@@ -58,7 +58,7 @@ public sealed class AlertasEmailPushServiceTests(CustomWebApplicationFactory fac
     {
         await _factory.ResetDatabaseAsync();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
         var email = new FakeEmail();
         var push = new FakePush();
@@ -101,7 +101,7 @@ public sealed class AlertasEmailPushServiceTests(CustomWebApplicationFactory fac
         contaResp.EnsureSuccessStatusCode();
 
         // Usuario + configuracao de e-mail
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-email-push-test", "emailpush@test.local", "Usuario Email Push", null);
@@ -163,7 +163,7 @@ public sealed class AlertasEmailPushServiceTests(CustomWebApplicationFactory fac
         contaResp.EnsureSuccessStatusCode();
 
         // Usuario + configuracao de push + subscription
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-push-test", "push@test.local", "Usuario Push", null);
@@ -228,7 +228,7 @@ public sealed class AlertasEmailPushServiceTests(CustomWebApplicationFactory fac
         });
         contaResp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-dedup-test", "dedup@test.local", "Usuario Dedup", null);
@@ -272,7 +272,7 @@ public sealed class AlertasEmailPushServiceTests(CustomWebApplicationFactory fac
             .GetRequiredService<IOptions<AuthOptions>>().Value.DevelopmentFamiliaId;
 
         // Configuracao de email ativa, mas sem contas no dia-alvo
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
         var usuario = Usuario.Criar("sub-no-conta-test", "noconta@test.local", "Sem Conta", null);

@@ -20,10 +20,8 @@ public sealed class TransicaoStatusFuturoWorker(
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<TransicaoStatusFuturoService>();
-
-                await service.TransicionarFuturoParaPendenteAsync(stoppingToken);
+                await ControleFinanceiro.Application.Common.WorkspaceJobRunner.RunAsync<TransicaoStatusFuturoService>(
+                    scopeFactory, (service, token) => service.TransicionarFuturoParaPendenteAsync(token), logger, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

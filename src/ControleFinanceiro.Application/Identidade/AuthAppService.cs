@@ -1,4 +1,4 @@
-﻿using ControleFinanceiro.Application.Common.Exceptions;
+using ControleFinanceiro.Application.Common.Exceptions;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Contracts.Auth;
 using ControleFinanceiro.Domain.Identidade;
@@ -77,7 +77,15 @@ public sealed class AuthAppService(
 
         var response = await EmitirTokensAsync(usuario, familia, membro.Papel, cancellationToken, persistir: false);
         tokenAtual.Revogar(utcNow, tokenService.HashToken(response.RefreshToken));
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            dbContext.LimparChangeTracker();
+            throw new AuthenticationFailedException("Sessão expirada. Faça login novamente.");
+        }
 
         return response;
     }

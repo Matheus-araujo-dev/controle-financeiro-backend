@@ -89,7 +89,7 @@ public sealed class AtualizacaoStatusContasTests(CustomWebApplicationFactory fac
         var contaReceberId = await CriarContaReceberVencidaAsync(client, fixture);
 
         int atualizadas;
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<AtualizacaoStatusContasService>();
             atualizadas = await service.MarcarContasVencidasAsync(CancellationToken.None);

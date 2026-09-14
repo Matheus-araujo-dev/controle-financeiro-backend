@@ -29,7 +29,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
 
         var result = await repo.ListAtivasAsync();
@@ -45,7 +45,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
 
         var despesas = await repo.ListByTipoAsync(TipoContaGerencial.Despesa);
@@ -64,7 +64,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
 
         var result = await repo.ListByContaPaiAsync(null);
@@ -80,7 +80,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
 
         var found = await repo.GetByCodigoAsync("DESP");
@@ -100,7 +100,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         var fixture = await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
 
         var found = await repo.GetByIdAsync(fixture.ContaGerencialDespesaId);
@@ -118,7 +118,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
 
         var result = await repo.ListAsync();
@@ -133,7 +133,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -154,7 +154,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         var fixture = await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -165,7 +165,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         await repo.UpdateAsync(conta);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        using var scope2 = _factory.Services.CreateScope();
+        using var scope2 = _factory.Services.CreateWorkspaceScope();
         var repo2 = scope2.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
         var updated = await repo2.GetByIdAsync(fixture.ContaGerencialDespesaId);
         updated!.Descricao.Should().Be("Despesa Atualizada");
@@ -178,7 +178,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -192,7 +192,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         await repo.DeleteAsync(conta);
         await db.SaveChangesAsync(CancellationToken.None);
 
-        using var scope2 = _factory.Services.CreateScope();
+        using var scope2 = _factory.Services.CreateWorkspaceScope();
         var repo2 = scope2.ServiceProvider.GetRequiredService<IContaGerencialRepository>();
         var deleted = await repo2.GetByIdAsync(id);
         deleted.Should().BeNull();
@@ -223,7 +223,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         });
         resp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaPagarRepository>();
 
         var result = await repo.ListByStatusAsync(StatusConta.PendenteId);
@@ -255,7 +255,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         });
         resp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaPagarRepository>();
 
         var result = await repo.ListByRecebedorAsync(fixture.RecebedorId);
@@ -290,7 +290,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         });
         resp.EnsureSuccessStatusCode();
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaPagarRepository>();
 
         var result = await repo.ListByDataVencimentoAsync(vencimento.AddDays(-1), vencimento.AddDays(1));
@@ -304,7 +304,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
     public async Task ContaPagarRepository_ListByGrupoParcelamentoAsync_RetornaVazioParaGrupoInexistente()
     {
         await _factory.ResetDatabaseAsync();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaPagarRepository>();
 
         var result = await repo.ListByGrupoParcelamentoAsync(Guid.NewGuid());
@@ -321,7 +321,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IPessoaRepository>();
 
         var result = await repo.ListAtivasAsync();
@@ -337,7 +337,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IPessoaRepository>();
 
         var fisica = await repo.ListByTipoAsync(TipoPessoa.Fisica);
@@ -353,7 +353,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
     public async Task PessoaRepository_GetByIdWithChavesPixAsync_RetornaNullParaIdInexistente()
     {
         await _factory.ResetDatabaseAsync();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IPessoaRepository>();
 
         var result = await repo.GetByIdWithChavesPixAsync(Guid.NewGuid());
@@ -365,7 +365,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
     public async Task PessoaRepository_GetByCpfCnpjAsync_RetornaNullParaCpfInexistente()
     {
         await _factory.ResetDatabaseAsync();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IPessoaRepository>();
 
         var result = await repo.GetByCpfCnpjAsync("000.000.000-00");
@@ -379,7 +379,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
     public async Task ContaReceberRepository_ListByStatusAsync_RetornaVazioSemDados()
     {
         await _factory.ResetDatabaseAsync();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaReceberRepository>();
 
         var result = await repo.ListByStatusAsync(StatusConta.PendenteId);
@@ -391,7 +391,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
     public async Task ContaReceberRepository_ListByGrupoParcelamentoAsync_RetornaVazioParaGrupoInexistente()
     {
         await _factory.ResetDatabaseAsync();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaReceberRepository>();
 
         var result = await repo.ListByGrupoParcelamentoAsync(Guid.NewGuid());
@@ -403,7 +403,7 @@ public sealed class RepositoryTests(CustomWebApplicationFactory factory)
     public async Task ContaReceberRepository_ListByDataVencimentoAsync_RetornaVazioSemDados()
     {
         await _factory.ResetDatabaseAsync();
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var repo = scope.ServiceProvider.GetRequiredService<IContaReceberRepository>();
 
         var hoje = DateOnly.FromDateTime(DateTime.UtcNow);

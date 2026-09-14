@@ -113,3 +113,22 @@
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.
 - ampliar a cobertura combinada das camadas com testes adicionais focados em Application e Infrastructure conforme os modulos financeiros avancarem.
 - A fase 1 do modelo de workspaces foi iniciada sem quebra de compatibilidade: o tenant continua tecnicamente como Familia, mas o backend agora lista participacoes, permite trocar o workspace ativo e aplica limite global de 3 participacoes por usuario.
+
+
+## 11/09/2026 — Correção de itens cancelados na fatura
+
+- `RemoverDaFaturaAsync` aceita contas de cartão `EM_FATURA` ou `CANCELADA`. A segunda representa o crédito sintético de estorno exibido na fatura.
+- A remoção reutiliza as regras existentes: exclui a conta e parcelas futuras do grupo, além dos reembolsos associados ainda não recebidos; rejeita faturas fechadas/pagas e reembolsos recebidos.
+- Não altera cálculos de cancelamento, entidades, migrations, DTOs, rotas ou payloads. O cancelamento comum continua gerando a representação de estorno; a nova ação explícita permite corrigir um crédito indevido.
+- Testes de integração cobrem remoção de estorno em fatura aberta, bloqueio em fatura fechada e transferência de compra para outro cartão com a mesma data de vencimento. A troca de cartão já funciona pelo endpoint de edição existente.
+- TDD: o cenário de remoção retornou 400 antes da alteração e 204 depois; a suíte de fluxo de contas a pagar permaneceu verde.
+- Validação final: 792 testes aprovados e 3 ignorados por dependência de PostgreSQL no ambiente SQLite; cobertura consolidada de linhas 80,6% (gate 80%). Build Release sem erros/avisos. Auditoria sem vulnerabilidades nos projetos de produção; alerta preexistente High de SQLitePCLRaw.lib.e_sqlite3 2.1.10 nos projetos de testes (GHSA-2m69-gcr7-jv3q), registrado sem ampliar o escopo para atualização de dependências. Não publicado.
+
+
+
+## 2026-09-12 — Ciclo de recorrência revisado
+
+- Cartão permanece EM_FATURA em todos os meses; outras formas usam FUTURO e passam a PENDENTE na virada. Geração mensal de cartão deduplica por regra e mês do vencimento e completa a janela de seis meses, limitada pela data fim.
+- Pausa cancela FUTURO; retomada restaura somente as canceladas pela pausa do mês atual em diante, preservando IDs. Pausas longas não geram retroativos. Encerramento manual exige pausa; data fim encerra automaticamente.
+- Migration aditiva e reversível, contrato OpenAPI atualizado e modelo sem mudanças pendentes. SQL PostgreSQL gerado e revisado sem execução em banco real.
+- Validação: 803 testes aprovados, 3 ignorados; cobertura 80,7%; build Release aprovado. Auditoria da API sem vulnerabilidades. Detalhes e reversão em RECORRENCIA_CICLO_20260912.md. Não publicado; duplicatas históricas não foram removidas.

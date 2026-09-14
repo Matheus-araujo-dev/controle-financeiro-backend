@@ -45,9 +45,8 @@ public sealed class AlertasWhatsappHostedService(
     {
         try
         {
-            using var scope = serviceProvider.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<AlertasVencimentoService>();
-            await service.ProcessarAsync(ct);
+            await ControleFinanceiro.Application.Common.WorkspaceJobRunner.RunAsync<AlertasVencimentoService>(
+                    serviceProvider.GetRequiredService<IServiceScopeFactory>(), (service, token) => service.ProcessarAsync(token), logger, ct);
         }
         catch (Exception ex)
         {

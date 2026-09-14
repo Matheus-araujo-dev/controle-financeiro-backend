@@ -342,6 +342,22 @@ public sealed class ContaReceber : TenantEntity
         ContaBancariaId = null;
     }
 
+    public bool CanceladaPorPausaRecorrencia { get; private set; }
+
+    public void CancelarPorPausaRecorrencia()
+    {
+        if (StatusContaId != StatusConta.FuturoId) return;
+        Cancelar(StatusConta.CanceladaId);
+        CanceladaPorPausaRecorrencia = true;
+    }
+
+    public void RetomarAposPausaRecorrencia()
+    {
+        if (!CanceladaPorPausaRecorrencia || StatusContaId != StatusConta.CanceladaId) return;
+        StatusContaId = StatusConta.FuturoId;
+        CanceladaPorPausaRecorrencia = false;
+    }
+
     public void Cancelar(Guid statusContaCanceladaId)
     {
         if (StatusContaId == StatusConta.LiquidadaId)

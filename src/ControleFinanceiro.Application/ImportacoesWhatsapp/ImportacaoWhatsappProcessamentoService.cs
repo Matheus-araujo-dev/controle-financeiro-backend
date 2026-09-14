@@ -121,7 +121,9 @@ public sealed class ImportacaoWhatsappProcessamentoService(
         }
 
         var telefone = WhatsappUsuario.NormalizarTelefone(remetente);
+        // Entrada autenticada por webhook: resolve somente o telefone verificado antes de definir o workspace.
         var familiaDoRemetente = await dbContext.WhatsappUsuarios
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(usuario => usuario.Telefone == telefone && usuario.Ativo)
             .Select(usuario => (Guid?)usuario.FamiliaId)

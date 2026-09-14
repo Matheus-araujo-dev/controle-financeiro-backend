@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Events;
@@ -255,7 +255,7 @@ public sealed class AppDbContext(
         where TEntity : class, ITenantEntity
     {
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => _workspaceCorrente == null || (Guid?)entity.FamiliaId == _workspaceCorrente);
+            .HasQueryFilter(entity => _workspaceCorrente != null && _workspaceCorrente != Guid.Empty && (Guid?)entity.FamiliaId == _workspaceCorrente);
     }
 
     /// <summary>

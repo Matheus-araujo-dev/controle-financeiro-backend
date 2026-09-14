@@ -124,3 +124,25 @@ public sealed record PessoaDetalheResponse(
     bool EhResponsavel = true,
     Guid? ContaGerencialDespesaId = null,
     Guid? ContaGerencialReceitaId = null);
+
+public sealed record PessoaResumoFinanceiroResponse(
+    Guid PessoaId,
+    string Nome,
+    decimal TotalAPagarPendente,
+    decimal TotalPago,
+    decimal TotalAPagarVencido,
+    int QuantidadeContasPagar,
+    decimal TotalAReceberPendente,
+    decimal TotalRecebido,
+    decimal TotalAReceberVencido,
+    int QuantidadeContasReceber,
+    decimal ReembolsoPendente,
+    IReadOnlyCollection<PessoaContaResumoResponse> ContasRecentes);
+
+public sealed record PessoaContaResumoResponse(
+    Guid Id,
+    string Tipo,
+    string Descricao,
+    DateOnly DataVencimento,
+    decimal Valor,
+    string Status);

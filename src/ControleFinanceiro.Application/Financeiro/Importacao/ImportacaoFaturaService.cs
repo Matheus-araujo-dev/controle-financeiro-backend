@@ -1,22 +1,18 @@
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.Common.Validation;
-using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Contracts.Financeiro.ImportacaoFatura;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Globalization;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace ControleFinanceiro.Application.Financeiro.Importacao;
 
 public sealed class ImportacaoFaturaService(
     IAppDbContext db,
     ILogger<ImportacaoFaturaService> logger,
-    ILlmClient? llmClient = null)
+    IPdfFaturaReader pdfReader)
 {
     public async Task<ImportacaoFaturaPreviewResponse> GerarPreviewAsync(
         Guid cartaoId,
@@ -30,19 +26,7 @@ public sealed class ImportacaoFaturaService(
         CsvFaturaParser.ParseResult parseResult;
         if (ext == ".pdf")
         {
-            // Mantém stream legível para o fallback IA
-            var pdfBytes = new MemoryStream();
-            await arquivoStream.CopyToAsync(pdfBytes, cancellationToken);
-            pdfBytes.Position = 0;
-
-            parseResult = PdfFaturaParser.Parse(pdfBytes);
-
-            // Fallback: se regex não extraiu nada, usa IA para interpretar o texto bruto
-            if (parseResult.Itens.Count == 0 && llmClient is not null)
-            {
-                pdfBytes.Position = 0;
-                parseResult = await ExtrairComIaAsync(pdfBytes, cancellationToken);
-            }
+            parseResult = await pdfReader.ParseAsync(arquivoStream, cancellationToken);
         }
         else if (ext == ".ofx")
         {
@@ -66,9 +50,21 @@ public sealed class ImportacaoFaturaService(
                 parseResult.AvisoFormato ?? "Nenhum item encontrado no arquivo.");
         }
 
-        // Verifica quais chaves já foram importadas para este cartão
-        var chaves = parseResult.Itens
-            .Select(i => $"{cartaoId}|{CsvFaturaParser.GerarChave(i)}")
+        // Compras iguais no mesmo PDF são ocorrências independentes, com chaves estáveis na reimportação.
+        var occurrences = new Dictionary<string, int>();
+        var keyedItems = parseResult.Itens.Select(item =>
+        {
+            var key = CsvFaturaParser.GerarChave(item);
+            if (item.DataVencimentoFatura.HasValue)
+            {
+                occurrences.TryGetValue(key, out var count);
+                occurrences[key] = ++count;
+                if (count > 1) key += $"-{count}";
+            }
+            return (Item: item, Key: key);
+        }).ToArray();
+        var chaves = keyedItems
+            .Select(i => $"{cartaoId}|{i.Key}")
             .ToHashSet();
 
         var jaImportadas = await db.ContasPagar
@@ -81,16 +77,17 @@ public sealed class ImportacaoFaturaService(
 
         var jaImportadasSet = jaImportadas.ToHashSet();
 
-        var itens = parseResult.Itens.Select(i =>
+        var itens = keyedItems.Select(entry =>
         {
-            var chave = CsvFaturaParser.GerarChave(i);
+            var i = entry.Item;
+            var chave = entry.Key;
             var chaveCompleta = $"{cartaoId}|{chave}";
             return new ImportacaoFaturaItemPreview(
                 i.DataTransacao,
                 i.Descricao,
                 i.Valor,
                 jaImportadasSet.Contains(chaveCompleta),
-                chave);
+                chave, i.DataVencimentoFatura, i.NumeroParcela, i.QuantidadeParcelas);
         }).ToList();
 
         var novos = itens.Where(i => !i.JaImportado).ToList();
@@ -188,18 +185,28 @@ public sealed class ImportacaoFaturaService(
 
             var categoriaId = item.ContaGerencialId ?? contaGerencialPadraoId!.Value;
 
-            var parcelas = ContaPagar.CriarParcelasCartao(
+            if (item.NumeroParcela < 1 || item.QuantidadeParcelas < item.NumeroParcela || item.QuantidadeParcelas > 120)
+                throw ValidationExceptionFactory.Create("Itens", "Número de parcela inválido.");
+            if (item.DataVencimentoFatura.HasValue && item.DataVencimentoFatura.Value < item.DataTransacao)
+                throw ValidationExceptionFactory.Create("Itens", "Vencimento da fatura anterior à compra.");
+            var vencimento = item.DataVencimentoFatura ?? FaturaCartaoCompetencia.Calcular(
+                item.DataTransacao, cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura).DataVencimento;
+            var parcelas = new[] { ContaPagar.Criar(
                 numeroDocumento: null,
                 dataEmissao: item.DataTransacao,
                 responsavelCompraId: null,
                 recebedorId: request.RecebedorPadraoId,
+                dataVencimento: vencimento,
+                contaBancariaId: null,
                 formaPagamentoId: formaPagamentoId.Value,
                 cartaoId: request.CartaoId,
                 valorOriginal: item.Valor,
                 valorDesconto: 0m,
                 valorJuros: 0m,
                 valorMulta: 0m,
-                quantidadeParcelas: 1,
+                quantidadeParcelas: item.QuantidadeParcelas,
+                numeroParcela: item.NumeroParcela,
+                grupoParcelamentoId: null,
                 origemCompraPlanejadaId: null,
                 descricao: item.Descricao,
                 observacao: "Importação de fatura",
@@ -211,8 +218,7 @@ public sealed class ImportacaoFaturaService(
                 [
                     RateioPlano.CreateSigned(categoriaId, item.Valor)
                 ],
-                diaFechamentoFatura: cartao.DiaFechamentoFatura,
-                diaVencimentoFatura: cartao.DiaVencimentoFatura);
+                dataCompra: item.DataTransacao) };
 
             foreach (var parcela in parcelas)
             {
@@ -222,6 +228,7 @@ public sealed class ImportacaoFaturaService(
                 db.RateiosContaGerencial.AddRange(parcela.Rateios);
             }
 
+            if (item.DataVencimentoFatura.HasValue) existentesSet.Add(chaveCompleta);
             criadas++;
         }
 
@@ -234,77 +241,4 @@ public sealed class ImportacaoFaturaService(
         return new ConfirmarImportacaoFaturaResponse(criadas, duplicadas);
     }
 
-    // ─── Fallback: extração via IA quando regex falha ────────────────────────
-
-    private async Task<CsvFaturaParser.ParseResult> ExtrairComIaAsync(
-        Stream pdfStream, CancellationToken cancellationToken)
-    {
-        var textoExtraido = PdfFaturaParser.ExtrairTexto(pdfStream);
-        if (string.IsNullOrWhiteSpace(textoExtraido))
-            return new CsvFaturaParser.ParseResult([], "O PDF não contém texto legível (pode ser escaneado).");
-
-        // Limita o texto para não estourar tokens (4000 chars ~= 1000 tokens)
-        if (textoExtraido.Length > 4000) textoExtraido = textoExtraido[..4000];
-
-        var systemPrompt = """
-            Você é um extrator de transações financeiras de extratos bancários brasileiros.
-            Dado o texto de um extrato, extraia todas as transações de despesa (saídas, compras, débitos).
-            Retorne SOMENTE um JSON com este formato, sem markdown, sem explicações:
-            {"transacoes":[{"data":"dd/MM/yyyy","descricao":"texto","valor":0.00},...]}
-            Regras:
-            - Ignore receitas, depósitos, créditos e transferências recebidas.
-            - valor deve ser positivo (valor em reais, sem R$).
-            - data no formato dd/MM/yyyy.
-            - descricao limitada a 100 caracteres.
-            - Se não houver transações, retorne {"transacoes":[]}.
-            """;
-
-        var messages = new List<LlmMessage>
-        {
-            new(LlmRole.User, $"Extrato bancário para processar:\n\n{textoExtraido}")
-        };
-
-        try
-        {
-            var request = new LlmRequest(LlmModelTier.Reasoning, systemPrompt, messages);
-            var completion = await llmClient!.CompleteAsync(request, cancellationToken);
-            var json = completion.Text?.Trim() ?? "{}";
-
-            // Remove markdown code blocks se presentes
-            if (json.StartsWith("```"))
-            {
-                var lines = json.Split('\n');
-                json = string.Join('\n', lines[1..^1]);
-            }
-
-            var node = JsonNode.Parse(json);
-            var array = node?["transacoes"]?.AsArray() ?? [];
-            var itens = new List<CsvFaturaItem>();
-
-            foreach (var item in array)
-            {
-                if (item is null) continue;
-                var dataStr = item["data"]?.GetValue<string>();
-                var descricao = item["descricao"]?.GetValue<string>();
-                var valorStr = item["valor"]?.ToString();
-
-                if (!DateOnly.TryParseExact(dataStr, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var data)) continue;
-                if (!decimal.TryParse(valorStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var valor) || valor <= 0) continue;
-                if (string.IsNullOrWhiteSpace(descricao)) continue;
-
-                itens.Add(new CsvFaturaItem(data, descricao.Length > 100 ? descricao[..100] : descricao, valor));
-            }
-
-            logger.LogInformation("Fallback IA para PDF: {Count} transações extraídas", itens.Count);
-
-            return itens.Count > 0
-                ? new CsvFaturaParser.ParseResult(itens, "Transações extraídas via Inteligência Artificial — revise antes de confirmar.")
-                : new CsvFaturaParser.ParseResult([], "A IA não conseguiu identificar transações neste PDF. Tente exportar como CSV.");
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Fallback IA falhou ao extrair PDF");
-            return new CsvFaturaParser.ParseResult([], "Não foi possível processar o PDF. Tente exportar como CSV.");
-        }
-    }
 }

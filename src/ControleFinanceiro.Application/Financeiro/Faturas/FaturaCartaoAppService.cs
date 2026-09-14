@@ -675,6 +675,9 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             "statuscodigo" => query.SortDirection == SortDirection.Desc
                 ? todos.OrderByDescending(x => x.StatusCodigo).ToArray()
                 : todos.OrderBy(x => x.StatusCodigo).ToArray(),
+            "datacompra" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.DataCompra).ThenByDescending(x => x.NumeroParcela).ToArray()
+                : todos.OrderBy(x => x.DataCompra).ThenBy(x => x.NumeroParcela).ToArray(),
             _ => todos.OrderBy(x => x.DataCompra).ThenBy(x => x.NumeroParcela).ToArray()
         };
 

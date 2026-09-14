@@ -9,6 +9,7 @@ public sealed class FaturaCartaoCompetenciaTests
     [InlineData(2026, 4, 5, 8, 20, "2026-04", 2026, 4, 8, 2026, 4, 20)]
     [InlineData(2026, 4, 9, 8, 20, "2026-05", 2026, 5, 8, 2026, 5, 20)]
     [InlineData(2026, 4, 26, 25, 5, "2026-05", 2026, 5, 25, 2026, 6, 5)]
+    [InlineData(2026, 9, 13, 11, 20, "2026-10", 2026, 10, 11, 2026, 10, 20)]
     public void Calcular_DeveDeterminarCompetenciaFechamentoEVencimento(
         int anoCompra,
         int mesCompra,

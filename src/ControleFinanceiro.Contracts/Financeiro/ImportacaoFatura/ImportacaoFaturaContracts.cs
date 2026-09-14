@@ -5,7 +5,10 @@ public sealed record ImportacaoFaturaItemPreview(
     string Descricao,
     decimal Valor,
     bool JaImportado,
-    string ChaveImportacao);
+    string ChaveImportacao,
+    DateOnly? DataVencimentoFatura = null,
+    int NumeroParcela = 1,
+    int QuantidadeParcelas = 1);
 
 public sealed record ImportacaoFaturaPreviewResponse(
     IReadOnlyCollection<ImportacaoFaturaItemPreview> Itens,
@@ -18,7 +21,10 @@ public sealed record ImportacaoFaturaItemConfirmar(
     string Descricao,
     decimal Valor,
     string ChaveImportacao,
-    Guid? ContaGerencialId = null);  // sobrescreve ContaGerencialPadraoId quando informado
+    Guid? ContaGerencialId = null,
+    DateOnly? DataVencimentoFatura = null,
+    int NumeroParcela = 1,
+    int QuantidadeParcelas = 1);  // sobrescreve ContaGerencialPadraoId quando informado
 
 public sealed record ConfirmarImportacaoFaturaRequest(
     Guid CartaoId,

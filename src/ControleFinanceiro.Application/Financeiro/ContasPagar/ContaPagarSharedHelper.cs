@@ -99,7 +99,7 @@ public sealed class ContaPagarSharedHelper(
                 .Select(x => (StatusFaturaCartao?)x.Status)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            DateOnly? dataVencimentoEfetivo = null;
+            DateOnly? dataVencimentoEfetivo = competencia.DataVencimento;
             if (statusFaturaExistente == StatusFaturaCartao.Paga || statusFaturaExistente == StatusFaturaCartao.Fechada)
             {
                 if (!forcarProximaFatura)

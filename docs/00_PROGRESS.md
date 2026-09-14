@@ -132,3 +132,15 @@
 - Pausa cancela FUTURO; retomada restaura somente as canceladas pela pausa do mês atual em diante, preservando IDs. Pausas longas não geram retroativos. Encerramento manual exige pausa; data fim encerra automaticamente.
 - Migration aditiva e reversível, contrato OpenAPI atualizado e modelo sem mudanças pendentes. SQL PostgreSQL gerado e revisado sem execução em banco real.
 - Validação: 803 testes aprovados, 3 ignorados; cobertura 80,7%; build Release aprovado. Auditoria da API sem vulnerabilidades. Detalhes e reversão em RECORRENCIA_CICLO_20260912.md. Não publicado; duplicatas históricas não foram removidas.
+
+
+## 2026-09-13 — Importação de PDF Bradesco
+
+- Leitura determinística do PDF mensal com texto embutido, sem IA, e suporte ao layout anterior do aplicativo.
+- Vencimento da fatura, número/total de parcelas e estornos preservados na confirmação. Só a parcela do documento é criada.
+- Pagamentos e saldo anterior entram apenas na conferência; divergência no total bloqueia a prévia do layout mensal.
+- Compras iguais recebem chaves independentes e estáveis na reimportação.
+- Amostra real: 136 itens, total líquido R$ 20.221,26; arquivo pessoal não versionado.
+- Testes sintéticos cobrem linhas partidas, sinal negativo separado, câmbio, compras iguais e total divergente; API cobre confirmação/reimportação e Swagger; frontend cobre envio dos metadados sem agente.
+- Validação .NET 10: 843 testes aprovados, 3 testes PostgreSQL ignorados no fallback local SQLite; cobertura consolidada de linhas 81,4%; build Release sem erros/avisos; contratos OpenAPI sincronizados. CI PostgreSQL exigida antes da promoção.
+- Promoção: primeiro develop, depois main somente com CI verde.

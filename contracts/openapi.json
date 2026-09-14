@@ -17511,6 +17511,19 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "dataVencimentoFatura": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "numeroParcela": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "quantidadeParcelas": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -17536,6 +17549,19 @@
           "chaveImportacao": {
             "type": "string",
             "nullable": true
+          },
+          "dataVencimentoFatura": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "numeroParcela": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "quantidadeParcelas": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

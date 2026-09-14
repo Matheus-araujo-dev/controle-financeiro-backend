@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ControleFinanceiro.Application.Financeiro.Importacao;
 
-public sealed record CsvFaturaItem(DateOnly DataTransacao, string Descricao, decimal Valor);
+public sealed record CsvFaturaItem(DateOnly DataTransacao, string Descricao, decimal Valor, DateOnly? DataVencimentoFatura = null, int NumeroParcela = 1, int QuantidadeParcelas = 1);
 
 public static class CsvFaturaParser
 {
@@ -80,7 +80,8 @@ public static class CsvFaturaParser
         Convert.ToHexString(
             SHA256.HashData(
                 Encoding.UTF8.GetBytes(
-                    $"{item.DataTransacao:yyyy-MM-dd}|{item.Descricao.ToUpperInvariant()}|{item.Valor:F2}")))
+                    $"{item.DataTransacao:yyyy-MM-dd}|{item.Descricao.ToUpperInvariant()}|{item.Valor:F2}" +
+                    (item.DataVencimentoFatura is { } vencimento ? $"|FATURA:{vencimento:yyyy-MM-dd}|PARCELA:{item.NumeroParcela}/{item.QuantidadeParcelas}" : ""))))
         [..16];
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

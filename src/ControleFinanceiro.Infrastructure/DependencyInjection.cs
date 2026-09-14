@@ -1,4 +1,4 @@
-﻿using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
+using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Application.Cadastros.Pessoas;
 using ControleFinanceiro.Application.Common.Alertas;
 using ControleFinanceiro.Application.Dashboard;
@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<ICadastrosDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFileStorage, LocalImportFileStorage>();
         services.AddScoped<IDocumentExtractor, DefaultDocumentExtractor>();
+        services.AddScoped<ControleFinanceiro.Application.Financeiro.Importacao.IPdfFaturaReader, BradescoPdfFaturaReader>();
         services.AddScoped<IImportSuggestionService, HeuristicImportSuggestionService>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddScoped<IDomainEventHandler<ContaPagarCriadaEvent>, ContaPagarCriadaEventHandler>();

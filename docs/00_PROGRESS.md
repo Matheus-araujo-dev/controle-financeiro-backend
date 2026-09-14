@@ -139,7 +139,7 @@
 - Vencimento da fatura, número/total de parcelas e estornos preservados na confirmação. Só a parcela do documento é criada.
 - Pagamentos e saldo anterior entram apenas na conferência; divergência no total bloqueia a prévia do layout mensal.
 - Compras iguais recebem chaves independentes e estáveis na reimportação.
-- Amostra real: 136 itens, total líquido R$ 20.221,26; arquivo pessoal não versionado.
+- Amostra real conferida integralmente; arquivo pessoal não versionado.
 - Testes sintéticos cobrem linhas partidas, sinal negativo separado, câmbio, compras iguais e total divergente; API cobre confirmação/reimportação e Swagger; frontend cobre envio dos metadados sem agente.
 - Validação .NET 10: 843 testes aprovados, 3 testes PostgreSQL ignorados no fallback local SQLite; cobertura consolidada de linhas 81,4%; build Release sem erros/avisos; contratos OpenAPI sincronizados. CI PostgreSQL exigida antes da promoção.
 - Promoção: primeiro develop, depois main somente com CI verde.

@@ -133,7 +133,6 @@
 - Migration aditiva e reversível, contrato OpenAPI atualizado e modelo sem mudanças pendentes. SQL PostgreSQL gerado e revisado sem execução em banco real.
 - Validação: 803 testes aprovados, 3 ignorados; cobertura 80,7%; build Release aprovado. Auditoria da API sem vulnerabilidades. Detalhes e reversão em RECORRENCIA_CICLO_20260912.md. Não publicado; duplicatas históricas não foram removidas.
 
-
 ## 2026-09-13 — Importação de PDF Bradesco
 
 - Leitura determinística do PDF mensal com texto embutido, sem IA, e suporte ao layout anterior do aplicativo.

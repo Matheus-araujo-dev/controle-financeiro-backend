@@ -1,8 +1,10 @@
-﻿using ControleFinanceiro.Domain.Cadastros.Cartoes;
+using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
+using ControleFinanceiro.Domain.Anexos;
+using ControleFinanceiro.Domain.Conciliacao;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using ControleFinanceiro.Domain.PlanejamentoCompras;
@@ -18,6 +20,8 @@ public interface IAppDbContext :
     IStatusDbContext,
     IIdentidadeDbContext,
     IFinanceAiDbContext,
+    IAnexosDbContext,
+    IConciliacaoDbContext,
     IWhatsappDbContext,
     IAuditDbContext,
     IUnitOfWork

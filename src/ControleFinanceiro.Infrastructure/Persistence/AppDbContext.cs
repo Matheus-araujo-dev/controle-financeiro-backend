@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Events;
@@ -9,6 +9,8 @@ using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.Domain.Anexos;
+using ControleFinanceiro.Domain.Conciliacao;
 using ControleFinanceiro.Domain.Identidade;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using ControleFinanceiro.Domain.PlanejamentoCompras;
@@ -122,6 +124,14 @@ public sealed class AppDbContext(
 
     public DbSet<AlertaDigitalEnviado> AlertasDigitaisEnviados => Set<AlertaDigitalEnviado>();
 
+    public DbSet<Anexo> Anexos => Set<Anexo>();
+
+    public DbSet<AnexoVinculo> AnexoVinculos => Set<AnexoVinculo>();
+
+    public DbSet<Domain.Conciliacao.Conciliacao> Conciliacoes => Set<Domain.Conciliacao.Conciliacao>();
+
+    public DbSet<ItemConciliacao> ItensConciliacao => Set<ItemConciliacao>();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
 
     public DbSet<Familia> Familias => Set<Familia>();
@@ -197,6 +207,8 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new TransferenciaConfiguration());
         modelBuilder.ApplyConfiguration(new PlanoConfiguration());
         modelBuilder.ApplyConfiguration(new InvestimentoConfiguration());
+        modelBuilder.ApplyConfiguration(new ConciliacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new ItemConciliacaoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);

@@ -3,6 +3,7 @@ using System;
 using ControleFinanceiro.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ControleFinanceiro.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914131514_AddAnexosFinanceiros")]
+    partial class AddAnexosFinanceiros
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -496,130 +499,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("pessoas_chaves_pix", (string)null);
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.Conciliacao", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ContaBancariaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly>("DataFim")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly>("DataInicio")
-                        .HasColumnType("date");
-
-                    b.Property<Guid>("FamiliaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Formato")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<int>("ItensConciliados")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("NomeArquivo")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("TotalItens")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ContaBancariaId");
-
-                    b.HasIndex("FamiliaId");
-
-                    b.ToTable("conciliacoes", (string)null);
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.ItemConciliacao", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ConciliacaoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly>("Data")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Descricao")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Documento")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid>("FamiliaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("MovimentacaoVinculadaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal?>("ScoreSugestao")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("StatusItem")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid?>("SugestaoMovimentacaoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("Valor")
-                        .HasColumnType("numeric");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConciliacaoId");
-
-                    b.HasIndex("FamiliaId");
-
-                    b.HasIndex("MovimentacaoVinculadaId");
-
-                    b.ToTable("itens_conciliacao", (string)null);
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.AiConversa", b =>
@@ -2577,15 +2456,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.ItemConciliacao", b =>
-                {
-                    b.HasOne("ControleFinanceiro.Domain.Conciliacao.Conciliacao", null)
-                        .WithMany("Itens")
-                        .HasForeignKey("ConciliacaoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.AiMensagem", b =>
                 {
                     b.HasOne("ControleFinanceiro.Domain.FinanceAI.AiConversa", null)
@@ -2930,11 +2800,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
             modelBuilder.Entity("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", b =>
                 {
                     b.Navigation("ChavesPix");
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.Conciliacao", b =>
-                {
-                    b.Navigation("Itens");
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.AiConversa", b =>

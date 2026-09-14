@@ -33,7 +33,7 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
 
         var contaBancariaIds = query.ContaBancariaIds;
 
-        var saldoAtual = await db.CalcularSaldoRealizadoAteAsync(hoje, contaBancariaIds, cancellationToken);
+        var saldoAtual = await db.CalcularSaldoRealizadoAteAsync(DateOnly.MaxValue, contaBancariaIds, cancellationToken);
         var totalAPagar = await CalcularTotalPendenteContasPagarAsync(dataFinal, cancellationToken);
         var totalAReceber = await CalcularTotalPendenteContasReceberAsync(dataFinal, cancellationToken);
 

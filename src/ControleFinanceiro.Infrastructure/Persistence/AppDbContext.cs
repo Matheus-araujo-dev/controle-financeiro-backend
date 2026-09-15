@@ -211,6 +211,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new InvestimentoConfiguration());
         modelBuilder.ApplyConfiguration(new ConciliacaoConfiguration());
         modelBuilder.ApplyConfiguration(new ItemConciliacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new MemoriaEstabelecimentoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);

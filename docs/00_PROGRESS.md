@@ -174,3 +174,4 @@ Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/con
 - Remotos atualizados: frontend develop avançou 30 commits; necessária integração da base e repetição dos gates antes de publicar. Checkpoint local não representa entrega final.
 
 - Validação integrada concluída: backend 886 aprovados, 3 ignorados, cobertura 80,5%, Release e modelo EF aprovados. Frontend 1.375 aprovados, linhas 87,64%, branches 80,12%, lint/build aprovados. Procedimento de promoção e reversão em CONCILIACAO_FATURA_20260915.md. Publicação ainda pendente.
+- Revisão do SQL em DEV identificou mapeamento de memória não registrado no contexto. Corrigido por ApplyMemoriaEstabelecimentoConstraints, preservando dados e acrescentando unicidade, FK e concorrência; migration anterior não foi reescrita. Teste de modelo reproduziu a falha antes da correção. Após ajuste: 3 testes de modelo e 6 testes HTTP de conciliação aprovados. Promoção de main aguarda CI/DEV desta correção.

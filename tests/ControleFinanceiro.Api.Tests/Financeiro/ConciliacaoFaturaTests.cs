@@ -238,6 +238,11 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         var saved = await client.PutAsJsonAsync($"{reviewUrl}/itens/{itemId}/rascunho", request);
         saved.StatusCode.Should().Be(HttpStatusCode.OK, await saved.Content.ReadAsStringAsync());
         (await client.PutAsJsonAsync($"{reviewUrl}/itens/{itemId}/rascunho", request)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var version = (await saved.Content.ReadFromJsonAsync<RascunhoFaturaResponse>())!;
+        var secondSave = await client.PutAsJsonAsync($"{reviewUrl}/itens/{itemId}/rascunho", new {
+            dados = request.dados, atualizadoEmUtc = version.AtualizadoEmUtc
+        });
+        secondSave.StatusCode.Should().Be(HttpStatusCode.OK, await secondSave.Content.ReadAsStringAsync());
         var reopened = (await client.GetFromJsonAsync<ConciliacaoFaturaResponse>(reviewUrl))!;
         reopened.Itens.Single().Rascunho!.Value.GetProperty("descricao").GetString().Should().Be("Sistema do pilates");
         using var verification = factory.Services.CreateScope();

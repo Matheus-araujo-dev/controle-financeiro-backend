@@ -151,7 +151,10 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
             throw Erro("Rascunho inválido ou muito grande.");
         session!.SalvarRascunho(itemId, request.Dados.GetRawText());
         await db.SaveChangesAsync(ct);
-        return new(item.UpdatedAtUtc);
+        // Return the persisted precision (PostgreSQL timestamps use microseconds).
+        var persistedVersion = await db.ItensConciliacao.AsNoTracking().Where(x => x.Id == itemId)
+            .Select(x => x.UpdatedAtUtc).SingleAsync(ct);
+        return new(persistedVersion);
     }
 
     public async Task<IReadOnlyList<PreviaReembolsoFaturaResponse>?> PreviaReembolsoAsync(

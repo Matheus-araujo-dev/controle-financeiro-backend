@@ -172,3 +172,5 @@ Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/con
 - Checkpoint 15/09: backend 884 testes completos + 2 testes HTTP OFX/CSV aprovados, 3 ignorados no SQLite; cobertura consolidada 80,5% de linhas. Frontend 1.373 testes completos aprovados, 87,69% linhas e 80,13% branches; mais 2 testes do adaptador bancário aprovados. Tipos e lint sem erros.
 - Incompatibilidade bancária corrigida no frontend: lista real, datas, status EmRevisao, sugestão plana e contagens por item; limite de 50 sessões explicitado.
 - Remotos atualizados: frontend develop avançou 30 commits; necessária integração da base e repetição dos gates antes de publicar. Checkpoint local não representa entrega final.
+
+- Validação integrada concluída: backend 886 aprovados, 3 ignorados, cobertura 80,5%, Release e modelo EF aprovados. Frontend 1.375 aprovados, linhas 87,64%, branches 80,12%, lint/build aprovados. Procedimento de promoção e reversão em CONCILIACAO_FATURA_20260915.md. Publicação ainda pendente.

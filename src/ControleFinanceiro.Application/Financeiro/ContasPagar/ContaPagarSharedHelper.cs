@@ -36,7 +36,8 @@ public sealed class ContaPagarSharedHelper(
         IReadOnlyCollection<RateioRequest> rateios,
         CancellationToken cancellationToken,
         DateOnly? dataCompra = null,
-        bool forcarProximaFatura = false)
+        bool forcarProximaFatura = false,
+        Guid? faturaImportacaoId = null)
     {
         var recebedor = await dbContext.Pessoas.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == recebedorId, cancellationToken)
@@ -94,10 +95,14 @@ public sealed class ContaPagarSharedHelper(
             var dataCompraCartao = dataCompra ?? dataLiquidacao ?? dataEmissao;
             var competencia = FaturaCartaoCompetencia.Calcular(dataCompraCartao, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
 
-            var statusFaturaExistente = await dbContext.FaturasCartao
-                .Where(x => x.CartaoId == cartaoId.Value && x.Competencia == competencia.Competencia)
-                .Select(x => (StatusFaturaCartao?)x.Status)
+            var faturaQuery = dbContext.FaturasCartao.Where(x => x.CartaoId == cartaoId.Value);
+            faturaQuery = faturaImportacaoId.HasValue
+                ? faturaQuery.Where(x => x.Id == faturaImportacaoId.Value)
+                : faturaQuery.Where(x => x.Competencia == competencia.Competencia);
+            var statusFaturaExistente = await faturaQuery.Select(x => (StatusFaturaCartao?)x.Status)
                 .FirstOrDefaultAsync(cancellationToken);
+            if (faturaImportacaoId.HasValue && !statusFaturaExistente.HasValue)
+                throw validationFactory.Create("Fatura", "Fatura de importação não encontrada para este cartão.");
 
             DateOnly? dataVencimentoEfetivo = competencia.DataVencimento;
             if (statusFaturaExistente == StatusFaturaCartao.Paga || statusFaturaExistente == StatusFaturaCartao.Fechada)

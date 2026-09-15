@@ -3,6 +3,7 @@ using System;
 using ControleFinanceiro.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ControleFinanceiro.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914191448_AddConciliacaoConcurrency")]
+    partial class AddConciliacaoConcurrency
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -636,7 +639,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
@@ -666,48 +668,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("itens_conciliacao", (string)null);
-                });
-
-            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.MemoriaEstabelecimento", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CartaoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Chave")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Confirmacoes")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("FamiliaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PreferenciasJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FamiliaId");
-
-                    b.ToTable("MemoriasEstabelecimento");
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.AiConversa", b =>

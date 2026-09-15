@@ -490,6 +490,27 @@ public sealed class ContaPagar : TenantEntity
         AddDomainEvent(new ContaPagarLiquidadaEvent(Id, ValorLiquido, dataLiquidacao, contaBancariaId, Descricao));
     }
 
+    public void AjustarValorConciliacaoFatura(decimal valorFatura, IReadOnlyCollection<RateioPlano> rateios)
+    {
+        if (!CartaoId.HasValue || StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
+            throw new InvalidOperationException("Somente compras de cartão abertas podem ter o valor conciliado.");
+        if (valorFatura == 0 || Math.Sign(valorFatura) != Math.Sign(ValorLiquido)
+            || decimal.Round(valorFatura, 2) != valorFatura)
+            throw new ArgumentException("Valor da fatura deve preservar o sinal e conter no máximo duas casas decimais.", nameof(valorFatura));
+
+        // Valida antes de mudar o agregado, preservando os componentes financeiros e os vínculos.
+        ValidarRateios(rateios, valorFatura);
+        foreach (var rateio in rateios)
+            if (rateio.ContaGerencialId == Guid.Empty || rateio.Valor == 0
+                || Math.Sign(rateio.Valor) != Math.Sign(valorFatura)
+                || decimal.Round(rateio.Valor, 2) != rateio.Valor)
+                throw new ArgumentException("Rateio inválido para o valor conciliado.", nameof(rateios));
+
+        ValorOriginal = valorFatura + ValorDesconto - ValorJuros - ValorMulta;
+        ValorLiquido = valorFatura;
+        SubstituirRateios(rateios);
+    }
+
     public void AtualizarValorLiquido(decimal novoValorLiquido, IReadOnlyCollection<RateioPlano> rateios)
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)

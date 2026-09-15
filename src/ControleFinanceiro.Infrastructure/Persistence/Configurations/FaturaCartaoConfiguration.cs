@@ -13,6 +13,7 @@ public sealed class FaturaCartaoConfiguration : IEntityTypeConfiguration<FaturaC
         builder.ToTable("faturas_cartao");
 
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.UpdatedAtUtc).IsConcurrencyToken();
 
         builder.Property(x => x.Competencia)
             .HasMaxLength(7)

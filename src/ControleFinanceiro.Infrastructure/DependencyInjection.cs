@@ -74,6 +74,7 @@ public static class DependencyInjection
                     npgsqlOptions.CommandTimeout(30);
                 }));
         services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IAtomicOperation, AtomicOperation>();
         services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
         services.AddScoped<IContaReceberRepository, ContaReceberRepository>();
         services.AddScoped<IPessoaRepository, PessoaRepository>();

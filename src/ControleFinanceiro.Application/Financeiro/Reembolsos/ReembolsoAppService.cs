@@ -95,7 +95,6 @@ public sealed class ReembolsoAppService(
 
             // Distribuir valor do pagador pelas parcelas
             var valoresParcelas = DistribuirValorPorPagador(valorPagador, quantidadeParcelas);
-            var valorLiquidoTotal = valoresParcelas.Sum();
             var rateios = ConverterRateios(request.Rateios);
 
             for (var iParcela = 0; iParcela < quantidadeParcelas; iParcela++)
@@ -103,7 +102,7 @@ public sealed class ReembolsoAppService(
                 var pagarParcela = parcelasOrigem[iParcela];
                 var valorParcela = valoresParcelas[iParcela];
                 var dataVenc = request.ParcelarIgual ? pagarParcela.DataVencimento : request.DataVencimento;
-                var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
+                var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, request.ValorTotal);
 
                 var descricaoParcela = quantidadeParcelas > 1
                     ? AjustarDescricaoParcela(request.Descricao, iParcela + 1, quantidadeParcelas)

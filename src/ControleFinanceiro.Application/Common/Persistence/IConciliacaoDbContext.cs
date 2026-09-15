@@ -8,4 +8,5 @@ public interface IConciliacaoDbContext
     DbSet<Domain.Conciliacao.Conciliacao> Conciliacoes { get; }
 
     DbSet<ItemConciliacao> ItensConciliacao { get; }
+    DbSet<MemoriaEstabelecimento> MemoriasEstabelecimento { get; }
 }

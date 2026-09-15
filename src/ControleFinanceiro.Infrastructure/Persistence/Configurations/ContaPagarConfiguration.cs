@@ -17,6 +17,7 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.ToTable("contas_pagar");
 
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.UpdatedAtUtc).IsConcurrencyToken();
 
         builder.Property(x => x.NumeroDocumento)
             .HasMaxLength(80);

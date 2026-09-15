@@ -143,3 +143,35 @@
 - Testes sintéticos cobrem linhas partidas, sinal negativo separado, câmbio, compras iguais e total divergente; API cobre confirmação/reimportação e Swagger; frontend cobre envio dos metadados sem agente.
 - Validação .NET 10: 843 testes aprovados, 3 testes PostgreSQL ignorados no fallback local SQLite; cobertura consolidada de linhas 81,4%; build Release sem erros/avisos; contratos OpenAPI sincronizados. CI PostgreSQL exigida antes da promoção.
 - Promoção: primeiro develop, depois main somente com CI verde.
+
+
+## 2026-09-14 — Conciliação de fatura (em implementação, não publicada)
+
+Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/conciliacao-backend`, branch `codex/conciliacao-fatura-20260914`.
+
+- A conciliação bancária OFX/CSV continua vinculada a movimentações. A extensão PDF reutiliza o agregado de sessão/itens e vincula contas a pagar da fatura.
+- Implementados: sessão PDF com hash e chaves por ocorrência, reabertura idempotente, sugestões por descrição/data/parcela/sinal e tolerância proposta de R$0,05, proteção de ambiguidade, vínculo único por conta na sessão.
+- Vínculo reaproveita a conta e seus metadados. Diferença exige aceite explícito; guarda valor anterior e ajusta somente a parcela, com rateios exatos. Conta liquidada/cancelada e fatura fechada não aceitam ajuste. Repetição não sobrescreve auditoria.
+- Migrations aditivas: AddConciliacaoFatura e metadados de concorrência. Ainda não aplicadas em DEV/produção.
+- TDD: 295 testes de domínio e 103 de aplicação passaram com cobertura gerada. Dois testes HTTP de conciliação passaram (PDF/reabertura e ajuste/repetição). Suíte geral API/cobertura em verificação; não constitui gate concluído.
+- Próximos: criação de itens ausentes, rascunhos tipados, memória por família/campo, reembolso em lote usando o serviço existente, recorrência existente, tratamento de reimportação entre PDFs diferentes, testes de isolamento/concorrência e atualização OpenAPI.
+- Pendência identificada na base: contrato do frontend bancário não corresponde aos DTOs retornados (lista/paginação, datas e sugestão); alinhar antes da integração visual final.
+- Sem commits/push/promoção nesta fase. Publicação exige gates completos em DEV e main e verificação Railway. O branch-base inclui outras entregas do Claude; verificar promoção dessas mudanças antes de abrir PR.
+
+
+## 2026-09-15 — Memória, criação e reembolsos da conciliação (em andamento)
+
+- Itens ausentes criam somente a parcela do PDF. Conta, vínculo, reembolso e memória usam transação serializável; falhas revertem o conjunto.
+- Recorrência reutiliza o serviço existente e respeita data fim, sem duplicar o mês atual. Validação de parcela importada considera a fatura selecionada, mesmo quando a compra original pertence a mês fechado.
+- Memória por família/cartão/estabelecimento e campo confirmado, com opção de não aprender. Rascunhos persistem sem criar contas e verificam versão para impedir sobrescrita concorrente.
+- Prévia de reembolso usa ParcelamentoHelper, informa pagadores, parcelas, valores e vencimentos sem gravações. Swagger exportado e tipos frontend regenerados.
+- Corrigido defeito reproduzido no serviço compartilhado de reembolso: múltiplos pagadores e categorias dividiam o rateio pelo subtotal de um pagador, gerando valor negativo/erro 500. Base proporcional corrigida para o total original; teste HTTP verifica 60/40 por conta.
+- Testes dirigidos: 12 casos de reembolso/conciliação passaram após a correção; 8 casos de prévia/reembolso passaram; teste de Swagger passou. Suíte completa e cobertura de 15/09 em execução, ainda sem gate final.
+- Permanecem pendentes: revisão de segurança/concorrência/reimportação entre PDFs, compatibilidade do frontend bancário, validação visual e gates DEV/main/Railway. Sem publicação.
+
+- Checkpoint 15/09: backend 884 testes completos + 2 testes HTTP OFX/CSV aprovados, 3 ignorados no SQLite; cobertura consolidada 80,5% de linhas. Frontend 1.373 testes completos aprovados, 87,69% linhas e 80,13% branches; mais 2 testes do adaptador bancário aprovados. Tipos e lint sem erros.
+- Incompatibilidade bancária corrigida no frontend: lista real, datas, status EmRevisao, sugestão plana e contagens por item; limite de 50 sessões explicitado.
+- Remotos atualizados: frontend develop avançou 30 commits; necessária integração da base e repetição dos gates antes de publicar. Checkpoint local não representa entrega final.
+
+- Validação integrada concluída: backend 886 aprovados, 3 ignorados, cobertura 80,5%, Release e modelo EF aprovados. Frontend 1.375 aprovados, linhas 87,64%, branches 80,12%, lint/build aprovados. Procedimento de promoção e reversão em CONCILIACAO_FATURA_20260915.md. Publicação ainda pendente.
+- Revisão do SQL em DEV identificou mapeamento de memória não registrado no contexto. Corrigido por ApplyMemoriaEstabelecimentoConstraints, preservando dados e acrescentando unicidade, FK e concorrência; migration anterior não foi reescrita. Teste de modelo reproduziu a falha antes da correção. Após ajuste: 3 testes de modelo e 6 testes HTTP de conciliação aprovados. Promoção de main aguarda CI/DEV desta correção.

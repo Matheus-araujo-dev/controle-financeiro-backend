@@ -49,6 +49,8 @@ public sealed class AppDbContext(
 
     public void LimparChangeTracker() => ChangeTracker.Clear();
 
+    public DbSet<MemoriaEstabelecimento> MemoriasEstabelecimento => Set<MemoriaEstabelecimento>();
+
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
     public async Task<IReadOnlyList<AuditEntryDto>> GetAuditEntriesAsync(
@@ -209,6 +211,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new InvestimentoConfiguration());
         modelBuilder.ApplyConfiguration(new ConciliacaoConfiguration());
         modelBuilder.ApplyConfiguration(new ItemConciliacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new MemoriaEstabelecimentoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);

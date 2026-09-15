@@ -10,10 +10,15 @@ public sealed class ConciliacaoConfiguration : IEntityTypeConfiguration<Concilia
     {
         builder.ToTable("conciliacoes");
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.UpdatedAtUtc).IsConcurrencyToken();
         builder.Property(x => x.NomeArquivo).HasMaxLength(255).IsRequired();
         builder.Property(x => x.Formato).HasConversion<string>().HasMaxLength(10).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.HasIndex(x => x.ContaBancariaId);
+        builder.Property(x => x.HashArquivo).HasMaxLength(64);
+        builder.HasIndex(x => new { x.FamiliaId, x.FaturaId, x.HashArquivo }).IsUnique();
+        builder.HasOne<ControleFinanceiro.Domain.Financeiro.FaturaCartao>().WithMany()
+            .HasForeignKey(x => x.FaturaId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(x => x.Itens)
             .WithOne()
             .HasForeignKey(x => x.ConciliacaoId)

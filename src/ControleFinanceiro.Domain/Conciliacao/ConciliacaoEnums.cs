@@ -1,9 +1,10 @@
-﻿namespace ControleFinanceiro.Domain.Conciliacao;
+namespace ControleFinanceiro.Domain.Conciliacao;
 
 public enum FormatoArquivo
 {
     Ofx = 1,
-    Csv = 2
+    Csv = 2,
+    Pdf = 3
 }
 
 public enum StatusConciliacao

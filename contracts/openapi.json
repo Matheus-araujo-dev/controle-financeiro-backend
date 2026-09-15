@@ -2477,6 +2477,574 @@
         ]
       }
     },
+    "/api/v1/faturas/{faturaId}/conciliacoes": {
+      "post": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "arquivo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "arquivo": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacaoFaturaResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacaoFaturaResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacaoFaturaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RevisaoFaturaResumoResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RevisaoFaturaResumoResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RevisaoFaturaResumoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}": {
+      "get": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacaoFaturaResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacaoFaturaResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciliacaoFaturaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}/itens/{itemId}/vincular": {
+      "post": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VincularItemFaturaRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VincularItemFaturaRequest"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/VincularItemFaturaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}/itens/{itemId}/criar": {
+      "post": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarItemFaturaRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarItemFaturaRequest"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarItemFaturaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}/itens/{itemId}/rascunho": {
+      "put": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RascunhoFaturaRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RascunhoFaturaRequest"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RascunhoFaturaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RascunhoFaturaResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RascunhoFaturaResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RascunhoFaturaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}/itens/{itemId}/previa-reembolso": {
+      "post": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviaReembolsoFaturaRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviaReembolsoFaturaRequest"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviaReembolsoFaturaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreviaReembolsoFaturaResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreviaReembolsoFaturaResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreviaReembolsoFaturaResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}/itens/{itemId}/ignorar": {
+      "post": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          }
+        ]
+      }
+    },
     "/api/v1/contas-bancarias": {
       "get": {
         "tags": [
@@ -14698,6 +15266,31 @@
         },
         "additionalProperties": false
       },
+      "CandidatoConciliacaoResponse": {
+        "type": "object",
+        "properties": {
+          "contaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "diferenca": {
+            "type": "number",
+            "format": "double"
+          },
+          "pontos": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "motivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "correspondenciaClara": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "CartaoDetalheResponse": {
         "type": "object",
         "properties": {
@@ -15140,6 +15733,42 @@
         },
         "additionalProperties": false
       },
+      "ConciliacaoFaturaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "faturaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nomeArquivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemFaturaConciliacaoResponse"
+            },
+            "nullable": true
+          },
+          "contasSistema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContaConciliacaoResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ConciliacaoResumoResponse": {
         "type": "object",
         "properties": {
@@ -15469,6 +16098,66 @@
           },
           "cor": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContaConciliacaoResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataCompra": {
+            "type": "string",
+            "format": "date"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "numeroParcela": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "quantidadeParcelas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "responsavelCompraId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "recebedorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "formaPagamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "regraRecorrenciaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "grupoReembolsoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "rateios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateioConciliacaoResponse"
+            },
             "nullable": true
           }
         },
@@ -16933,6 +17622,56 @@
           "contaBancariaVinculadaId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CriarItemFaturaRequest": {
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "recebedorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responsavelCompraId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "formaPagamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rateios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateioRequest"
+            },
+            "nullable": true
+          },
+          "recorrencia": {
+            "$ref": "#/components/schemas/RecorrenciaConfigRequest"
+          },
+          "reembolso": {
+            "$ref": "#/components/schemas/ReembolsoFaturaConfig"
+          },
+          "observacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "aprender": {
+            "type": "boolean"
+          },
+          "camposParaAprender": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -18836,6 +19575,67 @@
         },
         "additionalProperties": false
       },
+      "ItemFaturaConciliacaoResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data": {
+            "type": "string",
+            "format": "date"
+          },
+          "descricaoOriginal": {
+            "type": "string",
+            "nullable": true
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "numeroParcela": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "quantidadeParcelas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "contaPagarVinculadaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "valorAnteriorSistema": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "candidatos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidatoConciliacaoResponse"
+            },
+            "nullable": true
+          },
+          "preferencias": {
+            "$ref": "#/components/schemas/PreferenciasFaturaResponse"
+          },
+          "rascunho": {
+            "nullable": true
+          },
+          "atualizadoEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "ItemImportadoWhatsappResponse": {
         "type": "object",
         "properties": {
@@ -19825,6 +20625,109 @@
         },
         "additionalProperties": false
       },
+      "PreferenciasFaturaResponse": {
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "responsavelCompraId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "recebedorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "rateios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateioMemoriaResponse"
+            },
+            "nullable": true
+          },
+          "ehRecorrente": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "gerarReembolso": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "reembolsoPagadoresIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PreviaReembolsoFaturaRequest": {
+        "type": "object",
+        "properties": {
+          "contaPagarId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "parcelarIgual": {
+            "type": "boolean"
+          },
+          "valorTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "pagadoresIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "dataVencimento": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PreviaReembolsoFaturaResponse": {
+        "type": "object",
+        "properties": {
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
+          },
+          "numeroParcela": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "quantidadeParcelas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          },
+          "dataVencimento": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -19865,6 +20768,55 @@
           },
           "ativo": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RascunhoFaturaRequest": {
+        "type": "object",
+        "properties": {
+          "dados": {},
+          "atualizadoEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RascunhoFaturaResponse": {
+        "type": "object",
+        "properties": {
+          "atualizadoEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RateioConciliacaoResponse": {
+        "type": "object",
+        "properties": {
+          "contaGerencialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valor": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RateioMemoriaResponse": {
+        "type": "object",
+        "properties": {
+          "contaGerencialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proporcao": {
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -20217,6 +21169,50 @@
         },
         "additionalProperties": false
       },
+      "ReembolsoFaturaConfig": {
+        "type": "object",
+        "properties": {
+          "parcelarIgual": {
+            "type": "boolean"
+          },
+          "valorTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "pagadoresIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "formaPagamentoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataVencimento": {
+            "type": "string",
+            "format": "date"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "observacao": {
+            "type": "string",
+            "nullable": true
+          },
+          "rateios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateioRequest"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "RegistrarPushSubscriptionRequest": {
         "type": "object",
         "properties": {
@@ -20251,6 +21247,28 @@
           "valor": {
             "type": "number",
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RevisaoFaturaResumoResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nomeArquivo": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "criadoEmUtc": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -20524,6 +21542,36 @@
           "publicKey": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VincularItemFaturaRequest": {
+        "type": "object",
+        "properties": {
+          "contaPagarId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valorEsperadoSistema": {
+            "type": "number",
+            "format": "double"
+          },
+          "usarValorFatura": {
+            "type": "boolean"
+          },
+          "aprender": {
+            "type": "boolean"
+          },
+          "camposParaAprender": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "reembolso": {
+            "$ref": "#/components/schemas/ReembolsoFaturaConfig"
           }
         },
         "additionalProperties": false

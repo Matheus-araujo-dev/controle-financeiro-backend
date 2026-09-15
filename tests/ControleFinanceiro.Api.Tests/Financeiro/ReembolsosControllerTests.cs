@@ -290,6 +290,53 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
         list.Items.Sum(x => x.ValorLiquido).Should().BeApproximately(300m, 0.02m);
     }
 
+    [Fact]
+    public async Task CriarReembolso_DoisPagadoresEDoisRateios_PreservaProporcaoPorConta()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var outroPagador = await CreatePessoaAsync(client, "Outro pagador");
+        var categoriaResponse = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
+        {
+            codigo = "REC2", descricao = "Outra receita", tipo = "Receita", ativo = true
+        });
+        categoriaResponse.EnsureSuccessStatusCode();
+        var categoria = (await categoriaResponse.Content.ReadFromJsonAsync<IdPayload>())!.Id;
+        var compraResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-01-10", recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-02-10", formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 100m, quantidadeParcelas = 2, descricao = "Compra rateada",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 100m } }
+        });
+        compraResponse.EnsureSuccessStatusCode();
+        var compra = (await compraResponse.Content.ReadFromJsonAsync<IdPayload>())!.Id;
+        var response = await client.PostAsJsonAsync("/api/v1/reembolsos/contas-pagar", new
+        {
+            contaOrigemId = compra, parcelarIgual = true, valorTotal = 100m,
+            pagadoresIds = new[] { fixture.PagadorId, outroPagador },
+            formaPagamentoId = fixture.FormaPagamentoManualId, dataVencimento = "2026-02-10",
+            descricao = "Reembolso rateado",
+            rateios = new[] {
+                new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 60m },
+                new { contaGerencialId = categoria, valor = 40m }
+            }
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
+        var reembolso = (await response.Content.ReadFromJsonAsync<ReembolsoResponse>())!;
+        reembolso.ContasReceber.Should().HaveCount(4);
+        foreach (var conta in reembolso.ContasReceber)
+        {
+            var detalhe = await client.GetFromJsonAsync<RateiosDetalhe>($"/api/v1/contas-receber/{conta.Id}");
+            detalhe!.Rateios.Single(x => x.ContaGerencialId == fixture.ContaGerencialReceitaId).Valor.Should().Be(15m);
+            detalhe.Rateios.Single(x => x.ContaGerencialId == categoria).Valor.Should().Be(10m);
+        }
+    }
+
+    private sealed record RateiosDetalhe(RateioDetalhe[] Rateios);
+    private sealed record RateioDetalhe(Guid ContaGerencialId, decimal Valor);
+
     private static async Task<Guid> CreatePessoaAsync(HttpClient client, string nome)
     {
         var r = await client.PostAsJsonAsync("/api/v1/pessoas", new { nome, tipoPessoa = "Fisica" });

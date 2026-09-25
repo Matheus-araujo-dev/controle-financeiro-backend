@@ -32,4 +32,7 @@
     <InternalsVisibleTo Include="ControleFinanceiro.Infrastructure.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="ImportacoesWhatsapp/Ocr/invoice_image.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="Ocr/invoice_image.py" />
+  </ItemGroup>
 </Project>

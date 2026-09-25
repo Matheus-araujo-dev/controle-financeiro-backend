@@ -21,20 +21,23 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         if (fatura is null) return null;
         if (!string.Equals(Path.GetExtension(nome), ".pdf", StringComparison.OrdinalIgnoreCase))
             throw Erro("Envie o PDF da fatura.");
-        using var buffer = new MemoryStream();
+        await using var buffer = new FileStream(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()),
+            FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920,
+            FileOptions.Asynchronous | FileOptions.DeleteOnClose);
         var chunk = new byte[81920];
         int read;
         while ((read = await arquivo.ReadAsync(chunk, ct)) > 0)
         {
-            if (buffer.Length + read > 5 * 1024 * 1024) throw Erro("O PDF deve ter até 5 MB.");
-            buffer.Write(chunk, 0, read);
+            if (buffer.Length + read > PdfFaturaUpload.MaxBytes) throw Erro("O PDF deve ter até 128 MB.");
+            await buffer.WriteAsync(chunk.AsMemory(0, read), ct);
         }
         if (buffer.Length == 0) throw Erro("Arquivo vazio.");
-        var hash = Convert.ToHexString(SHA256.HashData(buffer.ToArray()));
+        buffer.Position = 0;
+        var hash = Convert.ToHexString(await SHA256.HashDataAsync(buffer, ct));
         var existente = await db.Conciliacoes.AsNoTracking().SingleOrDefaultAsync(x => x.FaturaId == faturaId && x.HashArquivo == hash, ct);
         if (existente is not null) return await ObterAsync(faturaId, existente.Id, ct);
         buffer.Position = 0;
-        var parsed = await reader.ParseAsync(buffer, ct);
+        var parsed = await reader.ParseAsync(buffer, ct, fatura.DataVencimento);
         if (parsed.Itens.Count == 0) throw Erro(parsed.AvisoFormato ?? "Nenhum lançamento encontrado.");
         if (parsed.Itens.Any(x => x.DataVencimentoFatura != fatura.DataVencimento))
             throw Erro("O vencimento do PDF não corresponde à fatura selecionada.");

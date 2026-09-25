@@ -175,3 +175,10 @@ Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/con
 
 - Validação integrada concluída: backend 886 aprovados, 3 ignorados, cobertura 80,5%, Release e modelo EF aprovados. Frontend 1.375 aprovados, linhas 87,64%, branches 80,12%, lint/build aprovados. Procedimento de promoção e reversão em CONCILIACAO_FATURA_20260915.md. Publicação ainda pendente.
 - Revisão do SQL em DEV identificou mapeamento de memória não registrado no contexto. Corrigido por ApplyMemoriaEstabelecimentoConstraints, preservando dados e acrescentando unicidade, FK e concorrência; migration anterior não foi reescrita. Teste de modelo reproduziu a falha antes da correção. Após ajuste: 3 testes de modelo e 6 testes HTTP de conciliação aprovados. Promoção de main aguarda CI/DEV desta correção.
+
+
+## 2026-09-25 — Extrato aberto Bradesco por OCR
+
+- Suporte a PDF em imagens, limite de 128 MB e erros de upload em português.
+- Amostra real reconhecida localmente: 80 itens, R$ 16.358,45; pagamentos/saldo excluídos das compras.
+- Detalhes, dependências, testes e rollback em BRADESCO_OCR_IMAGEM_20260925.md. Gates e publicação em andamento.

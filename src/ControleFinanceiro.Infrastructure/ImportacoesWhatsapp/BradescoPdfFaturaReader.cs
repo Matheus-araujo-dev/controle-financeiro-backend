@@ -1,12 +1,27 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using UglyToad.PdfPig;
 using ControleFinanceiro.Application.Financeiro.Importacao;
 
 namespace ControleFinanceiro.Infrastructure.ImportacoesWhatsapp;
 
-public sealed class BradescoPdfFaturaReader : IPdfFaturaReader
+public sealed class BradescoPdfFaturaReader(IInvoiceImageOcr? ocr = null) : IPdfFaturaReader
 {
-    public async Task<CsvFaturaParser.ParseResult> ParseAsync(Stream stream, CancellationToken cancellationToken)
+    private static readonly SemaphoreSlim ImageReadLock = new(1, 1);
+
+    public async Task<CsvFaturaParser.ParseResult> ParseAsync(Stream stream, CancellationToken cancellationToken, DateOnly? vencimentoSelecionado = null)
     {
+        try
+        {
+            var imageResult = await ReadImagesAsync(stream, vencimentoSelecionado, cancellationToken);
+            if (imageResult is not null) return imageResult;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new([], "Não foi possível ler as imagens do PDF. Verifique se o arquivo está legível e sem senha. Nenhum lançamento foi criado.");
+        }
+        stream.Position = 0;
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
@@ -40,6 +55,41 @@ public sealed class BradescoPdfFaturaReader : IPdfFaturaReader
             return Failure();
         }
         catch (ArgumentException) { return Failure(); }
+    }
+
+    private async Task<CsvFaturaParser.ParseResult?> ReadImagesAsync(Stream stream, DateOnly? due, CancellationToken ct)
+    {
+        await ImageReadLock.WaitAsync(ct);
+        try
+        {
+            stream.Position = 0;
+            using var document = PdfDocument.Open(stream);
+            if (document.NumberOfPages > 20) return new([], "O PDF deve ter no máximo 20 páginas.");
+            if (document.GetPages().Any(p => p.Text.Any(char.IsLetterOrDigit))) return null;
+            if (ocr is null) return new([], "Este PDF contém imagens. O serviço de OCR não está disponível.");
+            var text = new StringBuilder();
+            var tallImages = new HashSet<string>();
+            foreach (var page in document.GetPages())
+            {
+                ct.ThrowIfCancellationRequested();
+                var images = page.GetImages().Where(x => !x.IsImageMask).ToArray();
+                if (images.Length != 1) return new([], "Não foi possível reconhecer o layout de imagens deste PDF.");
+                var image = images[0];
+                if ((long)image.WidthInSamples * image.HeightInSamples > 40_000_000 || image.WidthInSamples > 5000)
+                    return new([], "A resolução da imagem excede o limite de leitura. Exporte o PDF em resolução menor.");
+                // Imagem longa repetida e recortada nas páginas pelo aplicativo do banco.
+                // Não deduplicar páginas/compras iguais quando forem imagens independentes.
+                if (image.Bounds.Height > page.Height * 1.5)
+                {
+                    var hash = Convert.ToHexString(SHA256.HashData(image.RawBytes.ToArray()));
+                    if (!tallImages.Add(hash)) continue;
+                }
+                if (!image.TryGetPng(out var png)) return new([], "Não foi possível extrair a imagem da fatura.");
+                text.AppendLine(await ocr.ReadAsync(png, ct));
+            }
+            return BradescoAbertoOcrParser.Parse(text.ToString(), due);
+        }
+        finally { ImageReadLock.Release(); }
     }
 
     internal static CsvFaturaParser.ParseResult ParseNormalized(string normalized)

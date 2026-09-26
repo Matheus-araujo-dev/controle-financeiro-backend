@@ -48,13 +48,19 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
             var regra = request.Recorrencia is null ? null : helper.CriarRegraRecorrencia(template, request.Recorrencia);
             if (regra is not null) db.RegrasRecorrencia.Add(regra);
             // O PDF descreve esta parcela; não dividir novamente o valor nem recriar parcelas anteriores.
-            var conta = ContaPagar.Criar(null, item.Data, request.ResponsavelCompraId, request.RecebedorId, fatura.DataVencimento,
-                request.FormaPagamentoId, fatura.CartaoId, null, item.Valor, 0, 0, 0, item.QuantidadeParcelas, item.NumeroParcela,
-                null, null, request.Descricao, request.Observacao, StatusConta.EmFaturaId, regra is not null, regra?.Id,
-                OrigemLancamento.Importacao, request.Rateios.Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor)).ToArray(), item.Data);
+            var contas = ContaPagar.CriarParcelasCartaoImportadas(item.Data, request.ResponsavelCompraId,
+                request.RecebedorId, request.FormaPagamentoId, fatura.CartaoId, item.Valor,
+                item.NumeroParcela, item.QuantidadeParcelas, request.Descricao, request.Observacao,
+                regra is not null, regra?.Id,
+                request.Rateios.Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor)).ToArray(),
+                fatura.DataVencimento, item.Data).ToArray();
+            var conta = contas[0];
             conta.VincularFaturaCartao(faturaId);
-            conta.DefinirChaveSerieImportacaoCartao(chave);
-            db.ContasPagar.Add(conta); db.RateiosContaGerencial.AddRange(conta.Rateios);
+            foreach (var parcela in contas)
+                parcela.DefinirChaveSerieImportacaoCartao(parcela.NumeroParcela == item.NumeroParcela
+                    ? chave
+                    : $"{chave}|parcela:{parcela.NumeroParcela}");
+            db.ContasPagar.AddRange(contas); db.RateiosContaGerencial.AddRange(contas.SelectMany(x => x.Rateios));
             session.ConciliarContaPagar(itemId, conta.Id, null);
             await db.SaveChangesAsync(ct);
             if (regra is not null)
@@ -68,7 +74,7 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
                     refund.ValorTotal, refund.PagadoresIds, refund.FormaPagamentoId, refund.DataVencimento, refund.Descricao,
                     refund.Observacao, refund.Rateios), ct);
             }
-            await memoria.AprenderAsync(item, conta, request.Aprender, request.CamposParaAprender, ct);
+            await memoria.AprenderAsync(item, conta, request.Aprender, request.CamposParaAprender, ct, request.Descricao);
             var valores = await db.ContasPagar.Where(x => x.FaturaCartaoId == faturaId && x.StatusContaId != StatusConta.CanceladaId)
                 .Select(x => x.ValorLiquido).ToListAsync(ct);
             fatura.AtualizarValorTotal(valores.Sum());

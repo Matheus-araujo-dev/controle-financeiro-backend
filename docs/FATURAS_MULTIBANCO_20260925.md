@@ -7,6 +7,9 @@ O fluxo de conciliação aceita Bradesco mensal com texto, Bradesco aberto em im
 Nubank: somente tabelas TRANSAÇÕES; o total vem de RESUMO DA FATURA ATUAL, nunca das ofertas de parcelamento. Mercado Pago: somente Detalhes de consumo. BMG: somente Lançamentos até VALOR TOTAL DA FATURA. Pagamentos/saldo anterior participam da conferência, sem criar novas contas. Compras repetidas permanecem independentes e estornos negativos. Importa-se apenas a parcela presente no documento; não são geradas parcelas futuras.
 
 Os parsers de texto conferem compras + saldo anterior + pagamentos com o total impresso. Diferença até R$ 0,05 é explicitamente avisada e mantém os valores das linhas; diferença maior impede leitura parcial. A tolerância cobre arredondamento do documento, não o matching entre contas. OCR Bradesco continua exigindo subtotais exatos. A revisão humana continua obrigatória.
+O DE-PARA procura contas já lançadas pelo mesmo cartão e vencimento, mesmo quando o lançamento manual ainda não possui `FaturaCartaoId`. A sugestão exige sinal, número e quantidade de parcelas compatíveis e diferença máxima de R$ 0,05. Datas em até três dias são aceitas; em parcelas já em andamento, uma data mais distante só é aceita quando o estabelecimento também coincide. Empates continuam exigindo escolha humana. Ao confirmar, a conta existente recebe o vínculo com a fatura e nenhum registro é duplicado.
+
+Ao criar uma compra parcelada ausente no sistema, o valor lido é tratado como valor da parcela. A parcela presente no PDF entra na fatura selecionada e somente as parcelas posteriores são criadas nos meses seguintes, todas com status `EmFatura`. Assim, uma linha 6/10 gera 6/10, 7/10, 8/10, 9/10 e 10/10, sem recriar 1/10 a 5/10. Todas compartilham o grupo de parcelamento, o mesmo cadastro, rateios e chaves idempotentes; repetir a confirmação não duplica a série.
 
 ## PDFs protegidos e contratos
 
@@ -24,6 +27,8 @@ Amostras pessoais verificadas localmente, sem versionamento dos PDFs ou senha:
 - BMG: 5 itens, R$ 2.800,49; total exato.
 
 TDD: parsers com ofertas, parcelas, estornos, duplicatas, datas/totais inválidos; upload HTTP transporta senha e mantém aviso/total ao retomar. Fixture criptografada sintética cobre senha ausente/incorreta/correta. CI Linux executa Python e OCR nativos. Validar build, cobertura >=80%, contrato e CI antes de DEV e main.
+
+O teste de integração cobre conta manual sem vínculo técnico, ajuste de um centavo e criação do trecho 6/10 a 10/10 em cinco faturas consecutivas, incluindo repetição idempotente, memória sem o sufixo da parcela e reembolso somente da parcela selecionada.
 
 ## Entrega e rollback
 

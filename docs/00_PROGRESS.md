@@ -187,3 +187,5 @@ Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/con
 ## 2026-09-25 - Faturas multibanco
 
 Parsers Nubank, Mercado Pago e BMG, senha transitoria e metadados de leitura. Evidencias e rollback em FATURAS_MULTIBANCO_20260925.md. Validacao e publicacao em andamento.
+
+- Conciliação passou a localizar conta manual por cartão/vencimento e a materializar apenas a parcela atual e futuras (ex.: 6/10 a 10/10), com faturas mensais, status EmFatura e idempotência testados.

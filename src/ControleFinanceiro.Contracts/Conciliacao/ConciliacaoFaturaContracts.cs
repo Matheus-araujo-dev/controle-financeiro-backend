@@ -14,7 +14,7 @@ public sealed record ItemFaturaConciliacaoResponse(Guid Id, DateOnly Data, strin
     int NumeroParcela, int QuantidadeParcelas, string Status, Guid? ContaPagarVinculadaId,
     decimal? ValorAnteriorSistema, IReadOnlyList<CandidatoConciliacaoResponse> Candidatos, PreferenciasFaturaResponse? Preferencias = null, JsonElement? Rascunho = null, DateTime AtualizadoEmUtc = default);
 public sealed record ConciliacaoFaturaResponse(Guid Id, Guid FaturaId, string NomeArquivo, string Status,
-    IReadOnlyList<ItemFaturaConciliacaoResponse> Itens, IReadOnlyList<ContaConciliacaoResponse> ContasSistema);
+    IReadOnlyList<ItemFaturaConciliacaoResponse> Itens, IReadOnlyList<ContaConciliacaoResponse> ContasSistema, string? AvisoLeitura = null, decimal? TotalDocumento = null);
 
 public sealed record ReembolsoFaturaConfig(bool ParcelarIgual, decimal ValorTotal, IReadOnlyList<Guid> PagadoresIds,
     Guid FormaPagamentoId, DateOnly DataVencimento, string Descricao, string? Observacao, IReadOnlyList<RateioRequest> Rateios);

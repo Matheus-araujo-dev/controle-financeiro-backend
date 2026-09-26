@@ -13,6 +13,8 @@ public sealed class Conciliacao : TenantEntity
     public Guid? ContaBancariaId { get; private set; }
     public Guid? FaturaId { get; private set; }
     public string? HashArquivo { get; private set; }
+    public string? AvisoLeitura { get; private set; }
+    public decimal? TotalDocumento { get; private set; }
     public DateOnly DataInicio { get; private set; }
     public DateOnly DataFim { get; private set; }
     public int TotalItens { get; private set; }
@@ -47,13 +49,14 @@ public sealed class Conciliacao : TenantEntity
         return conciliacao;
     }
 
-    public static Conciliacao CriarFatura(string nomeArquivo, Guid faturaId, string hashArquivo, IReadOnlyList<ItemConciliacao> itens)
+    public static Conciliacao CriarFatura(string nomeArquivo, Guid faturaId, string hashArquivo, IReadOnlyList<ItemConciliacao> itens, string? avisoLeitura = null, decimal? totalDocumento = null)
     {
         if (faturaId == Guid.Empty || string.IsNullOrWhiteSpace(nomeArquivo) || string.IsNullOrWhiteSpace(hashArquivo) || itens.Count == 0)
             throw new ArgumentException("Fatura, arquivo e itens são obrigatórios.");
         if (itens.Any(i => string.IsNullOrWhiteSpace(i.ChaveOrigem)) || itens.Select(i => i.ChaveOrigem).Distinct().Count() != itens.Count)
             throw new ArgumentException("Os itens da fatura precisam de chaves independentes.");
-        var session = new Conciliacao { NomeArquivo = nomeArquivo.Trim(), FaturaId = faturaId, HashArquivo = hashArquivo,
+        if (avisoLeitura?.Length > 2000) throw new ArgumentException("Aviso de leitura excede 2000 caracteres.", nameof(avisoLeitura));
+        var session = new Conciliacao { AvisoLeitura = avisoLeitura, TotalDocumento = totalDocumento, NomeArquivo = nomeArquivo.Trim(), FaturaId = faturaId, HashArquivo = hashArquivo,
             Formato = FormatoArquivo.Pdf, DataInicio = itens.Min(i => i.Data), DataFim = itens.Max(i => i.Data),
             TotalItens = itens.Count, Status = StatusConciliacao.EmRevisao };
         session._itens.AddRange(itens);

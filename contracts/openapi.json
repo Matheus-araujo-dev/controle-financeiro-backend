@@ -2502,11 +2502,17 @@
                   "arquivo": {
                     "type": "string",
                     "format": "binary"
+                  },
+                  "senha": {
+                    "type": "string"
                   }
                 }
               },
               "encoding": {
                 "arquivo": {
+                  "style": "form"
+                },
+                "senha": {
                   "style": "form"
                 }
               }
@@ -15764,6 +15770,15 @@
             "items": {
               "$ref": "#/components/schemas/ContaConciliacaoResponse"
             },
+            "nullable": true
+          },
+          "avisoLeitura": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalDocumento": {
+            "type": "number",
+            "format": "double",
             "nullable": true
           }
         },

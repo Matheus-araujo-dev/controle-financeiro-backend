@@ -32,13 +32,16 @@ public static class FaturaMatching
         {
             var difference = item.Valor - conta.Valor;
             var days = Math.Abs(item.Data.DayNumber - conta.Data.DayNumber);
-            if (Math.Sign(item.Valor) != Math.Sign(conta.Valor) || Math.Abs(difference) > tolerancia || days > 3 ||
+            if (Math.Sign(item.Valor) != Math.Sign(conta.Valor) || Math.Abs(difference) > tolerancia ||
                 item.NumeroParcela != conta.NumeroParcela || item.QuantidadeParcelas != conta.QuantidadeParcelas) continue;
             var name = EstabelecimentoKey.Normalizar(conta.Descricao);
             var identified = original.Length > 0 && (name == original || name == alias);
-            var points = (difference == 0 ? 40 : 35) + (days == 0 ? 30 : 20) + (identified ? 30 : 0);
+            var dataProxima = days <= 3;
+            if (!dataProxima && !(item.NumeroParcela > 1 && identified)) continue;
+            var points = (difference == 0 ? 40 : 35) + (days == 0 ? 30 : dataProxima ? 20 : 0) + (identified ? 30 : 0);
             var reason = (difference == 0 ? "Mesmo valor" : "Diferença de centavos") +
-                (days == 0 ? ", mesma data" : ", data próxima") + (identified ? ", estabelecimento reconhecido" : ", conferir estabelecimento");
+                (days == 0 ? ", mesma data" : dataProxima ? ", data próxima" : ", data original divergente") +
+                (identified ? ", estabelecimento reconhecido" : ", conferir estabelecimento");
             candidates.Add(new(conta.Id, difference, points, reason, identified));
         }
         // A correspondência é apenas uma sugestão. Empate ou candidatos concorrentes exigem escolha humana.

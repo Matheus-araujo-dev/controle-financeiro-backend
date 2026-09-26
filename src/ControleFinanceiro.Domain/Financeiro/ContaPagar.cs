@@ -401,6 +401,47 @@ public sealed class ContaPagar : TenantEntity
         return parcelas;
     }
 
+    public static IReadOnlyCollection<ContaPagar> CriarParcelasCartaoImportadas(
+        DateOnly dataEmissaoParcelaAtual,
+        Guid? responsavelCompraId,
+        Guid recebedorId,
+        Guid formaPagamentoId,
+        Guid cartaoId,
+        decimal valorParcela,
+        int numeroParcelaAtual,
+        int quantidadeParcelas,
+        string descricao,
+        string? observacao,
+        bool ehRecorrente,
+        Guid? regraRecorrenciaId,
+        IReadOnlyCollection<RateioPlano> rateiosParcela,
+        DateOnly dataVencimentoParcelaAtual,
+        DateOnly? dataCompra = null)
+    {
+        if (numeroParcelaAtual < 1 || quantidadeParcelas < numeroParcelaAtual)
+            throw new ArgumentException("Parcela atual inválida.", nameof(numeroParcelaAtual));
+
+        ValidarRateios(rateiosParcela, valorParcela);
+        var grupoParcelamentoId = quantidadeParcelas > 1 ? Guid.NewGuid() : (Guid?)null;
+        var parcelas = new List<ContaPagar>(quantidadeParcelas - numeroParcelaAtual + 1);
+
+        for (var numero = numeroParcelaAtual; numero <= quantidadeParcelas; numero++)
+        {
+            var deslocamento = numero - numeroParcelaAtual;
+            var rateios = rateiosParcela
+                .Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor))
+                .ToArray();
+            parcelas.Add(Criar(
+                null, dataEmissaoParcelaAtual.AddMonths(deslocamento), responsavelCompraId, recebedorId,
+                dataVencimentoParcelaAtual.AddMonths(deslocamento), formaPagamentoId, cartaoId, null,
+                valorParcela, 0, 0, 0, quantidadeParcelas, numero, grupoParcelamentoId, null,
+                quantidadeParcelas > 1 ? AjustarDescricaoParcela(descricao, numero, quantidadeParcelas) : descricao,
+                observacao, StatusConta.EmFaturaId, ehRecorrente, regraRecorrenciaId,
+                OrigemLancamento.Importacao, rateios, dataCompra));
+        }
+
+        return parcelas;
+    }
     private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)
     {
         if (string.IsNullOrWhiteSpace(descricao))

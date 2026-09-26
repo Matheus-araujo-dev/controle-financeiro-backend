@@ -15,26 +15,30 @@ namespace ControleFinanceiro.Application.Conciliacao;
 
 public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaReader reader, ContaPagarSharedHelper helper, MemoriaEstabelecimentoAppService memoria, IAtomicOperation atomic, IReembolsoAppService reembolsos)
 {
-    public async Task<ConciliacaoFaturaResponse?> IniciarAsync(Guid faturaId, string nome, Stream arquivo, CancellationToken ct)
+    public async Task<ConciliacaoFaturaResponse?> IniciarAsync(Guid faturaId, string nome, Stream arquivo, CancellationToken ct, string? senha = null)
     {
         var fatura = await db.FaturasCartao.AsNoTracking().SingleOrDefaultAsync(x => x.Id == faturaId, ct);
         if (fatura is null) return null;
+        if (senha?.Length > 128) throw Erro("A senha do PDF deve ter até 128 caracteres.");
         if (!string.Equals(Path.GetExtension(nome), ".pdf", StringComparison.OrdinalIgnoreCase))
             throw Erro("Envie o PDF da fatura.");
-        using var buffer = new MemoryStream();
+        await using var buffer = new FileStream(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()),
+            FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920,
+            FileOptions.Asynchronous | FileOptions.DeleteOnClose);
         var chunk = new byte[81920];
         int read;
         while ((read = await arquivo.ReadAsync(chunk, ct)) > 0)
         {
-            if (buffer.Length + read > 5 * 1024 * 1024) throw Erro("O PDF deve ter até 5 MB.");
-            buffer.Write(chunk, 0, read);
+            if (buffer.Length + read > PdfFaturaUpload.MaxBytes) throw Erro("O PDF deve ter até 128 MB.");
+            await buffer.WriteAsync(chunk.AsMemory(0, read), ct);
         }
         if (buffer.Length == 0) throw Erro("Arquivo vazio.");
-        var hash = Convert.ToHexString(SHA256.HashData(buffer.ToArray()));
+        buffer.Position = 0;
+        var hash = Convert.ToHexString(await SHA256.HashDataAsync(buffer, ct));
         var existente = await db.Conciliacoes.AsNoTracking().SingleOrDefaultAsync(x => x.FaturaId == faturaId && x.HashArquivo == hash, ct);
         if (existente is not null) return await ObterAsync(faturaId, existente.Id, ct);
         buffer.Position = 0;
-        var parsed = await reader.ParseAsync(buffer, ct);
+        var parsed = await reader.ParseAsync(buffer, ct, fatura.DataVencimento, senha);
         if (parsed.Itens.Count == 0) throw Erro(parsed.AvisoFormato ?? "Nenhum lançamento encontrado.");
         if (parsed.Itens.Any(x => x.DataVencimentoFatura != fatura.DataVencimento))
             throw Erro("O vencimento do PDF não corresponde à fatura selecionada.");
@@ -47,7 +51,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
             if (count > 1) key += $"-{count}";
             return ItemConciliacao.CriarFatura(x.DataTransacao, x.Descricao, x.Valor, key, x.NumeroParcela, x.QuantidadeParcelas);
         }).ToArray();
-        var session = Domain.Conciliacao.Conciliacao.CriarFatura(Path.GetFileName(nome), faturaId, hash, itens);
+        var session = Domain.Conciliacao.Conciliacao.CriarFatura(Path.GetFileName(nome), faturaId, hash, itens, parsed.AvisoFormato, parsed.TotalDocumento);
         db.Conciliacoes.Add(session);
         await db.SaveChangesAsync(ct);
         return await ObterAsync(faturaId, session.Id, ct);
@@ -58,13 +62,17 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         var session = await db.Conciliacoes.AsNoTracking().Include(x => x.Itens)
             .SingleOrDefaultAsync(x => x.Id == id && x.FaturaId == faturaId, ct);
         if (session is null) return null;
+        var fatura = await db.FaturasCartao.AsNoTracking().SingleOrDefaultAsync(x => x.Id == faturaId, ct);
+        if (fatura is null) return null;
         var contas = await db.ContasPagar.AsNoTracking()
-            .Where(x => x.FaturaCartaoId == faturaId && x.StatusContaId != StatusConta.CanceladaId).ToListAsync(ct);
+            .Where(x => x.CartaoId == fatura.CartaoId && x.DataVencimento == fatura.DataVencimento
+                && (!x.FaturaCartaoId.HasValue || x.FaturaCartaoId == faturaId)
+                && x.StatusContaId != StatusConta.CanceladaId).ToListAsync(ct);
         var contaIds = contas.Select(x => x.Id).ToArray();
         var rateios = await db.RateiosContaGerencial.AsNoTracking().Where(x => x.ContaPagarId.HasValue && contaIds.Contains(x.ContaPagarId.Value)).ToListAsync(ct);
         var consumidas = session.Itens.Where(x => x.ContaPagarVinculadaId.HasValue).Select(x => x.ContaPagarVinculadaId!.Value).ToHashSet();
         var comparaveis = contas.Where(x => !consumidas.Contains(x.Id)).Select(Comparavel).ToArray();
-        var cartaoId = await db.FaturasCartao.Where(x => x.Id == faturaId).Select(x => x.CartaoId).SingleAsync(ct);
+        var cartaoId = fatura.CartaoId;
         var preferencias = await memoria.ConsultarAsync(cartaoId, session.Itens.Select(x => x.Descricao), ct);
         var sugestoes = session.Itens.Where(x => x.StatusItem == StatusItemConciliacao.Pendente)
             .ToDictionary(x => x.Id, x => FaturaMatching.Encontrar(new(x.Id, x.Data, x.Descricao, x.Valor, x.NumeroParcela, x.QuantidadeParcelas), comparaveis, preferencias.GetValueOrDefault(EstabelecimentoKey.Normalizar(x.Descricao))?.Descricao));
@@ -81,7 +89,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
                     x.RascunhoJson is null ? null : JsonSerializer.Deserialize<JsonElement>(x.RascunhoJson), x.UpdatedAtUtc)).ToArray(),
             contas.Select(x => new ContaConciliacaoResponse(x.Id, x.DataCompra ?? x.DataEmissao, x.Descricao, x.ValorLiquido,
                 x.NumeroParcela, x.QuantidadeParcelas, x.ResponsavelCompraId, x.RecebedorId, x.FormaPagamentoId,
-                x.RegraRecorrenciaId, x.GrupoReembolsoId, rateios.Where(r => r.ContaPagarId == x.Id).Select(r => new RateioConciliacaoResponse(r.ContaGerencialId, r.Valor)).ToArray())).ToArray());
+                x.RegraRecorrenciaId, x.GrupoReembolsoId, rateios.Where(r => r.ContaPagarId == x.Id).Select(r => new RateioConciliacaoResponse(r.ContaGerencialId, r.Valor)).ToArray())).ToArray(), session.AvisoLeitura, session.TotalDocumento);
     }
 
     public Task<bool> VincularAsync(Guid faturaId, Guid id, Guid itemId, VincularItemFaturaRequest request, CancellationToken ct)
@@ -99,7 +107,9 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
             throw Erro("Esta conta já foi vinculada a outro item desta fatura.");
         var fatura = await db.FaturasCartao.SingleAsync(x => x.Id == faturaId, ct);
         var conta = await db.ContasPagar
-            .SingleOrDefaultAsync(x => x.Id == request.ContaPagarId && x.FaturaCartaoId == faturaId && x.CartaoId == fatura.CartaoId, ct);
+            .SingleOrDefaultAsync(x => x.Id == request.ContaPagarId && x.CartaoId == fatura.CartaoId
+                && x.DataVencimento == fatura.DataVencimento
+                && (!x.FaturaCartaoId.HasValue || x.FaturaCartaoId == faturaId), ct);
         if (conta is null) throw Erro("Selecione uma conta desta fatura.");
         if (conta.StatusContaId == StatusConta.CanceladaId) throw Erro("Conta cancelada não pode ser conciliada.");
         if (conta.NumeroParcela != item.NumeroParcela || conta.QuantidadeParcelas != item.QuantidadeParcelas
@@ -112,6 +122,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
             if (fatura.Status != StatusFaturaCartao.Aberta || conta.StatusContaId == StatusConta.LiquidadaId)
                 throw Erro("Não é permitido ajustar contas liquidadas ou faturas fechadas.");
         }
+        conta.VincularFaturaCartao(faturaId);
         // Valida o vínculo antes de alterar dinheiro. Uma única gravação mantém conta e decisão atômicas.
         session.ConciliarContaPagar(itemId, conta.Id, anterior);
         if (anterior != item.Valor)

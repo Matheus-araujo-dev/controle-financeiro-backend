@@ -20,7 +20,7 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
     }
 
     // Chamado apenas na confirmação; não grava sozinho, participando da mesma transação da conta.
-    public async Task AprenderAsync(ItemConciliacao item, ContaPagar conta, bool aprender, IReadOnlyList<string>? campos, CancellationToken ct)
+    public async Task AprenderAsync(ItemConciliacao item, ContaPagar conta, bool aprender, IReadOnlyList<string>? campos, CancellationToken ct, string? descricaoPreferida = null)
     {
         if (!aprender || campos is { Count: 0 } || !conta.CartaoId.HasValue) return;
         var key = EstabelecimentoKey.Normalizar(item.Descricao);
@@ -32,7 +32,7 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
                 .Select(x => x.PagadorId).Distinct().ToArrayAsync(ct) : [];
         var valores = new Dictionary<string, string>
         {
-            ["descricao"] = JsonSerializer.Serialize(conta.Descricao, JsonOptions),
+            ["descricao"] = JsonSerializer.Serialize(descricaoPreferida ?? conta.Descricao, JsonOptions),
             ["responsavelCompraId"] = JsonSerializer.Serialize(conta.ResponsavelCompraId, JsonOptions),
             ["recebedorId"] = JsonSerializer.Serialize(conta.RecebedorId, JsonOptions),
             ["rateios"] = JsonSerializer.Serialize(rateios.Select(r => new RateioMemoriaResponse(r.ContaGerencialId, r.Valor / conta.ValorLiquido)), JsonOptions),

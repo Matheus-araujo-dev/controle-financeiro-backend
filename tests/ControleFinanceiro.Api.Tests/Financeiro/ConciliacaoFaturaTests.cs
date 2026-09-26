@@ -1,5 +1,6 @@
 using System.Net;
 using ControleFinanceiro.Contracts.Conciliacao;
+using ControleFinanceiro.Contracts.Financeiro.Faturas;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Fonts.Standard14Fonts;
@@ -79,7 +80,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
                 33.34m, 0, 0, 0, 3, 2, Guid.NewGuid(), null, "Compra 2/3", null,
                 StatusConta.EmFaturaId, false, null, OrigemLancamento.Manual,
                 [RateioPlano.Create(fixture.ContaGerencialDespesaId, 33.34m)]);
-            account.VincularFaturaCartao(invoice.Id);
+
             db.ContasPagar.Add(account);
             db.RateiosContaGerencial.AddRange(account.Rateios);
             var item = ItemConciliacao.CriarFatura(account.DataEmissao, "COMPRA", 33.33m, "key", 2, 3);
@@ -89,6 +90,9 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
             invoiceId = invoice.Id; sessionId = session.Id; itemId = item.Id; accountId = account.Id;
         }
         var url = $"/api/v1/faturas/{invoiceId}/conciliacoes/{sessionId}/itens/{itemId}/vincular";
+        var review = await client.GetFromJsonAsync<ConciliacaoFaturaResponse>($"/api/v1/faturas/{invoiceId}/conciliacoes/{sessionId}");
+        review!.Itens.Single().Candidatos.Should().ContainSingle().Which.Should().Match<CandidatoConciliacaoResponse>(x =>
+            x.ContaId == accountId && x.Diferenca == -0.01m && x.CorrespondenciaClara && x.Motivo.Contains("Diferença de centavos"));
         var request = new { contaPagarId = accountId, valorEsperadoSistema = 33.34m, usarValorFatura = true };
         var semAceite = await client.PostAsJsonAsync(url, new { contaPagarId = accountId, valorEsperadoSistema = 33.34m, usarValorFatura = false });
         semAceite.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -103,6 +107,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         accounts.Should().ContainSingle();
         accounts[0].Id.Should().Be(accountId);
         accounts[0].ValorLiquido.Should().Be(33.33m);
+        accounts[0].FaturaCartaoId.Should().Be(invoiceId);
         (await context.RateiosContaGerencial.IgnoreQueryFilters().Where(x => x.ContaPagarId == accountId).ToListAsync()).Sum(x => x.Valor).Should().Be(33.33m);
         accounts[0].NumeroParcela.Should().Be(2);
         var saved = await context.ItensConciliacao.IgnoreQueryFilters().SingleAsync(x => x.Id == itemId);
@@ -169,7 +174,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
             var invoice = FaturaCartao.Criar(fixture.CartaoId, "2026-09", new DateOnly(2026,9,10), new DateOnly(2026,9,20), 33.33m, null);
             var antiga = FaturaCartao.Criar(fixture.CartaoId, "2026-08", new DateOnly(2026,8,3), new DateOnly(2026,8,13), 33.33m, null);
             antiga.Fechar(); db.FaturasCartao.Add(antiga);
-            var item = ItemConciliacao.CriarFatura(new DateOnly(2026,8,1), "LOJA", 33.33m, "nova", 2, 3);
+            var item = ItemConciliacao.CriarFatura(new DateOnly(2026,8,1), "LOJA", 33.33m, "nova", 6, 10);
             var session = Domain.Conciliacao.Conciliacao.CriarFatura("nova.pdf", invoice.Id, "nova", [item]);
             db.FaturasCartao.Add(invoice); db.Conciliacoes.Add(session);
             await db.SaveChangesAsync();
@@ -198,9 +203,29 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         (await client.PostAsJsonAsync(url, Request(fixture.PagadorId))).StatusCode.Should().Be(HttpStatusCode.NoContent);
         using var verification = factory.Services.CreateScope();
         var context = verification.ServiceProvider.GetRequiredService<IAppDbContext>();
-        var conta = await context.ContasPagar.IgnoreQueryFilters().SingleAsync(x => x.CartaoId == fixture.CartaoId);
-        conta.NumeroParcela.Should().Be(2); conta.QuantidadeParcelas.Should().Be(3);
-        conta.ValorLiquido.Should().Be(33.33m); conta.Descricao.Should().Be("Tênis de presente");
+        var contas = await context.ContasPagar.IgnoreQueryFilters().Where(x => x.CartaoId == fixture.CartaoId)
+            .OrderBy(x => x.NumeroParcela).ToListAsync();
+        contas.Should().HaveCount(5);
+        contas.Select(x => x.NumeroParcela).Should().Equal(6, 7, 8, 9, 10);
+        contas.Should().OnlyContain(x => x.QuantidadeParcelas == 10 && x.StatusContaId == StatusConta.EmFaturaId);
+        contas.Select(x => x.GrupoParcelamentoId).Distinct().Should().ContainSingle().Which.Should().NotBeNull();
+        contas[0].FaturaCartaoId.Should().Be(invoiceId);
+        contas[1].FaturaCartaoId.Should().BeNull();
+        contas.Select(x => x.DataVencimento).Should().Equal(new DateOnly(2026, 9, 20), new DateOnly(2026, 10, 20),
+            new DateOnly(2026, 11, 20), new DateOnly(2026, 12, 20), new DateOnly(2027, 1, 20));
+        contas.Select(x => x.Descricao).Should().Equal("Tênis de presente 6/10", "Tênis de presente 7/10",
+            "Tênis de presente 8/10", "Tênis de presente 9/10", "Tênis de presente 10/10");
+        contas.Should().OnlyContain(x => x.ValorLiquido == 33.33m);
+        var faturas = await client.GetFromJsonAsync<FaturaListResponse>("/api/v1/faturas?pageSize=20");
+        faturas!.Items.Where(x => x.CartaoId == fixture.CartaoId && x.QuantidadeItens > 0).OrderBy(x => x.DataVencimento)
+            .Select(x => (x.DataVencimento, x.ValorTotal, x.QuantidadeItens))
+            .Should().Equal(
+                (new DateOnly(2026, 9, 20), 33.33m, 1), (new DateOnly(2026, 10, 20), 33.33m, 1),
+                (new DateOnly(2026, 11, 20), 33.33m, 1), (new DateOnly(2026, 12, 20), 33.33m, 1),
+                (new DateOnly(2027, 1, 20), 33.33m, 1));
+        var conta = contas[0];
+        conta.NumeroParcela.Should().Be(6); conta.QuantidadeParcelas.Should().Be(10);
+        conta.ValorLiquido.Should().Be(33.33m); conta.Descricao.Should().Be("Tênis de presente 6/10");
         conta.ResponsavelCompraId.Should().Be(fixture.ResponsavelId);
         conta.GrupoReembolsoId.Should().NotBeNull();
         (await context.ContasReceber.IgnoreQueryFilters().CountAsync(x => x.GrupoReembolsoId == conta.GrupoReembolsoId)).Should().Be(1);

@@ -39,6 +39,14 @@ public sealed class FaturaMatchingTests
         EstabelecimentoKey.Normalizar("ASAAS*OUTROset 26").Should().NotBe(EstabelecimentoKey.Normalizar("ASAAS*NEXTFITset 26"));
     }
     [Fact]
+    public void ParcelaEmAndamento_ComDataDoBancoDiferente_EncontraPelaIdentidade()
+    {
+        var conta = Compra(33.33m, "Tênis", parcela: 6) with { Data = new DateOnly(2026, 4, 5), QuantidadeParcelas = 10 };
+        var item = Compra(33.33m, "Tênis", parcela: 6) with { Data = new DateOnly(2026, 9, 5), QuantidadeParcelas = 10 };
+        FaturaMatching.Encontrar(item, [conta]).Should().ContainSingle().Which.CorrespondenciaClara.Should().BeTrue();
+        FaturaMatching.Encontrar(item with { Descricao = "Outra loja" }, [conta]).Should().BeEmpty();
+    }
+    [Fact]
     public void MesmoValorSemIdentidade_DevePedirRevisao()
     {
         FaturaMatching.Encontrar(Compra(33.33m, "OUTRA LOJA"), [Compra(33.33m)]).Single().CorrespondenciaClara.Should().BeFalse();

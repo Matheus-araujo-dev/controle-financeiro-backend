@@ -14,12 +14,12 @@ O PDF exportado pelo aplicativo pode conter uma imagem longa sem compressão, re
 
 ## Operação
 
-Uploads e imagens ficam em diretórios temporários, removidos ao concluir/falhar. Uma leitura de imagens por processo evita concorrência pesada de OCR. Cada processo tem cancelamento e limite de três minutos; o cliente aguarda até quatro minutos. A imagem extraída é comprimida como PNG para o processamento. Não há alteração de entidade nem migration.
+Uploads e imagens ficam em diretórios temporários, removidos ao concluir/falhar. Uma leitura de imagens por processo evita concorrência pesada de OCR. Cada processo tem cancelamento e limite de três minutos; o cliente aguarda até quatro minutos. A imagem extraída é comprimida como PNG para o processamento. A expansão multibanco adiciona metadados opcionais à sessão; veja `FATURAS_MULTIBANCO_20260925.md`.
 
-Docker e CI instalam `python3`, `python3-pil`, `tesseract-ocr` e `tesseract-ocr-por`. `InvoiceOcr:PythonExecutable` e `InvoiceOcr:TesseractExecutable` permitem caminhos locais específicos; em Linux os defaults são usados. Nubank, Mercado Pago e BMG aguardam amostras e parsers próprios.
+Docker e CI instalam `python3`, `python3-pil`, `tesseract-ocr` e `tesseract-ocr-por`. `InvoiceOcr:PythonExecutable` e `InvoiceOcr:TesseractExecutable` permitem caminhos locais específicos; em Linux os defaults são usados. Nubank, Mercado Pago e BMG possuem parsers de texto próprios, descritos em `FATURAS_MULTIBANCO_20260925.md`.
 
 ## Validação e publicação
 
 TDD no parser e no upload frontend. Testes cobrem subtotais, estornos, compras iguais, imagem longa, virada de ano, erros, upload HTTP acima de 6 MiB e reimportação sem criar contas. O teste nativo de OCR roda no CI Linux com fixture sintética. Qualidade completa local e CI são gates antes de DEV e main.
 
-Rollback: reverter os PRs de frontend/backend na ordem compatível, preservando sessões e lançamentos existentes. Sem migrations ou exclusão de dados. Reverter o backend remove o suporte a imagens/arquivos grandes; o frontend anterior deve ser restaurado antes para voltar a informar o limite de 5 MB.
+Rollback: reverter os PRs de frontend/backend na ordem compatível, preservando sessões e lançamentos existentes. A migration aditiva de metadados pode permanecer no rollback; não excluir sessões ou lançamentos. Reverter o backend remove o suporte a imagens/arquivos grandes; o frontend anterior deve ser restaurado antes para voltar a informar o limite de 5 MB.

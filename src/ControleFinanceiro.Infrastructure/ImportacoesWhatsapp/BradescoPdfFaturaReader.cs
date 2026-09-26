@@ -6,20 +6,33 @@ using ControleFinanceiro.Application.Financeiro.Importacao;
 
 namespace ControleFinanceiro.Infrastructure.ImportacoesWhatsapp;
 
-public sealed class BradescoPdfFaturaReader(IInvoiceImageOcr? ocr = null) : IPdfFaturaReader
+public sealed class BradescoPdfFaturaReader(IInvoiceImageOcr? ocr = null, IInvoicePdfTextReader? textReader = null) : IPdfFaturaReader
 {
     private static readonly SemaphoreSlim ImageReadLock = new(1, 1);
 
-    public async Task<CsvFaturaParser.ParseResult> ParseAsync(Stream stream, CancellationToken cancellationToken, DateOnly? vencimentoSelecionado = null)
+    public async Task<CsvFaturaParser.ParseResult> ParseAsync(Stream stream, CancellationToken cancellationToken, DateOnly? vencimentoSelecionado = null, string? senha = null)
     {
         try
         {
-            var imageResult = await ReadImagesAsync(stream, vencimentoSelecionado, cancellationToken);
+            var imageResult = await ReadImagesAsync(stream, vencimentoSelecionado, senha, cancellationToken);
             if (imageResult is not null) return imageResult;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return new([], "Não foi possível ler as imagens do PDF. Verifique se o arquivo está legível e sem senha. Nenhum lançamento foi criado.");
+            // Fontes e criptografia de alguns emissores não são suportadas pelo PdfPig.
+            if (textReader is not null && stream.Length <= 16 * 1024 * 1024)
+            {
+                try
+                {
+                    stream.Position = 0;
+                    var textResult = await textReader.ReadAsync(stream, senha, cancellationToken);
+                    if (textResult.Error is not null) return new([], textResult.Error);
+                    return MultiBankPdfParser.ParseRows(textResult.Pages) ?? Failure();
+                }
+                catch (Exception fallbackError) when (fallbackError is not OperationCanceledException)
+                { return new([], "Não foi possível ler o PDF. Verifique o arquivo e tente novamente. Nenhum lançamento foi criado."); }
+            }
+            return new([], "Não foi possível ler o PDF. Verifique se o arquivo está legível e informe a senha, se houver. Nenhum lançamento foi criado.");
         }
         stream.Position = 0;
         using var buffer = new MemoryStream();
@@ -57,15 +70,15 @@ public sealed class BradescoPdfFaturaReader(IInvoiceImageOcr? ocr = null) : IPdf
         catch (ArgumentException) { return Failure(); }
     }
 
-    private async Task<CsvFaturaParser.ParseResult?> ReadImagesAsync(Stream stream, DateOnly? due, CancellationToken ct)
+    private async Task<CsvFaturaParser.ParseResult?> ReadImagesAsync(Stream stream, DateOnly? due, string? senha, CancellationToken ct)
     {
         await ImageReadLock.WaitAsync(ct);
         try
         {
             stream.Position = 0;
-            using var document = PdfDocument.Open(stream);
+            using var document = PdfDocument.Open(stream, new ParsingOptions { Password = senha ?? string.Empty });
             if (document.NumberOfPages > 20) return new([], "O PDF deve ter no máximo 20 páginas.");
-            if (document.GetPages().Any(p => p.Text.Any(char.IsLetterOrDigit))) return null;
+            if (document.GetPages().Any(p => p.Text.Any(char.IsLetterOrDigit))) return MultiBankPdfParser.Parse(document);
             if (ocr is null) return new([], "Este PDF contém imagens. O serviço de OCR não está disponível.");
             var text = new StringBuilder();
             var tallImages = new HashSet<string>();

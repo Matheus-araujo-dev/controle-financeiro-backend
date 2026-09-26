@@ -182,3 +182,8 @@ Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/con
 - Suporte a PDF em imagens, limite de 128 MB e erros de upload em português.
 - Amostra real reconhecida localmente: 80 itens, R$ 16.358,45; pagamentos/saldo excluídos das compras.
 - Detalhes, dependências, testes e rollback em BRADESCO_OCR_IMAGEM_20260925.md. Gates e publicação em andamento.
+
+
+## 2026-09-25 - Faturas multibanco
+
+Parsers Nubank, Mercado Pago e BMG, senha transitoria e metadados de leitura. Evidencias e rollback em FATURAS_MULTIBANCO_20260925.md. Validacao e publicacao em andamento.

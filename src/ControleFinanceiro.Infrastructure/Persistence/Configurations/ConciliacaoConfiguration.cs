@@ -16,6 +16,8 @@ public sealed class ConciliacaoConfiguration : IEntityTypeConfiguration<Concilia
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.HasIndex(x => x.ContaBancariaId);
         builder.Property(x => x.HashArquivo).HasMaxLength(64);
+        builder.Property(x => x.AvisoLeitura).HasMaxLength(2000);
+        builder.Property(x => x.TotalDocumento).HasPrecision(18, 2);
         builder.HasIndex(x => new { x.FamiliaId, x.FaturaId, x.HashArquivo }).IsUnique();
         builder.HasOne<ControleFinanceiro.Domain.Financeiro.FaturaCartao>().WithMany()
             .HasForeignKey(x => x.FaturaId).OnDelete(DeleteBehavior.Restrict);

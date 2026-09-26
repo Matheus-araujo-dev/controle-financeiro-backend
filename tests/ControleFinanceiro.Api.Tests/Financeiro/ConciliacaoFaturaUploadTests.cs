@@ -36,6 +36,7 @@ public class ConciliacaoFaturaUploadTests
         async Task<ConciliacaoFaturaResponse> Upload()
         {
             using var content = new MultipartFormDataContent();
+            content.Add(new StringContent("senha-sintetica"), "senha");
             content.Add(new ByteArrayContent(new byte[7 * 1024 * 1024]), "arquivo", "extrato.pdf");
             var response = await client.PostAsync($"/api/v1/faturas/{invoiceId}/conciliacoes", content);
             response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
@@ -44,6 +45,9 @@ public class ConciliacaoFaturaUploadTests
         var first = await Upload();
         var second = await Upload();
         first.Id.Should().Be(second.Id);
+        first.AvisoLeitura.Should().Be("Diferença de R$ 0,01");
+        second.TotalDocumento.Should().Be(99.99m);
+        reader.Password.Should().Be("senha-sintetica");
         reader.Calls.Should().Be(1);
         reader.Length.Should().Be(7 * 1024 * 1024);
         reader.Due.Should().Be(new DateOnly(2026,10,20));
@@ -54,14 +58,15 @@ public class ConciliacaoFaturaUploadTests
 
     private sealed class Reader : IPdfFaturaReader
     {
+        public string? Password { get; private set; }
         public int Calls { get; private set; }
         public long Length { get; private set; }
         public DateOnly? Due { get; private set; }
-        public Task<CsvFaturaParser.ParseResult> ParseAsync(Stream stream, CancellationToken ct, DateOnly? vencimentoSelecionado = null)
+        public Task<CsvFaturaParser.ParseResult> ParseAsync(Stream stream, CancellationToken ct, DateOnly? vencimentoSelecionado = null, string? senha = null)
         {
-            Calls++; Length = stream.Length; Due = vencimentoSelecionado;
+            Password = senha; Calls++; Length = stream.Length; Due = vencimentoSelecionado;
             stream.Position.Should().Be(0);
-            return Task.FromResult(new CsvFaturaParser.ParseResult([new(new DateOnly(2026,9,22), "LOJA", 100, Due)], null));
+            return Task.FromResult(new CsvFaturaParser.ParseResult([new(new DateOnly(2026,9,22), "LOJA", 100, Due)], "Diferença de R$ 0,01", 99.99m));
         }
     }
 }

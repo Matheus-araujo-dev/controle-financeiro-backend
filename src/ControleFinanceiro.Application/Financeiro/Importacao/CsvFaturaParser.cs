@@ -10,7 +10,7 @@ public static class CsvFaturaParser
 {
     public sealed record ParseResult(
         IReadOnlyList<CsvFaturaItem> Itens,
-        string? AvisoFormato);
+        string? AvisoFormato, decimal? TotalDocumento = null);
 
     private static readonly string[] DateFormats =
         ["yyyy-MM-dd", "dd/MM/yyyy", "dd/MM/yy", "MM/dd/yyyy", "d/M/yyyy", "d/M/yy"];

@@ -1,4 +1,5 @@
 using ControleFinanceiro.Application.Conciliacao;
+using ControleFinanceiro.Application.Financeiro.Importacao;
 using ControleFinanceiro.Contracts.Conciliacao;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +13,13 @@ public sealed class ConciliacoesFaturaController(ConciliacaoFaturaAppService ser
 {
     [HttpPost]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(6 * 1024 * 1024)]
+    [RequestSizeLimit(PdfFaturaUpload.MaxRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = PdfFaturaUpload.MaxRequestBytes)]
     [ProducesResponseType(typeof(ConciliacaoFaturaResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ConciliacaoFaturaResponse>> Iniciar(Guid faturaId, IFormFile arquivo, CancellationToken ct)
+    public async Task<ActionResult<ConciliacaoFaturaResponse>> Iniciar(Guid faturaId, IFormFile arquivo, CancellationToken ct, [FromForm] string? senha = null)
     {
         await using var stream = arquivo.OpenReadStream();
-        var result = await service.IniciarAsync(faturaId, arquivo.FileName, stream, ct);
+        var result = await service.IniciarAsync(faturaId, arquivo.FileName, stream, ct, senha);
         return result is null ? NotFoundResponse() : Ok(result);
     }
 

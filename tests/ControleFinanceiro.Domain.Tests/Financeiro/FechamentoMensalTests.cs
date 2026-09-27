@@ -54,4 +54,28 @@ public sealed class FechamentoMensalTests
         fechamento.ReabertoEmUtc.Should().Be(reabertoEm);
         fechamento.JustificativaReabertura.Should().Be("Ajuste de lançamento atrasado");
     }
+
+    [Fact]
+    public void FecharNovamente_DeveAtualizarSnapshotELimparReabertura()
+    {
+        var fechamento = FechamentoMensal.Fechar(
+            "2026-09", Guid.NewGuid(), DateTimeOffset.UtcNow,
+            100m, 80m, 0m, 0m, 2, 0);
+        fechamento.Reabrir(Guid.NewGuid(), DateTimeOffset.UtcNow, "Correção necessária");
+        var novoResponsavel = Guid.NewGuid();
+        var novaData = DateTimeOffset.UtcNow.AddHours(1);
+
+        fechamento.FecharNovamente(novoResponsavel, novaData, 120m, 90m, 0m, 0m, 3, 0);
+
+        fechamento.Status.Should().Be(StatusFechamentoMensal.Fechado);
+        fechamento.FechadoPorUsuarioId.Should().Be(novoResponsavel);
+        fechamento.FechadoEmUtc.Should().Be(novaData);
+        fechamento.TotalReceitasSnapshot.Should().Be(120m);
+        fechamento.TotalDespesasSnapshot.Should().Be(90m);
+        fechamento.SaldoSnapshot.Should().Be(30m);
+        fechamento.QuantidadeLancamentosSnapshot.Should().Be(3);
+        fechamento.ReabertoPorUsuarioId.Should().BeNull();
+        fechamento.ReabertoEmUtc.Should().BeNull();
+        fechamento.JustificativaReabertura.Should().BeNull();
+    }
 }

@@ -71,6 +71,38 @@ public sealed class FechamentoMensal : TenantEntity
         JustificativaReabertura = justificativa.Trim();
     }
 
+    public void FecharNovamente(
+        Guid responsavelId,
+        DateTimeOffset fechadoEmUtc,
+        decimal totalReceitas,
+        decimal totalDespesas,
+        decimal totalPendente,
+        decimal totalVencido,
+        int quantidadeLancamentos,
+        int quantidadeBloqueios)
+    {
+        if (Status != StatusFechamentoMensal.Reaberto)
+            throw new InvalidOperationException("Apenas um mês reaberto pode ser fechado novamente.");
+        if (responsavelId == Guid.Empty) throw new ArgumentException("Responsável é obrigatório.", nameof(responsavelId));
+        if (quantidadeBloqueios > 0) throw new InvalidOperationException("O mês possui bloqueios e não pode ser fechado.");
+        if (quantidadeLancamentos < 0) throw new ArgumentOutOfRangeException(nameof(quantidadeLancamentos));
+        if (quantidadeBloqueios < 0) throw new ArgumentOutOfRangeException(nameof(quantidadeBloqueios));
+
+        Status = StatusFechamentoMensal.Fechado;
+        FechadoPorUsuarioId = responsavelId;
+        FechadoEmUtc = fechadoEmUtc;
+        TotalReceitasSnapshot = decimal.Round(totalReceitas, 2);
+        TotalDespesasSnapshot = decimal.Round(totalDespesas, 2);
+        SaldoSnapshot = decimal.Round(totalReceitas - totalDespesas, 2);
+        TotalPendenteSnapshot = decimal.Round(totalPendente, 2);
+        TotalVencidoSnapshot = decimal.Round(totalVencido, 2);
+        QuantidadeLancamentosSnapshot = quantidadeLancamentos;
+        QuantidadeBloqueiosSnapshot = quantidadeBloqueios;
+        ReabertoPorUsuarioId = null;
+        ReabertoEmUtc = null;
+        JustificativaReabertura = null;
+    }
+
     private static void ValidarCompetencia(string competencia)
     {
         if (string.IsNullOrWhiteSpace(competencia)

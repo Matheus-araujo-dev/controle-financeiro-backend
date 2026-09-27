@@ -102,6 +102,8 @@ public sealed class AppDbContext(
 
     public DbSet<Investimento> Investimentos => Set<Investimento>();
 
+    public DbSet<FechamentoMensal> FechamentosMensais => Set<FechamentoMensal>();
+
     public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
 
     public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();
@@ -192,6 +194,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MetaOrcamentoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
+        modelBuilder.ApplyConfiguration(new FechamentoMensalConfiguration());
         modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ImportacaoWhatsappConfiguration());
         modelBuilder.ApplyConfiguration(new ItemImportadoWhatsappConfiguration());

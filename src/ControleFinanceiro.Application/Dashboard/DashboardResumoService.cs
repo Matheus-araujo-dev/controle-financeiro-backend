@@ -50,25 +50,11 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
     }
 
     private async Task<decimal> CalcularTotalPendenteContasPagarAsync(DateOnly dataFinal, CancellationToken cancellationToken) =>
-        await dbContext.ContasPagar.AsNoTracking()
+        await db.ContasPagarSemDuplicarFatura()
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
                         c.StatusContaId != StatusConta.CanceladaId &&
                         c.DataVencimento <= dataFinal)
 
-            // Antes de consolidar, os itens representam a obrigação. Depois, contamos
-            // somente a conta consolidada, inclusive quando o pagamento é estornado.
-            // Itens manuais não têm FaturaCartaoId: sincronização usa cartão e mês
-            // de vencimento, mesmo quando a competência pertence ao mês anterior.
-            .Where(c => c.StatusContaId != StatusConta.EmFaturaId ||
-                !dbContext.FaturasCartao.Any(f =>
-                    (c.FaturaCartaoId == f.Id ||
-                     (c.CartaoId == f.CartaoId &&
-                      c.DataVencimento.Year == f.DataVencimento.Year &&
-                      c.DataVencimento.Month == f.DataVencimento.Month)) &&
-                    dbContext.ContasPagar.Any(consolidada =>
-                        consolidada.FaturaCartaoId == f.Id &&
-                        consolidada.CartaoId == null &&
-                        consolidada.StatusContaId != StatusConta.CanceladaId)))
             .SumAsync(c => (decimal?)c.ValorLiquido, cancellationToken) ?? 0m;
 
     private async Task<decimal> CalcularTotalPendenteContasReceberAsync(DateOnly dataFinal, CancellationToken cancellationToken) =>
@@ -81,7 +67,7 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
     private async Task<IReadOnlyList<DashboardContaResumoResponse>> CarregarContasVencidasAsync(
         DateOnly dataReferencia, CancellationToken cancellationToken)
     {
-        var contasPagar = await dbContext.ContasPagar.AsNoTracking()
+        var contasPagar = await db.ContasPagarSemDuplicarFatura()
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
                         c.StatusContaId != StatusConta.CanceladaId &&
                         c.StatusContaId != StatusConta.EmFaturaId &&
@@ -111,7 +97,7 @@ public sealed class DashboardResumoService(IAppDbContext dbContext, DashboardDbH
     private async Task<IReadOnlyList<DashboardContaResumoResponse>> CarregarContasAVencerAsync(
         DateOnly dataInicial, DateOnly dataFinal, CancellationToken cancellationToken)
     {
-        var contasPagar = await dbContext.ContasPagar.AsNoTracking()
+        var contasPagar = await db.ContasPagarSemDuplicarFatura()
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
                         c.StatusContaId != StatusConta.CanceladaId &&
                         c.StatusContaId != StatusConta.EmFaturaId &&

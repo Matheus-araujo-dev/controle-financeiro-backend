@@ -14,6 +14,21 @@ namespace ControleFinanceiro.Api.Controllers;
 [Route("api/v1/dashboard")]
 public sealed class DashboardController(DashboardAppService service, ISender mediator) : ApiControllerBase
 {
+    [HttpGet("anomalias")]
+    [ProducesResponseType(typeof(DashboardAnomaliasResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<DashboardAnomaliasResponse>> ObterAnomalias(
+        [FromQuery] string mesReferencia, [FromServices] DashboardAnomaliasService anomalias,
+        CancellationToken cancellationToken)
+    {
+        var err = ValidateMesReferencia(mesReferencia);
+        if (err is not null) return err;
+        if (!DateOnly.TryParseExact(mesReferencia, "yyyy-MM", out var mes) || mes.Year < 2 || mes.Year > 9998)
+            return BadRequestResponse("Mês fora do intervalo suportado.", "mesReferencia");
+        return Ok(await anomalias.ObterAsync(mesReferencia, cancellationToken));
+    }
+
     [HttpGet("resumo")]
     [ProducesResponseType(typeof(DashboardResumoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]

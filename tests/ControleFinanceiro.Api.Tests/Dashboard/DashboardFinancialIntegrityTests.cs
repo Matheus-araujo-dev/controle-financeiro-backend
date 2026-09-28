@@ -89,9 +89,14 @@ public sealed class DashboardFinancialIntegrityTests(CustomWebApplicationFactory
         await AssertTotalAsync(client, mesResumo, 300m);
     }
 
+    private sealed record FluxoResponse(IReadOnlyList<DiaResponse> Itens);
+    private sealed record DiaResponse(decimal SaidasPrevistas);
+
     private static async Task AssertTotalAsync(HttpClient client, string mes, decimal esperado)
     {
         var resumo = await client.GetFromJsonAsync<DashboardResumoResponse>($"/api/v1/dashboard/resumo?mesReferencia={mes}");
+        var fluxo = await client.GetFromJsonAsync<FluxoResponse>($"/api/v1/dashboard/fluxo-caixa?mesReferencia={mes}");
+        fluxo!.Itens.Sum(d => d.SaidasPrevistas).Should().Be(300m, "o fluxo deve contar a compra uma vez, pendente ou realizada");
         resumo!.TotalAPagar.Should().Be(esperado, "uma compra deve aparecer uma única vez, representada pelos itens ou pela obrigação consolidada");
     }
 }

@@ -96,6 +96,8 @@ public sealed class DashboardFinancialIntegrityTests(CustomWebApplicationFactory
     {
         var resumo = await client.GetFromJsonAsync<DashboardResumoResponse>($"/api/v1/dashboard/resumo?mesReferencia={mes}");
         var fluxo = await client.GetFromJsonAsync<FluxoResponse>($"/api/v1/dashboard/fluxo-caixa?mesReferencia={mes}");
+        var anomalias = await client.GetFromJsonAsync<DashboardAnomaliasResponse>("/api/v1/dashboard/anomalias?mesReferencia=2027-01");
+        anomalias!.ContasAnalisadas.Should().Be(1, "a obrigação consolidada não é uma nova compra para análise de anomalias");
         fluxo!.Itens.Sum(d => d.SaidasPrevistas).Should().Be(300m, "o fluxo deve contar a compra uma vez, pendente ou realizada");
         resumo!.TotalAPagar.Should().Be(esperado, "uma compra deve aparecer uma única vez, representada pelos itens ou pela obrigação consolidada");
     }

@@ -12810,6 +12810,49 @@
         ]
       }
     },
+    "/api/v1/perfil/whatsapp/qr": {
+      "get": {
+        "tags": [
+          "PerfilWhatsapp"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsappBridgeQrResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsappBridgeQrResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsappBridgeQrResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
     "/api/v1/perfil/whatsapp/alertas": {
       "get": {
         "tags": [
@@ -22930,6 +22973,20 @@
           },
           "receberLimiteResponsavel": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WhatsappBridgeQrResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "qr": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

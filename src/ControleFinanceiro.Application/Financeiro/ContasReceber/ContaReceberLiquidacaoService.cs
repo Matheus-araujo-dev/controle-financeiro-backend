@@ -16,7 +16,8 @@ public interface IContaReceberLiquidacaoService
 public sealed class ContaReceberLiquidacaoService(
     IAppDbContext dbContext,
     IContaReceberQueryService queryService,
-    ContaReceberSharedHelper helper) : IContaReceberLiquidacaoService
+    ContaReceberSharedHelper helper,
+    IContaReceberRecorrenciaService recorrenciaService) : IContaReceberLiquidacaoService
 {
     public async Task<ContaReceberDetalheResponse?> LiquidarAsync(
         Guid id, LiquidarContaReceberRequest request, CancellationToken cancellationToken)
@@ -141,7 +142,10 @@ public sealed class ContaReceberLiquidacaoService(
             var regra = await dbContext.RegrasRecorrencia
                 .SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
             if (regra is not null && regra.Ativa)
+            {
                 regra.Pausar();
+                await recorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

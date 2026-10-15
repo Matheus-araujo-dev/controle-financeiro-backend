@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.FinanceAI.Tools;
 using ControleFinanceiro.Domain.FinanceAI;
@@ -16,6 +17,7 @@ public sealed class FinanceAgentService(
     ILogger<FinanceAgentService> logger) : IFinanceAgentService
 {
     private const int MaxToolRounds = 5;
+    private static readonly Regex ThinkTagRegex = new(@"<think>[\s\S]*?</think>\s*", RegexOptions.Compiled);
 
     public async Task<AgentResponse> ProcessarAsync(AgentRequest request, CancellationToken cancellationToken)
     {
@@ -114,8 +116,24 @@ public sealed class FinanceAgentService(
         if (string.IsNullOrEmpty(resposta))
             resposta = "Não consegui concluir a consulta. Tente novamente.";
 
+        resposta = ThinkTagRegex.Replace(resposta, string.Empty).Trim();
+
         conversa.AdicionarMensagem("assistant", resposta);
-        await db.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            logger.LogWarning("Concurrency conflict ao salvar conversa {ConversaId}, recarregando", conversa.Id);
+            foreach (var entry in db.ChangeTracker.Entries())
+            {
+                if (entry.State == EntityState.Modified)
+                    await entry.ReloadAsync(cancellationToken);
+            }
+            await db.SaveChangesAsync(cancellationToken);
+        }
 
         return new AgentResponse(resposta, conversa.Id, totalTokens);
     }

@@ -31,18 +31,23 @@ public sealed class BuscarSaldoAtualTool(IAppDbContext db) : IFinanceTool
 
         var movimentacoes = await db.MovimentacoesFinanceiras
             .AsNoTracking()
-            .Where(m => m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId && m.DataMovimentacao <= hoje)
-            .Select(m => new { m.ContaBancariaId, m.Valor })
+            .Where(m => m.ContaBancariaId != null
+                && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
+                && m.Natureza == NaturezaMovimentacao.Realizada
+                && m.DataMovimentacao <= hoje)
+            .Select(m => new { m.ContaBancariaId, m.Valor, m.Tipo })
             .ToListAsync(cancellationToken);
 
         var resultado = contas.Select(c =>
         {
-            var movs = movimentacoes.Where(m => m.ContaBancariaId == c.Id).Sum(m => m.Valor);
+            var saldoMovimentacoes = movimentacoes
+                .Where(m => m.ContaBancariaId == c.Id)
+                .Sum(m => m.Tipo == TipoMovimentacao.Entrada ? m.Valor : -m.Valor);
             return new
             {
                 id = c.Id,
                 nome = c.Nome,
-                saldoAtual = c.SaldoInicial + movs
+                saldoAtual = c.SaldoInicial + saldoMovimentacoes
             };
         });
 

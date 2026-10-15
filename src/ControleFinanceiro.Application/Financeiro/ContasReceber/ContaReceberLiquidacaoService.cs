@@ -144,6 +144,29 @@ public sealed class ContaReceberLiquidacaoService(
                 regra.Pausar();
         }
 
+        // Cancelamento em cascata de parcelas do mesmo grupo.
+        // Escolha explícita do usuário prevalece; sem escolha, só a parcela 1 cascateia (compatibilidade).
+        if (conta.GrupoParcelamentoId.HasValue)
+        {
+            var cancelarFuturas = request?.CancelarParcelasFuturas ?? conta.NumeroParcela == 1;
+            if (cancelarFuturas)
+            {
+                var parcelas = await dbContext.ContasReceber
+                    .Where(x => x.GrupoParcelamentoId == conta.GrupoParcelamentoId.Value
+                             && x.Id != conta.Id
+                             && x.DataVencimento >= conta.DataVencimento
+                             && x.StatusContaId != StatusConta.CanceladaId
+                             && x.StatusContaId != StatusConta.LiquidadaId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var parcela in parcelas)
+                {
+                    try { parcela.Cancelar(StatusConta.CanceladaId); }
+                    catch (InvalidOperationException) { /* ignorar parcelas que não podem ser canceladas */ }
+                }
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }

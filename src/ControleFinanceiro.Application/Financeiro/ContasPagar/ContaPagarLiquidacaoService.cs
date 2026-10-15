@@ -216,10 +216,11 @@ public sealed class ContaPagarLiquidacaoService(
                 regra.Pausar();
         }
 
-        // Cancelamento em cascata de parcelas do mesmo grupo
+        // Cancelamento em cascata de parcelas do mesmo grupo.
+        // Escolha explícita do usuário prevalece; sem escolha, só a parcela 1 cascateia (compatibilidade).
         if (conta.GrupoParcelamentoId.HasValue)
         {
-            var cancelarFuturas = conta.NumeroParcela == 1 || request?.CancelarParcelasFuturas == true;
+            var cancelarFuturas = request?.CancelarParcelasFuturas ?? conta.NumeroParcela == 1;
             if (cancelarFuturas)
             {
                 var parcelas = await dbContext.ContasPagar

@@ -86,7 +86,8 @@ public sealed record AtualizarContaReceberRequest(
     RecorrenciaConfigRequest? Recorrencia);
 
 public sealed record CancelarContaReceberRequest(
-    bool? PausarRecorrenciaRelacionada = null);
+    bool? PausarRecorrenciaRelacionada = null,
+    bool? CancelarParcelasFuturas = null);
 
 public sealed record LiquidarContaReceberRequest(
     decimal ValorLiquidacao,

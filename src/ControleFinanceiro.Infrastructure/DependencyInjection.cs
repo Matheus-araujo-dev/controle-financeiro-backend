@@ -221,7 +221,7 @@ public static class DependencyInjection
         })
             .AddPolicyHandlerFromRegistry("WhatsappBridge.retry")
             .AddPolicyHandlerFromRegistry("WhatsappBridge.cb");
-        services.AddScoped<IWhatsappOutboundService, WhatsappOutboundService>();
+        services.AddScoped<IWhatsappOutboundService>(sp => sp.GetRequiredService<WhatsappOutboundService>());
         services.AddHostedService<AlertasWhatsappHostedService>();
 
         return services;

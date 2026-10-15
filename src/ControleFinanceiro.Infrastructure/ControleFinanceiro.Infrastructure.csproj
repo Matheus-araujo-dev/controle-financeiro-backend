@@ -32,4 +32,8 @@
     <InternalsVisibleTo Include="ControleFinanceiro.Infrastructure.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="ImportacoesWhatsapp/Ocr/pdf_text.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="Ocr/pdf_text.py" />
+    <None Include="ImportacoesWhatsapp/Ocr/invoice_image.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" TargetPath="Ocr/invoice_image.py" />
+  </ItemGroup>
 </Project>

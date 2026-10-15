@@ -401,6 +401,47 @@ public sealed class ContaPagar : TenantEntity
         return parcelas;
     }
 
+    public static IReadOnlyCollection<ContaPagar> CriarParcelasCartaoImportadas(
+        DateOnly dataEmissaoParcelaAtual,
+        Guid? responsavelCompraId,
+        Guid recebedorId,
+        Guid formaPagamentoId,
+        Guid cartaoId,
+        decimal valorParcela,
+        int numeroParcelaAtual,
+        int quantidadeParcelas,
+        string descricao,
+        string? observacao,
+        bool ehRecorrente,
+        Guid? regraRecorrenciaId,
+        IReadOnlyCollection<RateioPlano> rateiosParcela,
+        DateOnly dataVencimentoParcelaAtual,
+        DateOnly? dataCompra = null)
+    {
+        if (numeroParcelaAtual < 1 || quantidadeParcelas < numeroParcelaAtual)
+            throw new ArgumentException("Parcela atual inválida.", nameof(numeroParcelaAtual));
+
+        ValidarRateios(rateiosParcela, valorParcela);
+        var grupoParcelamentoId = quantidadeParcelas > 1 ? Guid.NewGuid() : (Guid?)null;
+        var parcelas = new List<ContaPagar>(quantidadeParcelas - numeroParcelaAtual + 1);
+
+        for (var numero = numeroParcelaAtual; numero <= quantidadeParcelas; numero++)
+        {
+            var deslocamento = numero - numeroParcelaAtual;
+            var rateios = rateiosParcela
+                .Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor))
+                .ToArray();
+            parcelas.Add(Criar(
+                null, dataEmissaoParcelaAtual.AddMonths(deslocamento), responsavelCompraId, recebedorId,
+                dataVencimentoParcelaAtual.AddMonths(deslocamento), formaPagamentoId, cartaoId, null,
+                valorParcela, 0, 0, 0, quantidadeParcelas, numero, grupoParcelamentoId, null,
+                quantidadeParcelas > 1 ? AjustarDescricaoParcela(descricao, numero, quantidadeParcelas) : descricao,
+                observacao, StatusConta.EmFaturaId, ehRecorrente, regraRecorrenciaId,
+                OrigemLancamento.Importacao, rateios, dataCompra));
+        }
+
+        return parcelas;
+    }
     private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)
     {
         if (string.IsNullOrWhiteSpace(descricao))
@@ -490,6 +531,27 @@ public sealed class ContaPagar : TenantEntity
         AddDomainEvent(new ContaPagarLiquidadaEvent(Id, ValorLiquido, dataLiquidacao, contaBancariaId, Descricao));
     }
 
+    public void AjustarValorConciliacaoFatura(decimal valorFatura, IReadOnlyCollection<RateioPlano> rateios)
+    {
+        if (!CartaoId.HasValue || StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
+            throw new InvalidOperationException("Somente compras de cartão abertas podem ter o valor conciliado.");
+        if (valorFatura == 0 || Math.Sign(valorFatura) != Math.Sign(ValorLiquido)
+            || decimal.Round(valorFatura, 2) != valorFatura)
+            throw new ArgumentException("Valor da fatura deve preservar o sinal e conter no máximo duas casas decimais.", nameof(valorFatura));
+
+        // Valida antes de mudar o agregado, preservando os componentes financeiros e os vínculos.
+        ValidarRateios(rateios, valorFatura);
+        foreach (var rateio in rateios)
+            if (rateio.ContaGerencialId == Guid.Empty || rateio.Valor == 0
+                || Math.Sign(rateio.Valor) != Math.Sign(valorFatura)
+                || decimal.Round(rateio.Valor, 2) != rateio.Valor)
+                throw new ArgumentException("Rateio inválido para o valor conciliado.", nameof(rateios));
+
+        ValorOriginal = valorFatura + ValorDesconto - ValorJuros - ValorMulta;
+        ValorLiquido = valorFatura;
+        SubstituirRateios(rateios);
+    }
+
     public void AtualizarValorLiquido(decimal novoValorLiquido, IReadOnlyCollection<RateioPlano> rateios)
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
@@ -529,7 +591,8 @@ public sealed class ContaPagar : TenantEntity
 
     public void CancelarPorPausaRecorrencia()
     {
-        if (StatusContaId != StatusConta.FuturoId) return;
+        // Ocorrências de cartão nascem EmFatura (fatura futura); as demais, Futuro.
+        if (StatusContaId != StatusConta.FuturoId && StatusContaId != StatusConta.EmFaturaId) return;
         Cancelar(StatusConta.CanceladaId);
         CanceladaPorPausaRecorrencia = true;
     }
@@ -537,7 +600,7 @@ public sealed class ContaPagar : TenantEntity
     public void RetomarAposPausaRecorrencia()
     {
         if (!CanceladaPorPausaRecorrencia || StatusContaId != StatusConta.CanceladaId) return;
-        StatusContaId = StatusConta.FuturoId;
+        StatusContaId = CartaoId.HasValue ? StatusConta.EmFaturaId : StatusConta.FuturoId;
         CanceladaPorPausaRecorrencia = false;
     }
 

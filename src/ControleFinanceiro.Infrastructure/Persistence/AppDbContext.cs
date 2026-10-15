@@ -49,6 +49,8 @@ public sealed class AppDbContext(
 
     public void LimparChangeTracker() => ChangeTracker.Clear();
 
+    public DbSet<MemoriaEstabelecimento> MemoriasEstabelecimento => Set<MemoriaEstabelecimento>();
+
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
     public async Task<IReadOnlyList<AuditEntryDto>> GetAuditEntriesAsync(
@@ -99,6 +101,8 @@ public sealed class AppDbContext(
     public DbSet<Plano> Planos => Set<Plano>();
 
     public DbSet<Investimento> Investimentos => Set<Investimento>();
+
+    public DbSet<FechamentoMensal> FechamentosMensais => Set<FechamentoMensal>();
 
     public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
 
@@ -192,6 +196,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MetaOrcamentoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
+        modelBuilder.ApplyConfiguration(new FechamentoMensalConfiguration());
         modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ImportacaoWhatsappConfiguration());
         modelBuilder.ApplyConfiguration(new ItemImportadoWhatsappConfiguration());
@@ -212,6 +217,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new InvestimentoConfiguration());
         modelBuilder.ApplyConfiguration(new ConciliacaoConfiguration());
         modelBuilder.ApplyConfiguration(new ItemConciliacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new MemoriaEstabelecimentoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
         AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);

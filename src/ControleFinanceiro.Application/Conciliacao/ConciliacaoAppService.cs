@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Xml.Linq;
 using ControleFinanceiro.Application.Common.Persistence;
@@ -59,11 +59,11 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
 
     public async Task<IReadOnlyCollection<ConciliacaoResumoResponse>> ListarAsync(CancellationToken cancellationToken)
     {
-        return await dbContext.Conciliacoes.AsNoTracking()
+        return await dbContext.Conciliacoes.AsNoTracking().Where(c => c.FaturaId == null)
             .OrderByDescending(c => c.CreatedAtUtc)
             .Take(50)
             .Select(c => new ConciliacaoResumoResponse(
-                c.Id, c.NomeArquivo, c.Formato.ToString(), c.ContaBancariaId,
+                c.Id, c.NomeArquivo, c.Formato.ToString(), c.ContaBancariaId!.Value,
                 c.DataInicio, c.DataFim, c.TotalItens, c.ItensConciliados,
                 c.Status.ToString(), c.CreatedAtUtc))
             .ToArrayAsync(cancellationToken);
@@ -74,7 +74,7 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
         var conciliacao = await dbContext.Conciliacoes
             .Include(c => c.Itens)
             .AsNoTracking()
-            .SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+            .SingleOrDefaultAsync(c => c.Id == id && c.FaturaId == null, cancellationToken);
         return conciliacao is null ? null : MapDetalhe(conciliacao);
     }
 
@@ -82,7 +82,7 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
     {
         var conciliacao = await dbContext.Conciliacoes
             .Include(c => c.Itens)
-            .SingleOrDefaultAsync(c => c.Id == conciliacaoId, cancellationToken);
+            .SingleOrDefaultAsync(c => c.Id == conciliacaoId && c.FaturaId == null, cancellationToken);
         if (conciliacao is null) return false;
 
         conciliacao.ConciliarItem(itemId, request.MovimentacaoId);
@@ -94,7 +94,7 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
     {
         var conciliacao = await dbContext.Conciliacoes
             .Include(c => c.Itens)
-            .SingleOrDefaultAsync(c => c.Id == conciliacaoId, cancellationToken);
+            .SingleOrDefaultAsync(c => c.Id == conciliacaoId && c.FaturaId == null, cancellationToken);
         if (conciliacao is null) return false;
 
         conciliacao.IgnorarItem(itemId);
@@ -211,7 +211,7 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
     }
 
     private static ConciliacaoDetalheResponse MapDetalhe(Domain.Conciliacao.Conciliacao c) => new(
-        c.Id, c.NomeArquivo, c.Formato.ToString(), c.ContaBancariaId,
+        c.Id, c.NomeArquivo, c.Formato.ToString(), c.ContaBancariaId!.Value,
         c.DataInicio, c.DataFim, c.TotalItens, c.ItensConciliados, c.Status.ToString(),
         c.Itens.Select(i => new ItemConciliacaoResponse(
             i.Id, i.Data, i.Descricao, i.Valor, i.Documento,

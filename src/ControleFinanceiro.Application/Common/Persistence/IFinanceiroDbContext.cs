@@ -15,6 +15,7 @@ public interface IFinanceiroDbContext
     DbSet<Transferencia> Transferencias { get; }
     DbSet<Plano> Planos { get; }
     DbSet<Investimento> Investimentos { get; }
+    DbSet<FechamentoMensal> FechamentosMensais { get; }
 }
 
 public interface IReadOnlyFinanceiroDbContext
@@ -29,4 +30,5 @@ public interface IReadOnlyFinanceiroDbContext
     IQueryable<Transferencia> Transferencias { get; }
     IQueryable<Plano> Planos { get; }
     IQueryable<Investimento> Investimentos { get; }
+    IQueryable<FechamentoMensal> FechamentosMensais { get; }
 }

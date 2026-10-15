@@ -16,7 +16,8 @@ public interface IContaReceberLiquidacaoService
 public sealed class ContaReceberLiquidacaoService(
     IAppDbContext dbContext,
     IContaReceberQueryService queryService,
-    ContaReceberSharedHelper helper) : IContaReceberLiquidacaoService
+    ContaReceberSharedHelper helper,
+    IContaReceberRecorrenciaService recorrenciaService) : IContaReceberLiquidacaoService
 {
     public async Task<ContaReceberDetalheResponse?> LiquidarAsync(
         Guid id, LiquidarContaReceberRequest request, CancellationToken cancellationToken)
@@ -141,7 +142,33 @@ public sealed class ContaReceberLiquidacaoService(
             var regra = await dbContext.RegrasRecorrencia
                 .SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
             if (regra is not null && regra.Ativa)
+            {
                 regra.Pausar();
+                await recorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+            }
+        }
+
+        // Cancelamento em cascata de parcelas do mesmo grupo.
+        // Escolha explícita do usuário prevalece; sem escolha, só a parcela 1 cascateia (compatibilidade).
+        if (conta.GrupoParcelamentoId.HasValue)
+        {
+            var cancelarFuturas = request?.CancelarParcelasFuturas ?? conta.NumeroParcela == 1;
+            if (cancelarFuturas)
+            {
+                var parcelas = await dbContext.ContasReceber
+                    .Where(x => x.GrupoParcelamentoId == conta.GrupoParcelamentoId.Value
+                             && x.Id != conta.Id
+                             && x.DataVencimento >= conta.DataVencimento
+                             && x.StatusContaId != StatusConta.CanceladaId
+                             && x.StatusContaId != StatusConta.LiquidadaId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var parcela in parcelas)
+                {
+                    try { parcela.Cancelar(StatusConta.CanceladaId); }
+                    catch (InvalidOperationException) { /* ignorar parcelas que não podem ser canceladas */ }
+                }
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

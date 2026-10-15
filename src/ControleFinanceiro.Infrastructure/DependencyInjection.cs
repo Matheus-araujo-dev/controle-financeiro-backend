@@ -149,20 +149,41 @@ public static class DependencyInjection
             }
         });
 
+
         var llmOptions = configuration.GetSection(LlmOptions.SectionName).Get<LlmOptions>() ?? new LlmOptions();
         if (llmOptions.Enabled && !string.IsNullOrWhiteSpace(llmOptions.ApiKey))
         {
-            services.AddHttpClient<AnthropicLlmClient>(client =>
+            if (llmOptions.IsOpenAiCompatible)
             {
-                client.BaseAddress = new Uri("https://api.anthropic.com/v1/");
-                client.DefaultRequestHeaders.Add("x-api-key", llmOptions.ApiKey);
-                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-                client.Timeout = TimeSpan.FromSeconds(60);
-            })
-                .AddPolicyHandlerFromRegistry("Anthropic.retry")
-                .AddPolicyHandlerFromRegistry("Anthropic.cb");
-            services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
-            services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
+                var baseUrl = string.IsNullOrWhiteSpace(llmOptions.BaseUrl)
+                    ? "https://api.minimax.chat/v1/"
+                    : llmOptions.BaseUrl.TrimEnd('/') + "/";
+
+                services.AddHttpClient<OpenAiCompatibleLlmClient>(client =>
+                {
+                    client.BaseAddress = new Uri(baseUrl);
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {llmOptions.ApiKey}");
+                    client.Timeout = TimeSpan.FromSeconds(60);
+                })
+                    .AddPolicyHandlerFromRegistry("Anthropic.retry")
+                    .AddPolicyHandlerFromRegistry("Anthropic.cb");
+                services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<OpenAiCompatibleLlmClient>());
+                services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<OpenAiCompatibleLlmClient>());
+            }
+            else
+            {
+                services.AddHttpClient<AnthropicLlmClient>(client =>
+                {
+                    client.BaseAddress = new Uri("https://api.anthropic.com/v1/");
+                    client.DefaultRequestHeaders.Add("x-api-key", llmOptions.ApiKey);
+                    client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                    client.Timeout = TimeSpan.FromSeconds(60);
+                })
+                    .AddPolicyHandlerFromRegistry("Anthropic.retry")
+                    .AddPolicyHandlerFromRegistry("Anthropic.cb");
+                services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
+                services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
+            }
         }
         else
         {

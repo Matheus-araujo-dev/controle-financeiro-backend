@@ -74,6 +74,7 @@ public static class DependencyInjection
                     npgsqlOptions.CommandTimeout(30);
                 }));
         services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IAtomicOperation, AtomicOperation>();
         services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
         services.AddScoped<IContaReceberRepository, ContaReceberRepository>();
         services.AddScoped<IPessoaRepository, PessoaRepository>();
@@ -88,6 +89,9 @@ public static class DependencyInjection
         services.AddScoped<ControleFinanceiro.Application.Cadastros.Pessoas.PessoaResumoFinanceiroService>();
         services.AddScoped<IDocumentExtractor, DefaultDocumentExtractor>();
         services.AddScoped<ControleFinanceiro.Application.Financeiro.Importacao.IPdfFaturaReader, BradescoPdfFaturaReader>();
+        services.Configure<InvoiceOcrOptions>(configuration.GetSection("InvoiceOcr"));
+        services.AddScoped<IInvoiceImageOcr, TesseractImageOcr>();
+        services.AddScoped<IInvoicePdfTextReader, PythonPdfTextReader>();
         services.AddScoped<IImportSuggestionService, HeuristicImportSuggestionService>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddScoped<IDomainEventHandler<ContaPagarCriadaEvent>, ContaPagarCriadaEventHandler>();

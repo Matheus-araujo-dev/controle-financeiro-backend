@@ -16,6 +16,23 @@ public sealed class DashboardDbHelpers(
     ICurrentUser currentUser,
     ILogger<DashboardDbHelpers> logger)
 {
+    internal IQueryable<ContaPagar> ContasPagarSemDuplicarFatura() =>
+        dbContext.ContasPagar.AsNoTracking()
+            // Antes de consolidar, os itens representam a obrigação. Depois, contamos
+            // somente a conta consolidada, inclusive quando o pagamento é estornado.
+            // Itens manuais não têm FaturaCartaoId: sincronização usa cartão e mês
+            // de vencimento, mesmo quando a competência pertence ao mês anterior.
+            .Where(c => c.StatusContaId != StatusConta.EmFaturaId ||
+                !dbContext.FaturasCartao.Any(f =>
+                    (c.FaturaCartaoId == f.Id ||
+                     (c.CartaoId == f.CartaoId &&
+                      c.DataVencimento.Year == f.DataVencimento.Year &&
+                      c.DataVencimento.Month == f.DataVencimento.Month)) &&
+                    dbContext.ContasPagar.Any(consolidada =>
+                        consolidada.FaturaCartaoId == f.Id &&
+                        consolidada.CartaoId == null &&
+                        consolidada.StatusContaId != StatusConta.CanceladaId)));
+
     internal Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, CancellationToken cancellationToken)
         => CalcularSaldoRealizadoAteAsync(dataLimite, null, cancellationToken);
 
@@ -140,7 +157,8 @@ public sealed class DashboardDbHelpers(
                 i.TipoSugestao == TipoSugestaoImportacaoWhatsapp.CompraCartao &&
                 i.Status == StatusItemImportadoWhatsapp.Confirmado &&
                 (familiaId.HasValue && i.FamiliaId == familiaId.Value))
-            .Select(i => new { i.Id, i.PayloadSugeridoJson, i.DescricaoAjustada, i.MarcarComoRecorrente, i.ContaGerencialId, i.ResponsavelId })
+            .Select(i => new { i.Id, i.PayloadSugeridoJson, i.DescricaoAjustada, i.MarcarComoRecorrente, i.ContaGerencialId, i.ResponsavelId,
+                Materializada = dbContext.ContasPagar.Any(c => c.OrigemImportacaoWhatsappId == i.ImportacaoWhatsappId) })
             .ToListAsync(cancellationToken);
 
         var compras = new List<ImportacaoCompraInfo>(registros.Count);
@@ -180,7 +198,7 @@ public sealed class DashboardDbHelpers(
                 payload.BuildRecurringSeriesKey(),
                 payload.BuildInstallmentSeriesKey(),
                 item.ContaGerencialId,
-                item.ResponsavelId));
+                item.ResponsavelId, item.Materializada));
         }
 
         return compras;

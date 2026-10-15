@@ -504,7 +504,11 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ContaBancariaId")
+                    b.Property<string>("AvisoLeitura")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("ContaBancariaId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAtUtc")
@@ -522,10 +526,17 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid>("FamiliaId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("FaturaId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Formato")
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
+
+                    b.Property<string>("HashArquivo")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<int>("ItensConciliados")
                         .HasColumnType("integer");
@@ -540,10 +551,15 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<decimal?>("TotalDocumento")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<int>("TotalItens")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
@@ -555,6 +571,11 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasIndex("FamiliaId");
 
+                    b.HasIndex("FaturaId");
+
+                    b.HasIndex("FamiliaId", "FaturaId", "HashArquivo")
+                        .IsUnique();
+
                     b.ToTable("conciliacoes", (string)null);
                 });
 
@@ -564,7 +585,14 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ChaveOrigem")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<Guid>("ConciliacaoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ContaPagarVinculadaId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAtUtc")
@@ -591,6 +619,19 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid?>("MovimentacaoVinculadaId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("NumeroParcela")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("QuantidadeParcelas")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("RascunhoJson")
+                        .HasColumnType("text");
+
                     b.Property<decimal?>("ScoreSugestao")
                         .HasColumnType("numeric");
 
@@ -603,6 +644,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
@@ -611,15 +653,76 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<decimal>("Valor")
                         .HasColumnType("numeric");
 
+                    b.Property<decimal?>("ValorAnteriorSistema")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ConciliacaoId");
+
+                    b.HasIndex("ContaPagarVinculadaId");
 
                     b.HasIndex("FamiliaId");
 
                     b.HasIndex("MovimentacaoVinculadaId");
 
+                    b.HasIndex("ConciliacaoId", "ChaveOrigem")
+                        .IsUnique();
+
+                    b.HasIndex("ConciliacaoId", "ContaPagarVinculadaId")
+                        .IsUnique();
+
                     b.ToTable("itens_conciliacao", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.MemoriaEstabelecimento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CartaoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Chave")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Confirmacoes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PreferenciasJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CartaoId");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("FamiliaId", "CartaoId", "Chave")
+                        .IsUnique();
+
+                    b.ToTable("memorias_estabelecimento", (string)null);
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.FinanceAI.AiConversa", b =>
@@ -1119,6 +1222,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
@@ -1396,6 +1500,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UpdatedBy")
@@ -1415,6 +1520,90 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("faturas_cartao", (string)null);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.FechamentoMensal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Competencia")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("FechadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FechadoPorUsuarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("JustificativaReabertura")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("QuantidadeBloqueiosSnapshot")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuantidadeLancamentosSnapshot")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ReabertoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReabertoPorUsuarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("SaldoSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("TotalDespesasSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalPendenteSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalReceitasSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalVencidoSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("FamiliaId", "Competencia")
+                        .IsUnique();
+
+                    b.ToTable("fechamentos_mensais", (string)null);
                 });
 
             modelBuilder.Entity("ControleFinanceiro.Domain.Financeiro.Investimento", b =>
@@ -2637,12 +2826,34 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.Conciliacao", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Financeiro.FaturaCartao", null)
+                        .WithMany()
+                        .HasForeignKey("FaturaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.ItemConciliacao", b =>
                 {
                     b.HasOne("ControleFinanceiro.Domain.Conciliacao.Conciliacao", null)
                         .WithMany("Itens")
                         .HasForeignKey("ConciliacaoId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ControleFinanceiro.Domain.Financeiro.ContaPagar", null)
+                        .WithMany()
+                        .HasForeignKey("ContaPagarVinculadaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ControleFinanceiro.Domain.Conciliacao.MemoriaEstabelecimento", b =>
+                {
+                    b.HasOne("ControleFinanceiro.Domain.Cadastros.Cartoes.Cartao", null)
+                        .WithMany()
+                        .HasForeignKey("CartaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

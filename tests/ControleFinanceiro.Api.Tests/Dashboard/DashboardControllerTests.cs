@@ -1022,6 +1022,45 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         decimal? VariacaoReceitas,
         decimal? VariacaoDespesas);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FluxoCaixa_ContaParcial_DeveSomarRealizadoESomenteSaldoRestante(bool receber)
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = receber
+            ? await CriarContaReceberAsync(client, fixture, "2027-01-01", "2027-01-20", 100m, "Parcial")
+            : await CriarContaPagarAsync(client, fixture, "2027-01-01", "2027-01-20", 100m, "Parcial");
+        var rota = receber ? "contas-receber" : "contas-pagar";
+        (await client.PostAsJsonAsync($"/api/v1/{rota}/{id}/liquidar", new {
+            dataLiquidacao = "2027-01-10", contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 40m, atualizarValorConta = false, cancelarValorRestante = false
+        })).EnsureSuccessStatusCode();
+        var fluxo = await client.GetFromJsonAsync<DashboardFluxoCaixaResponse>("/api/v1/dashboard/fluxo-caixa?mesReferencia=2027-01");
+        var dia = fluxo!.Itens.Single(x => x.Data == new DateOnly(2027, 1, 20));
+        (receber ? dia.EntradasPrevistas : dia.SaidasPrevistas).Should().Be(60m);
+        fluxo.Itens.Sum(x => receber ? x.EntradasPrevistas : x.SaidasPrevistas).Should().Be(100m);
+    }
+    [Fact]
+    public async Task FluxoCaixa_ImportacaoMaterializada_NaoSomaNovamenteOItemConfirmado()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture, "2027-01-01", "2027-01-20", 100m, "Compra importada");
+        using (var scope = _factory.Services.CreateWorkspaceScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+            AdicionarCompraCartaoImportadaConfirmada(db, "Compra importada", "2027-01-01", "2027-01-20", 100m, fixture.ContaGerencialDespesaId, fixture.ResponsavelId);
+            await db.SaveChangesAsync(CancellationToken.None);
+            db.ContasPagar.Single(c => c.Id == id).VincularOrigemImportacao(db.ItensImportadosWhatsapp.Single().ImportacaoWhatsappId);
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+        var fluxo = await client.GetFromJsonAsync<DashboardFluxoCaixaResponse>("/api/v1/dashboard/fluxo-caixa?mesReferencia=2027-01");
+        fluxo!.Itens.Sum(d => d.SaidasPrevistas).Should().Be(100m);
+    }
     private static async Task<Guid> CriarContaPagarAsync(
         HttpClient client,
         FinancialFixtureSeed.FixtureIds fixture,

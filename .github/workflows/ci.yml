@@ -60,6 +60,13 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
+      - name: Install local OCR runtime
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3-venv python3-pil tesseract-ocr tesseract-ocr-por
+          python3 -m venv --system-site-packages /tmp/invoice-python
+          /tmp/invoice-python/bin/pip install "pypdf[crypto]==6.10.0"
+          echo "/tmp/invoice-python/bin" >> "$GITHUB_PATH"
+
       - name: Test with coverage gate
         shell: pwsh
         run: ./scripts/coverage-gate.ps1 -Threshold 80

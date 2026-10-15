@@ -591,7 +591,8 @@ public sealed class ContaPagar : TenantEntity
 
     public void CancelarPorPausaRecorrencia()
     {
-        if (StatusContaId != StatusConta.FuturoId) return;
+        // Ocorrências de cartão nascem EmFatura (fatura futura); as demais, Futuro.
+        if (StatusContaId != StatusConta.FuturoId && StatusContaId != StatusConta.EmFaturaId) return;
         Cancelar(StatusConta.CanceladaId);
         CanceladaPorPausaRecorrencia = true;
     }
@@ -599,7 +600,7 @@ public sealed class ContaPagar : TenantEntity
     public void RetomarAposPausaRecorrencia()
     {
         if (!CanceladaPorPausaRecorrencia || StatusContaId != StatusConta.CanceladaId) return;
-        StatusContaId = StatusConta.FuturoId;
+        StatusContaId = CartaoId.HasValue ? StatusConta.EmFaturaId : StatusConta.FuturoId;
         CanceladaPorPausaRecorrencia = false;
     }
 

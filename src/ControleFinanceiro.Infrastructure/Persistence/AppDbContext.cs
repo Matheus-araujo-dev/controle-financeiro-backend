@@ -146,6 +146,8 @@ public sealed class AppDbContext(
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
@@ -204,6 +206,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MembroFamiliaConfiguration());
         modelBuilder.ApplyConfiguration(new ConviteFamiliaConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
         modelBuilder.ApplyConfiguration(new AiConversaConfiguration());
         modelBuilder.ApplyConfiguration(new AiMensagemConfiguration());
         modelBuilder.ApplyConfiguration(new AiToolCallConfiguration());

@@ -43,7 +43,7 @@ public static class AuthenticationServiceCollectionExtensions
             options.AddPolicy(CorsOptions.PolicyName, policy =>
             {
                 policy.WithOrigins(allowedOrigins)
-                    .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin")
+                    .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin", "X-Api-Key")
                     .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                     .AllowCredentials();
             });
@@ -62,34 +62,37 @@ public static class AuthenticationServiceCollectionExtensions
         var useSelfJwt = string.Equals(authOptions.Mode, AuthOptions.SelfJwtMode, StringComparison.OrdinalIgnoreCase);
         var useDevelopment = string.Equals(authOptions.Mode, AuthOptions.DevelopmentMode, StringComparison.OrdinalIgnoreCase);
 
-        // Fail-closed: qualquer valor de Auth:Mode não reconhecido é rejeitado no startup.
-        // Sem isso, um typo ou uma env var mal configurada (ex.: "disable") cairia
-        // silenciosamente no handler de desenvolvimento, que autentica qualquer requisição
-        // com o header X-Debug-User e concede papel Administrador.
         if (!useJwtBearer && !useSelfJwt && !useDevelopment)
         {
             throw new InvalidOperationException(
-                $"Auth:Mode inválido: '{authOptions.Mode}'. Valores permitidos: " +
+                $"Auth:Mode invalido: '{authOptions.Mode}'. Valores permitidos: " +
                 $"'{AuthOptions.JwtBearerMode}', '{AuthOptions.SelfJwtMode}', '{AuthOptions.DevelopmentMode}'.");
         }
 
-        // O modo Development (bypass via X-Debug-User) nunca pode ser habilitado fora de
-        // um ambiente de desenvolvimento. "Testing" é permitido para os testes de integração.
         if (useDevelopment && !environment.IsDevelopment() && !environment.IsEnvironment("Testing"))
         {
             throw new InvalidOperationException(
-                $"Auth:Mode='{AuthOptions.DevelopmentMode}' é proibido no ambiente '{environment.EnvironmentName}'. " +
-                "Use 'SelfJwt' ou 'JwtBearer' em produção.");
+                $"Auth:Mode='{AuthOptions.DevelopmentMode}' e proibido no ambiente '{environment.EnvironmentName}'. " +
+                "Use 'SelfJwt' ou 'JwtBearer' em producao.");
         }
 
-        var defaultScheme = useJwtBearer || useSelfJwt
+        var primaryScheme = useJwtBearer || useSelfJwt
             ? JwtBearerDefaults.AuthenticationScheme
             : DevelopmentAuthenticationHandler.SchemeName;
 
         var authenticationBuilder = services.AddAuthentication(options =>
         {
-            options.DefaultAuthenticateScheme = defaultScheme;
-            options.DefaultChallengeScheme = defaultScheme;
+            options.DefaultScheme = "AutoSelect";
+            options.DefaultChallengeScheme = primaryScheme;
+        })
+        .AddPolicyScheme("AutoSelect", "Auto-select API Key or JWT", options =>
+        {
+            options.ForwardDefaultSelector = context =>
+            {
+                if (context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
+                    return ApiKeyAuthenticationHandler.SchemeName;
+                return primaryScheme;
+            };
         });
 
         if (useSelfJwt)
@@ -98,7 +101,7 @@ public static class AuthenticationServiceCollectionExtensions
                 || authOptions.JwtSigningKey.Contains("${", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
-                    "Auth:JwtSigningKey deve estar configurada quando o modo de autenticação é SelfJwt.");
+                    "Auth:JwtSigningKey deve estar configurada quando o modo de autenticacao e SelfJwt.");
             }
 
             if (Encoding.UTF8.GetByteCount(authOptions.JwtSigningKey) < 32)
@@ -137,6 +140,10 @@ public static class AuthenticationServiceCollectionExtensions
                 DevelopmentAuthenticationHandler.SchemeName,
                 _ => { });
         }
+
+        authenticationBuilder.AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+            ApiKeyAuthenticationHandler.SchemeName,
+            _ => { });
 
         return services;
     }

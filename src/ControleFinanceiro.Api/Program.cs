@@ -154,6 +154,14 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Use um token Bearer quando a API estiver configurada em modo JwtBearer/Auth0."
     });
 
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Name = "X-Api-Key",
+        Description = "API Key para agentes de serviço (WhatsApp, automações)."
+    });
+
     if (builder.Environment.IsDevelopment())
     {
         options.AddSecurityDefinition("DebugUser", new OpenApiSecurityScheme

@@ -16,7 +16,8 @@ public interface IContaPagarLiquidacaoService
 public sealed class ContaPagarLiquidacaoService(
     IAppDbContext dbContext,
     IContaPagarQueryService queryService,
-    ContaPagarSharedHelper helper) : IContaPagarLiquidacaoService
+    ContaPagarSharedHelper helper,
+    IContaPagarRecorrenciaService recorrenciaService) : IContaPagarLiquidacaoService
 {
     public async Task<ContaPagarDetalheResponse?> LiquidarAsync(Guid id, LiquidarContaPagarRequest request, CancellationToken cancellationToken)
     {
@@ -213,13 +214,17 @@ public sealed class ContaPagarLiquidacaoService(
             var regra = await dbContext.RegrasRecorrencia
                 .SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
             if (regra is not null && regra.Ativa)
+            {
                 regra.Pausar();
+                await recorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+            }
         }
 
-        // Cancelamento em cascata de parcelas do mesmo grupo
+        // Cancelamento em cascata de parcelas do mesmo grupo.
+        // Escolha explícita do usuário prevalece; sem escolha, só a parcela 1 cascateia (compatibilidade).
         if (conta.GrupoParcelamentoId.HasValue)
         {
-            var cancelarFuturas = conta.NumeroParcela == 1 || request?.CancelarParcelasFuturas == true;
+            var cancelarFuturas = request?.CancelarParcelasFuturas ?? conta.NumeroParcela == 1;
             if (cancelarFuturas)
             {
                 var parcelas = await dbContext.ContasPagar

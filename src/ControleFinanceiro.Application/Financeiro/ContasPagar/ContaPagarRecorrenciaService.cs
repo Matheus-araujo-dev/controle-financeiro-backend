@@ -250,10 +250,13 @@ public sealed class ContaPagarRecorrenciaService(
 
     public async Task CancelarFuturasNaoPagasAsync(Guid regraId, DateOnly aPartirDe, CancellationToken cancellationToken)
     {
+        // Ocorrências de cartão ficam EmFatura desde a criação: cancela as de faturas de meses
+        // posteriores ao de referência (a do mês corrente segue o mesmo tratamento das Pendentes).
+        var fimMes = new DateOnly(aPartirDe.Year, aPartirDe.Month, DateTime.DaysInMonth(aPartirDe.Year, aPartirDe.Month));
         var contasFuturas = await dbContext.ContasPagar
             .Where(x => x.RegraRecorrenciaId == regraId &&
-                        x.StatusContaId == StatusConta.FuturoId &&
-                        x.StatusContaId != StatusConta.CanceladaId)
+                        (x.StatusContaId == StatusConta.FuturoId ||
+                         (x.StatusContaId == StatusConta.EmFaturaId && x.DataVencimento > fimMes)))
             .ToListAsync(cancellationToken);
 
         foreach (var conta in contasFuturas)

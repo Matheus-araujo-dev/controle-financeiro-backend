@@ -151,12 +151,21 @@ public static class DependencyInjection
 
 
         var llmOptions = configuration.GetSection(LlmOptions.SectionName).Get<LlmOptions>() ?? new LlmOptions();
+        {
+            var setupLogger = Microsoft.Extensions.Logging.LoggerFactoryExtensions.CreateLogger(
+                services.BuildServiceProvider().GetRequiredService<ILoggerFactory>(), "LlmSetup");
+            setupLogger.LogInformation(
+                "FinanceAI config — Enabled={Enabled} Provider={Provider} HasKey={HasKey} FastModel={FastModel} BaseUrl={BaseUrl}",
+                llmOptions.Enabled, llmOptions.Provider,
+                !string.IsNullOrWhiteSpace(llmOptions.ApiKey),
+                llmOptions.FastModel, llmOptions.BaseUrl);
+        }
         if (llmOptions.Enabled && !string.IsNullOrWhiteSpace(llmOptions.ApiKey))
         {
             if (llmOptions.IsOpenAiCompatible)
             {
                 var baseUrl = string.IsNullOrWhiteSpace(llmOptions.BaseUrl)
-                    ? "https://api.minimax.chat/v1/"
+                    ? "https://api.minimax.io/v1/"
                     : llmOptions.BaseUrl.TrimEnd('/') + "/";
 
                 services.AddHttpClient<OpenAiCompatibleLlmClient>(client =>

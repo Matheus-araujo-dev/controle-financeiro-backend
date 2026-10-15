@@ -15583,6 +15583,10 @@
           "pausarRecorrenciaRelacionada": {
             "type": "boolean",
             "nullable": true
+          },
+          "cancelarParcelasFuturas": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false

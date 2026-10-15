@@ -36,6 +36,7 @@ public sealed class AuthorizeOperationFilter : IOperationFilter
         operation.Security ??= new List<OpenApiSecurityRequirement>();
         operation.Security.Add(CreateRequirement("Bearer"));
         operation.Security.Add(CreateRequirement("DebugUser"));
+        operation.Security.Add(CreateRequirement("ApiKey"));
     }
 
     private static OpenApiSecurityRequirement CreateRequirement(string schemeId)

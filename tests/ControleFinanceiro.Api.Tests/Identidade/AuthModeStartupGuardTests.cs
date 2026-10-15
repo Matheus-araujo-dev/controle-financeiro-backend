@@ -26,7 +26,7 @@ public sealed class AuthModeStartupGuardTests
         var act = () => Registrar(mode, environmentName: "Development");
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Auth:Mode inválido*");
+            .WithMessage("*Auth:Mode invalido*");
     }
 
     [Theory]

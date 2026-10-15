@@ -46,6 +46,6 @@ public sealed class BootstrapEndpointsTests(CustomWebApplicationFactory factory)
         document["components"]?["securitySchemes"]?["Bearer"]?["scheme"]?.GetValue<string>().Should().Be("bearer");
         document["components"]?["securitySchemes"]?["DebugUser"]?["type"]?.GetValue<string>().Should().Be("apiKey");
         document["components"]?["securitySchemes"]?["DebugUser"]?["name"]?.GetValue<string>().Should().Be("X-Debug-User");
-        document["paths"]?["/api/v1/security/me"]?["get"]?["security"]?.AsArray().Count.Should().Be(2);
+        document["paths"]?["/api/v1/security/me"]?["get"]?["security"]?.AsArray().Count.Should().Be(3);
     }
 }

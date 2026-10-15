@@ -101,6 +101,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -160,6 +163,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -219,6 +225,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -259,6 +268,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -333,6 +345,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -373,6 +388,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -422,6 +440,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -516,6 +537,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -570,6 +594,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -658,6 +685,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -775,6 +805,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -829,6 +862,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -900,6 +936,198 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/api-keys": {
+      "post": {
+        "tags": [
+          "ApiKeys"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarApiKeyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarApiKeyRequest"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarApiKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCriadaResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCriadaResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCriadaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "ApiKeys"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "ApiKeys"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -1350,6 +1578,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -1427,6 +1658,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -1498,6 +1732,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -1586,6 +1823,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -1777,6 +2017,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -1854,6 +2097,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -1925,6 +2171,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -2013,6 +2262,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2123,6 +2375,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2210,6 +2465,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -2257,6 +2515,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2328,6 +2589,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2410,6 +2674,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2473,6 +2740,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2613,6 +2883,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -2690,6 +2963,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -2761,6 +3037,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -2849,6 +3128,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -3012,6 +3294,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -3089,6 +3374,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -3160,6 +3448,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -3248,6 +3539,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -3308,6 +3602,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -3538,6 +3835,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -3615,6 +3915,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -3721,6 +4024,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -3792,6 +4098,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -3900,6 +4209,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4010,6 +4322,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4120,6 +4435,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4211,6 +4529,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4321,6 +4642,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4431,6 +4755,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4522,6 +4849,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4632,6 +4962,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4706,6 +5039,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -4778,6 +5114,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -4838,6 +5177,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5068,6 +5410,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -5145,6 +5490,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5216,6 +5564,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -5324,6 +5675,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5434,6 +5788,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5544,6 +5901,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5635,6 +5995,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5745,6 +6108,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5855,6 +6221,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -5946,6 +6315,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6056,6 +6428,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6116,6 +6491,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6229,6 +6607,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6349,6 +6730,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6466,6 +6850,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6583,6 +6970,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6700,6 +7090,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6802,6 +7195,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -6918,6 +7314,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7042,6 +7441,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7109,6 +7511,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7158,6 +7563,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -7235,6 +7643,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7295,6 +7706,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -7372,6 +7786,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7443,6 +7860,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7522,6 +7942,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7576,6 +7999,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7705,6 +8131,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7759,6 +8188,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7832,6 +8264,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -7886,6 +8321,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8066,6 +8504,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8137,6 +8578,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8269,6 +8713,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8379,6 +8826,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8470,6 +8920,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8561,6 +9014,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8652,6 +9108,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8759,6 +9218,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8855,6 +9317,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -8988,6 +9453,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -9065,6 +9533,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9136,6 +9607,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -9224,6 +9698,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9402,6 +9879,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9473,6 +9953,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9632,6 +10115,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9742,6 +10228,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9852,6 +10341,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -9943,6 +10435,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10053,6 +10548,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10163,6 +10661,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10250,6 +10751,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -10327,6 +10831,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10398,6 +10905,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -10506,6 +11016,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10546,6 +11059,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10656,6 +11172,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10766,6 +11285,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10927,6 +11449,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -10998,6 +11523,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11067,6 +11595,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11146,6 +11677,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11200,6 +11734,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11240,6 +11777,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -11314,6 +11854,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -11335,6 +11878,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11375,6 +11921,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -11449,6 +11998,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11610,6 +12162,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -11687,6 +12242,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11758,6 +12316,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -11866,6 +12427,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -11937,6 +12501,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12008,6 +12575,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12079,6 +12649,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12166,6 +12739,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -12243,6 +12819,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12314,6 +12893,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -12422,6 +13004,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -12511,6 +13096,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12602,6 +13190,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12712,6 +13303,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12772,6 +13366,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12897,6 +13494,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -12968,6 +13568,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13039,6 +13642,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13110,6 +13716,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13201,6 +13810,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13241,6 +13853,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13320,6 +13935,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13377,6 +13995,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13474,6 +14095,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -13551,6 +14175,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13622,6 +14249,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       },
@@ -13711,6 +14341,9 @@
           },
           {
             "DebugUser": []
+          },
+          {
+            "ApiKey": []
           }
         ]
       }
@@ -13979,6 +14612,88 @@
           "traceId": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiKeyCriadaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "keyPrefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "familiaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "papel": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiraEmUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "criadoEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiKeyResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "keyPrefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "familiaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "papel": {
+            "type": "string",
+            "nullable": true
+          },
+          "ativo": {
+            "type": "boolean"
+          },
+          "expiraEmUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ultimoUsoEmUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "criadoEmUtc": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -14692,6 +15407,10 @@
         "type": "object",
         "properties": {
           "pausarRecorrenciaRelacionada": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "cancelarParcelasFuturas": {
             "type": "boolean",
             "nullable": true
           }
@@ -16432,6 +17151,21 @@
           "expiraEmUtc": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CriarApiKeyRequest": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiraEmUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -20687,6 +21421,12 @@
         "description": "Use um token Bearer quando a API estiver configurada em modo JwtBearer/Auth0.",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      },
+      "ApiKey": {
+        "type": "apiKey",
+        "description": "API Key para agentes de servi\u00E7o (WhatsApp, automa\u00E7\u00F5es).",
+        "name": "X-Api-Key",
+        "in": "header"
       }
     }
   }

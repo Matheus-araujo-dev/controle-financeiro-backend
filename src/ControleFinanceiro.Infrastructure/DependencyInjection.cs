@@ -83,6 +83,7 @@ public static class DependencyInjection
         services.AddScoped<IFileStorage, LocalImportFileStorage>();
         services.AddScoped<IAnexoFileStorage, Anexos.LocalAnexoFileStorage>();
         services.AddScoped<AnexoAppService>();
+    services.AddScoped<ControleFinanceiro.Application.Identidade.ApiKeyAppService>();
         services.AddScoped<ConciliacaoAppService>();
         services.AddScoped<ControleFinanceiro.Application.Cadastros.Pessoas.PessoaResumoFinanceiroService>();
         services.AddScoped<IDocumentExtractor, DefaultDocumentExtractor>();

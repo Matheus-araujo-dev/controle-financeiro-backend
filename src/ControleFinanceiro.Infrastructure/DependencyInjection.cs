@@ -152,8 +152,7 @@ public static class DependencyInjection
 
         var llmOptions = configuration.GetSection(LlmOptions.SectionName).Get<LlmOptions>() ?? new LlmOptions();
         {
-            var setupLogger = Microsoft.Extensions.Logging.LoggerFactoryExtensions.CreateLogger(
-                services.BuildServiceProvider().GetRequiredService<ILoggerFactory>(), "LlmSetup");
+            var setupLogger = services.BuildServiceProvider().GetRequiredService<ILoggerFactory>().CreateLogger("LlmSetup");
             setupLogger.LogInformation(
                 "FinanceAI config — Enabled={Enabled} Provider={Provider} HasKey={HasKey} FastModel={FastModel} BaseUrl={BaseUrl}",
                 llmOptions.Enabled, llmOptions.Provider,

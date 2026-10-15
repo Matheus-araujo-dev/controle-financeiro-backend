@@ -27,4 +27,27 @@ public sealed class WhatsappOutboundService(
             logger.LogError(ex, "Falha ao enviar mensagem proativa para {Telefone}.", telefone);
         }
     }
+
+    public async Task<WhatsappBridgeQrResponse> ObterQrAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await httpClient.GetAsync("/qr", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Bridge /qr retornou {Status}.", (int)response.StatusCode);
+                return new WhatsappBridgeQrResponse("error", null);
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<BridgeQrDto>(cancellationToken);
+            return new WhatsappBridgeQrResponse(result?.Status ?? "unknown", result?.Qr);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Falha ao obter QR do bridge.");
+            return new WhatsappBridgeQrResponse("error", null);
+        }
+    }
+
+    private sealed record BridgeQrDto(string? Status, string? Qr);
 }

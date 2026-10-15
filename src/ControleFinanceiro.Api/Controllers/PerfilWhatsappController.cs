@@ -1,5 +1,6 @@
 using ControleFinanceiro.Api.Filters;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Contracts.Agente;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Domain.FinanceAI;
@@ -13,7 +14,10 @@ namespace ControleFinanceiro.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/perfil/whatsapp")]
-public sealed class PerfilWhatsappController(IAppDbContext db, ICurrentUser currentUser) : ApiControllerBase
+public sealed class PerfilWhatsappController(
+    IAppDbContext db,
+    ICurrentUser currentUser,
+    IWhatsappOutboundService whatsappOutbound) : ApiControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(WhatsappPerfilResponse), StatusCodes.Status200OK)]
@@ -83,6 +87,16 @@ public sealed class PerfilWhatsappController(IAppDbContext db, ICurrentUser curr
         }
 
         return NoContent();
+    }
+
+    // ── QR Code do WhatsApp Bridge ──────────────────────────────────────────
+
+    [HttpGet("qr")]
+    [ProducesResponseType(typeof(WhatsappBridgeQrResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<WhatsappBridgeQrResponse>> ObterQr(CancellationToken cancellationToken)
+    {
+        var result = await whatsappOutbound.ObterQrAsync(cancellationToken);
+        return Ok(result);
     }
 
     // ── Configuração de alertas ──────────────────────────────────────────────

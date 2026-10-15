@@ -28,6 +28,9 @@ public sealed class AlertasVencimentoServiceTests(CustomWebApplicationFactory fa
             Enviados.Add((telefone, texto));
             return Task.CompletedTask;
         }
+
+        public Task<WhatsappBridgeQrResponse> ObterQrAsync(CancellationToken cancellationToken)
+            => Task.FromResult(new WhatsappBridgeQrResponse("disconnected", null));
     }
 
     [Fact]

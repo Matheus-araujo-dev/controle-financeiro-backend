@@ -127,11 +127,14 @@ public sealed class FinanceAgentService(
         catch (DbUpdateConcurrencyException)
         {
             logger.LogWarning("Concurrency conflict ao salvar conversa {ConversaId}, recarregando", conversa.Id);
-            foreach (var entry in db.ChangeTracker.Entries())
-            {
-                if (entry.State == EntityState.Modified)
-                    await entry.ReloadAsync(cancellationToken);
-            }
+            db.LimparChangeTracker();
+
+            conversa = await db.AiConversas
+                .Include(c => c.Mensagens)
+                .FirstAsync(c => c.Id == conversa.Id, cancellationToken);
+
+            conversa.AdicionarMensagem("user", request.Mensagem, request.ExternalMessageId);
+            conversa.AdicionarMensagem("assistant", resposta);
             await db.SaveChangesAsync(cancellationToken);
         }
 

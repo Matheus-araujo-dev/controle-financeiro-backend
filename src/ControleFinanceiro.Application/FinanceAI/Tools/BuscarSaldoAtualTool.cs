@@ -26,28 +26,32 @@ public sealed class BuscarSaldoAtualTool(IAppDbContext db) : IFinanceTool
         var contas = await db.ContasBancarias
             .AsNoTracking()
             .Where(c => c.Ativo)
-            .Select(c => new { c.Id, c.Nome, c.SaldoInicial, c.DataSaldoInicial })
+            .Select(c => new { c.Id, c.Nome, c.SaldoInicial })
             .ToListAsync(cancellationToken);
 
-        var movimentacoes = await db.MovimentacoesFinanceiras
-            .AsNoTracking()
-            .Where(m => m.ContaBancariaId != null
-                && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
+        var contaIds = contas.Select(c => c.Id).ToList();
+
+        var movimentadoPorConta = await (
+            from m in db.MovimentacoesFinanceiras.AsNoTracking()
+            join c in db.ContasBancarias.AsNoTracking() on m.ContaBancariaId equals c.Id
+            where m.ContaBancariaId != null
+                && contaIds.Contains(m.ContaBancariaId!.Value)
                 && m.Natureza == NaturezaMovimentacao.Realizada
-                && m.DataMovimentacao <= hoje)
-            .Select(m => new { m.ContaBancariaId, m.Valor, m.Tipo })
-            .ToListAsync(cancellationToken);
+                && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
+                && m.DataMovimentacao <= hoje
+                && m.DataMovimentacao >= c.DataSaldoInicial
+            group m by m.ContaBancariaId!.Value into g
+            select new { ContaBancariaId = g.Key, Saldo = g.Sum(m => m.Tipo == TipoMovimentacao.Entrada ? m.Valor : -m.Valor) })
+            .ToDictionaryAsync(x => x.ContaBancariaId, x => x.Saldo, cancellationToken);
 
         var resultado = contas.Select(c =>
         {
-            var saldoMovimentacoes = movimentacoes
-                .Where(m => m.ContaBancariaId == c.Id)
-                .Sum(m => m.Tipo == TipoMovimentacao.Entrada ? m.Valor : -m.Valor);
+            var movimentado = movimentadoPorConta.GetValueOrDefault(c.Id);
             return new
             {
                 id = c.Id,
                 nome = c.Nome,
-                saldoAtual = c.SaldoInicial + saldoMovimentacoes
+                saldoAtual = decimal.Round(c.SaldoInicial + movimentado, 2, MidpointRounding.AwayFromZero)
             };
         });
 

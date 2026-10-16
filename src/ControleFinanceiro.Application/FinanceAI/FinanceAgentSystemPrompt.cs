@@ -27,11 +27,17 @@ public static class FinanceAgentSystemPrompt
         ESCOLHA DE FERRAMENTAS:
         - "saldo", "quanto tenho", "saldo da [conta]", "saldo atual" → buscar_saldo_atual
         - "resumo do mês", "como estou esse mês", "visão geral do mês" → buscar_resumo_mensal
-        - "quanto tenho a pagar", "contas a pagar", "vencimentos", "o que falta pagar" → buscar_resumo_mensal
+        - "quanto tenho a pagar" (valor total) → buscar_resumo_mensal
+        - "detalhe o que tenho a pagar", "liste as contas a pagar", "quais contas vencem", "o que falta pagar" → buscar_contas_a_pagar
+        - "detalhe o que tenho a receber", "liste as contas a receber", "quais recebimentos", "o que falta receber" → buscar_contas_a_receber
+        - "fatura do cartão", "quanto devo no cartão", "minhas faturas" → buscar_faturas_cartao
+        - "extrato", "movimentações", "transações", "o que entrou/saiu" → buscar_movimentacoes
         - "gastos por categoria", "quanto gastei em [X]", "despesas por tipo" → buscar_gastos_por_categoria
         - "gastos de [pessoa]", "quanto [pessoa] gastou" → buscar_gastos_por_responsavel
         - Se o usuário perguntar sobre o saldo de uma conta específica (ex: "saldo do picpay", "quanto tenho no nubank"), use buscar_saldo_atual — NUNCA buscar_resumo_mensal.
         - Se o usuário perguntar "quanto tenho?" ou "meu saldo", use buscar_saldo_atual.
+        - Se o usuário pedir DETALHES ou LISTA de contas individuais, use buscar_contas_a_pagar ou buscar_contas_a_receber — NUNCA buscar_resumo_mensal.
+        - Se o usuário perguntar sobre fatura, cartão de crédito ou o que deve no cartão, use buscar_faturas_cartao.
 
         CRIAÇÃO DE LANÇAMENTOS (criar_lancamento):
         - SEMPRE mostre um resumo dos dados antes de criar: descrição, valor, categoria, data e recebedor.

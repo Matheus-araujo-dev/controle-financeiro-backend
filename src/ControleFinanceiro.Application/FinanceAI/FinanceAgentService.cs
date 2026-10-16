@@ -34,19 +34,25 @@ public sealed class FinanceAgentService(
         var toolDefs = tools.Select(t => new LlmToolDefinition(t.Name, t.Description, t.InputSchema)).ToList();
         var systemPrompt = FinanceAgentSystemPrompt.Build(nomeFamilia, papel.ToString(), DateOnly.FromDateTime(DateTime.UtcNow));
 
-        // Carrega ou cria conversa
+        // Load or create conversation — existing conversations use AsNoTracking
+        // to avoid EF Core change-tracking conflicts on save
         AiConversa conversa;
+        bool isNewConversa;
+
         if (request.ConversaId.HasValue)
         {
             conversa = await db.AiConversas
                 .Include(c => c.Mensagens)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == request.ConversaId.Value, cancellationToken)
                 ?? AiConversa.Criar(familiaId, usuarioId, request.Canal, request.ContatoExterno);
+
+            isNewConversa = conversa.Id != request.ConversaId.Value;
         }
         else
         {
             conversa = AiConversa.Criar(familiaId, usuarioId, request.Canal, request.ContatoExterno);
-            db.AiConversas.Add(conversa);
+            isNewConversa = true;
         }
 
         conversa.AdicionarMensagem("user", request.Mensagem, request.ExternalMessageId);
@@ -61,6 +67,7 @@ public sealed class FinanceAgentService(
 
         var totalTokens = 0;
         var resposta = string.Empty;
+        var toolCallsData = new List<(string Nome, string Input, string Output, string Status, int InTokens, int OutTokens)>();
 
         // Loop de function calling
         for (var round = 0; round < MaxToolRounds; round++)
@@ -103,6 +110,9 @@ public sealed class FinanceAgentService(
                     toolCall.ToolName, toolCall.InputJson, toolOutput, "ok",
                     completion.Usage.InputTokens, completion.Usage.OutputTokens);
 
+                toolCallsData.Add((toolCall.ToolName, toolCall.InputJson, toolOutput, "ok",
+                    completion.Usage.InputTokens, completion.Usage.OutputTokens));
+
                 toolResultsContent.AppendLine($"[{toolCall.ToolName}]: {toolOutput}");
             }
 
@@ -118,27 +128,60 @@ public sealed class FinanceAgentService(
 
         resposta = ThinkTagRegex.Replace(resposta, string.Empty).Trim();
 
-        conversa.AdicionarMensagem("assistant", resposta);
-
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            logger.LogWarning("Concurrency conflict ao salvar conversa {ConversaId}, recarregando", conversa.Id);
-            db.LimparChangeTracker();
-
-            conversa = await db.AiConversas
-                .Include(c => c.Mensagens)
-                .FirstAsync(c => c.Id == conversa.Id, cancellationToken);
-
-            conversa.AdicionarMensagem("user", request.Mensagem, request.ExternalMessageId);
-            conversa.AdicionarMensagem("assistant", resposta);
-            await db.SaveChangesAsync(cancellationToken);
-        }
+        // Persist conversation data
+        await SalvarConversaAsync(conversa, isNewConversa, request, resposta, toolCallsData, cancellationToken);
 
         return new AgentResponse(resposta, conversa.Id, totalTokens);
+    }
+
+    private async Task SalvarConversaAsync(
+        AiConversa conversa,
+        bool isNewConversa,
+        AgentRequest request,
+        string resposta,
+        List<(string Nome, string Input, string Output, string Status, int InTokens, int OutTokens)> toolCallsData,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (isNewConversa)
+            {
+                conversa.AdicionarMensagem("assistant", resposta);
+                db.AiConversas.Add(conversa);
+            }
+            else
+            {
+                // Insert directly via DbSet — no tracked parent entity, no concurrency conflict
+                db.AiMensagens.Add(AiMensagem.Criar(conversa.Id, "user", request.Mensagem, request.ExternalMessageId));
+                db.AiMensagens.Add(AiMensagem.Criar(conversa.Id, "assistant", resposta));
+                foreach (var tc in toolCallsData)
+                    db.AiToolCalls.Add(AiToolCall.Criar(conversa.Id, tc.Nome, tc.Input, tc.Output, tc.Status, tc.InTokens, tc.OutTokens));
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            logger.LogWarning(ex,
+                "Concurrency ao salvar conversa {ConversaId}. Entries: [{Entries}]",
+                conversa.Id,
+                string.Join(", ", ex.Entries.Select(e => $"{e.Entity.GetType().Name}[{e.State}]")));
+
+            try
+            {
+                db.LimparChangeTracker();
+                db.AiMensagens.Add(AiMensagem.Criar(conversa.Id, "user", request.Mensagem, request.ExternalMessageId));
+                db.AiMensagens.Add(AiMensagem.Criar(conversa.Id, "assistant", resposta));
+                await db.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Retry salvou mensagens da conversa {ConversaId}", conversa.Id);
+            }
+            catch (Exception retryEx)
+            {
+                logger.LogError(retryEx,
+                    "Retry falhou ao salvar conversa {ConversaId}. Tipo: {ExType}",
+                    conversa.Id, retryEx.GetType().Name);
+            }
+        }
     }
 
     private async Task<(Guid UsuarioId, PapelFamilia Papel, string NomeFamilia)> ResolverContextoAsync(

@@ -58,5 +58,18 @@ public static class FinanceAgentSystemPrompt
         - Contas liquidadas NÃO podem ser canceladas — avise o usuário.
         - Apenas Administradores podem cancelar lançamentos.
         - "cancelar conta", "excluir lançamento", "remover despesa" → cancelar_lancamento
+
+        RECORRÊNCIAS (listar_recorrencias):
+        - "minhas recorrências", "contas fixas", "despesas recorrentes", "o que pago todo mês" → listar_recorrencias
+        - Mostra descrição, valor, dia do vencimento, tipo (pagar/receber) e status.
+
+        COMPARAÇÃO DE MESES (comparar_meses):
+        - "comparar outubro com setembro", "gastei mais ou menos?", "evolução mês a mês" → comparar_meses
+        - Sempre apresente as variações em valor absoluto e percentual.
+
+        RELATÓRIO FINANCEIRO (gerar_relatorio):
+        - "relatório do mês", "resumo completo", "análise financeira", "relatório detalhado" → gerar_relatorio
+        - Apresente os dados de forma organizada: resumo geral, despesas por categoria, receitas por categoria, maiores fornecedores e indicadores de saúde financeira.
+        - Use buscar_resumo_mensal para visão rápida; use gerar_relatorio quando o usuário pedir análise completa ou relatório.
         """;
 }

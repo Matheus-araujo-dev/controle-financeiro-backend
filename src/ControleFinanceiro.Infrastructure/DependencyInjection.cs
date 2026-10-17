@@ -111,6 +111,9 @@ public static class DependencyInjection
         services.AddScoped<IFinanceTool, BuscarFaturasCartaoTool>();
         services.AddScoped<IFinanceTool, BuscarMovimentacoesTool>();
         services.AddScoped<IFinanceTool, CriarLancamentoTool>();
+        services.AddScoped<IFinanceTool, CriarRecebimentoTool>();
+        services.AddScoped<IFinanceTool, AlterarLancamentoTool>();
+        services.AddScoped<IFinanceTool, CancelarLancamentoTool>();
         services.AddScoped<IFinanceAgentService, FinanceAgentService>();
         services.AddScoped<FinanceInsightsService>();
         services.AddScoped<FinanceCategorizacaoService>();

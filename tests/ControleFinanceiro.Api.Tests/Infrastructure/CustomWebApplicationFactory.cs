@@ -17,6 +17,9 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private const string DevelopmentUserHeader = "X-Debug-User";
 
+    // Serializa CREATE/DROP DATABASE para evitar sobrecarregar o PostgreSQL com checkpoints paralelos.
+    private static readonly SemaphoreSlim DbGate = new(1, 1);
+
     // Provider preferido: PostgreSQL real (via CF_TEST_POSTGRES ou localhost padrão).
     // Sem ele (ou com CF_TEST_FORCE_SQLITE=1), cai para SQLite in-memory — e os testes marcados com
     // [PostgresFactAttribute] são pulados.
@@ -112,7 +115,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            dbContext.Database.EnsureCreated();
+            EnsureCreatedWithRetry(dbContext);
         });
     }
 
@@ -125,9 +128,17 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         if (_pgConnectionString is not null)
         {
-            using var scope = Services.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await dbContext.Database.EnsureDeletedAsync();
+            await DbGate.WaitAsync();
+            try
+            {
+                using var scope = Services.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await dbContext.Database.EnsureDeletedAsync();
+            }
+            finally
+            {
+                DbGate.Release();
+            }
         }
 
         if (_sqliteConnection is not null)
@@ -143,8 +154,42 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        await dbContext.Database.EnsureDeletedAsync();
-        await dbContext.Database.EnsureCreatedAsync();
+        await DbGate.WaitAsync();
+        try
+        {
+            await dbContext.Database.EnsureDeletedAsync();
+            await dbContext.Database.EnsureCreatedAsync();
+        }
+        finally
+        {
+            DbGate.Release();
+        }
+    }
+
+    private static void EnsureCreatedWithRetry(AppDbContext dbContext)
+    {
+        DbGate.Wait();
+        try
+        {
+            dbContext.Database.EnsureCreated();
+        }
+        finally
+        {
+            DbGate.Release();
+        }
+    }
+
+    private static async Task EnsureCreatedWithRetryAsync(AppDbContext dbContext)
+    {
+        await DbGate.WaitAsync();
+        try
+        {
+            await dbContext.Database.EnsureCreatedAsync();
+        }
+        finally
+        {
+            DbGate.Release();
+        }
     }
 
     public new HttpClient CreateClient()

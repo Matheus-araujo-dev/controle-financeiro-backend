@@ -4,6 +4,7 @@ using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 using ControleFinanceiro.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace ControleFinanceiro.Application.Financeiro.ContasPagar;
 
@@ -21,7 +22,8 @@ public interface IContaPagarRecorrenciaService
 public sealed class ContaPagarRecorrenciaService(
     IAppDbContext dbContext,
     IContaPagarQueryService queryService,
-    ContaPagarSharedHelper helper) : IContaPagarRecorrenciaService
+    ContaPagarSharedHelper helper,
+    ILogger<ContaPagarRecorrenciaService> logger) : IContaPagarRecorrenciaService
 {
     public async Task<ContaPagarDetalheResponse?> AtualizarAsync(Guid id, AtualizarContaPagarRequest request, CancellationToken cancellationToken)
     {
@@ -206,6 +208,15 @@ public sealed class ContaPagarRecorrenciaService(
             .Select(x => new { x.DataVencimento, x.DataEmissao, x.DataCompra, x.Origem })
             .ToArrayAsync(cancellationToken);
         var template = ContaPagarSharedHelper.DesserializarTemplate(regra.TemplateJson);
+
+        var recebedorExiste = await dbContext.Pessoas.AsNoTracking()
+            .AnyAsync(p => p.Id == template.RecebedorId, cancellationToken);
+        if (!recebedorExiste)
+        {
+            logger.LogWarning("Recorrência {RegraId}: RecebedorId {RecebedorId} não existe em Pessoas. Geração ignorada.", regra.Id, template.RecebedorId);
+            return 0;
+        }
+
         IEnumerable<DateOnly> datasPendentes;
         DateOnly? dataCompraOrigem = null;
 

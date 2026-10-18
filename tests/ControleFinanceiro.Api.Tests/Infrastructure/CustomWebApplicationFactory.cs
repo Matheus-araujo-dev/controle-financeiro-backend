@@ -112,7 +112,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            dbContext.Database.EnsureCreated();
+            EnsureCreatedWithRetry(dbContext);
         });
     }
 
@@ -144,7 +144,41 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         await dbContext.Database.EnsureDeletedAsync();
-        await dbContext.Database.EnsureCreatedAsync();
+        await EnsureCreatedWithRetryAsync(dbContext);
+    }
+
+    private static void EnsureCreatedWithRetry(AppDbContext dbContext)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                dbContext.Database.EnsureCreated();
+                return;
+            }
+            catch (NpgsqlException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(200 * attempt);
+            }
+        }
+    }
+
+    private static async Task EnsureCreatedWithRetryAsync(AppDbContext dbContext)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                await dbContext.Database.EnsureCreatedAsync();
+                return;
+            }
+            catch (NpgsqlException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(200 * attempt);
+            }
+        }
     }
 
     public new HttpClient CreateClient()

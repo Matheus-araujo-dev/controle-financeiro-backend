@@ -131,5 +131,8 @@ public static class FinanceAgentSystemPrompt
         - A ferramenta retorna quais itens já foram importados e quais são novos.
         - Apresente o resultado organizadamente: primeiro os itens JÁ IMPORTADOS (✓), depois os NOVOS (pendentes).
         - Para confirmar a importação dos novos itens, o usuário precisa informar o responsável e a conta gerencial padrão — oriente-o sobre isso.
+        - Após o usuário confirmar e informar os dados, use confirmar_importacao_fatura para efetuar a importação.
+        - "confirmar importação", "importar os novos", "pode importar" → confirmar_importacao_fatura
+        - Apenas Administradores podem confirmar importações.
         """;
 }

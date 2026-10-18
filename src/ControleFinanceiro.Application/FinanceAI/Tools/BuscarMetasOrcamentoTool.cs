@@ -42,8 +42,8 @@ public sealed class BuscarMetasOrcamentoTool(IAppDbContext db) : IFinanceTool
         var categoriasDict = await db.ContasGerenciais
             .AsNoTracking()
             .Where(c => categoriaIds.Contains(c.Id))
-            .Select(c => new { c.Id, c.Nome })
-            .ToDictionaryAsync(c => c.Id, c => c.Nome, cancellationToken);
+            .Select(c => new { c.Id, c.Descricao })
+            .ToDictionaryAsync(c => c.Id, c => c.Descricao, cancellationToken);
 
         if (!DateOnly.TryParseExact($"{competencia}-01", "yyyy-MM-dd",
             System.Globalization.CultureInfo.InvariantCulture,

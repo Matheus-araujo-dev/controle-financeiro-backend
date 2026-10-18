@@ -17,6 +17,9 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private const string DevelopmentUserHeader = "X-Debug-User";
 
+    // Serializa CREATE/DROP DATABASE para evitar sobrecarregar o PostgreSQL com checkpoints paralelos.
+    private static readonly SemaphoreSlim DbGate = new(1, 1);
+
     // Provider preferido: PostgreSQL real (via CF_TEST_POSTGRES ou localhost padrão).
     // Sem ele (ou com CF_TEST_FORCE_SQLITE=1), cai para SQLite in-memory — e os testes marcados com
     // [PostgresFactAttribute] são pulados.
@@ -125,9 +128,17 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         if (_pgConnectionString is not null)
         {
-            using var scope = Services.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await dbContext.Database.EnsureDeletedAsync();
+            await DbGate.WaitAsync();
+            try
+            {
+                using var scope = Services.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await dbContext.Database.EnsureDeletedAsync();
+            }
+            finally
+            {
+                DbGate.Release();
+            }
         }
 
         if (_sqliteConnection is not null)
@@ -143,41 +154,41 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        await dbContext.Database.EnsureDeletedAsync();
-        await EnsureCreatedWithRetryAsync(dbContext);
+        await DbGate.WaitAsync();
+        try
+        {
+            await dbContext.Database.EnsureDeletedAsync();
+            await dbContext.Database.EnsureCreatedAsync();
+        }
+        finally
+        {
+            DbGate.Release();
+        }
     }
 
     private static void EnsureCreatedWithRetry(AppDbContext dbContext)
     {
-        const int maxAttempts = 5;
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        DbGate.Wait();
+        try
         {
-            try
-            {
-                dbContext.Database.EnsureCreated();
-                return;
-            }
-            catch (NpgsqlException) when (attempt < maxAttempts)
-            {
-                Thread.Sleep(200 * attempt);
-            }
+            dbContext.Database.EnsureCreated();
+        }
+        finally
+        {
+            DbGate.Release();
         }
     }
 
     private static async Task EnsureCreatedWithRetryAsync(AppDbContext dbContext)
     {
-        const int maxAttempts = 5;
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        await DbGate.WaitAsync();
+        try
         {
-            try
-            {
-                await dbContext.Database.EnsureCreatedAsync();
-                return;
-            }
-            catch (NpgsqlException) when (attempt < maxAttempts)
-            {
-                await Task.Delay(200 * attempt);
-            }
+            await dbContext.Database.EnsureCreatedAsync();
+        }
+        finally
+        {
+            DbGate.Release();
         }
     }
 

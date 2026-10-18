@@ -129,18 +129,6 @@ public static class DependencyInjection
         services.AddScoped<IFinanceTool, GerenciarInvestimentoTool>();
         services.AddScoped<IFinanceTool, GerenciarPlanoTool>();
         services.AddScoped<IFinanceTool, GerenciarMetaOrcamentoTool>();
-        services.AddScoped<IFinanceTool, BuscarTransferenciasTool>();
-        services.AddScoped<IFinanceTool, BuscarInvestimentosTool>();
-        services.AddScoped<IFinanceTool, BuscarPlanosTool>();
-        services.AddScoped<IFinanceTool, BuscarMetasOrcamentoTool>();
-        services.AddScoped<IFinanceTool, BuscarFechamentosMensaisTool>();
-        services.AddScoped<IFinanceTool, ProjetarFluxoCaixaTool>();
-        services.AddScoped<IFinanceTool, LiquidarLancamentoTool>();
-        services.AddScoped<IFinanceTool, CriarTransferenciaTool>();
-        services.AddScoped<IFinanceTool, GerenciarRecorrenciaTool>();
-        services.AddScoped<IFinanceTool, GerenciarInvestimentoTool>();
-        services.AddScoped<IFinanceTool, GerenciarPlanoTool>();
-        services.AddScoped<IFinanceTool, GerenciarMetaOrcamentoTool>();
         services.AddScoped<IFinanceAgentService, FinanceAgentService>();
         services.AddScoped<FinanceInsightsService>();
         services.AddScoped<FinanceCategorizacaoService>();

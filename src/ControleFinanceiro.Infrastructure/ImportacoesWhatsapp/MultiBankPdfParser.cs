@@ -75,6 +75,7 @@ internal static class MultiBankPdfParser
                 if (line.StartsWith(marker, StringComparison.OrdinalIgnoreCase)) { started = true; markerSeen = true; continue; }
                 if (!started) continue;
                 if (bank == "BMG" && line.StartsWith("VALOR TOTAL DA FATURA", StringComparison.OrdinalIgnoreCase)) break;
+                if (bank == "Mercado Pago" && line.StartsWith("Parcele a fatura", StringComparison.OrdinalIgnoreCase)) { markerSeen = false; break; }
                 if (!Find(line, @"^\d{2}(?:/\d{2}|\s+[A-Z]{3})\b").Success) continue;
                 var row = Find(line, @"^(?<day>\d{2})(?:/(?<month>\d{2})|\s+(?<monthname>[A-Z]{3}))\s+(?<description>.+?)\s+(?<minus>-?)\s*(?:R\$\s*)?(?<value>\d[\d.]*,\d{2})$");
                 if (!row.Success) return Failure(bank,"Lançamento sem valor ou descrição legível.");

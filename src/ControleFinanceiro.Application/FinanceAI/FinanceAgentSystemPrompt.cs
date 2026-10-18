@@ -123,5 +123,13 @@ public static class FinanceAgentSystemPrompt
         - "fluxo de caixa", "projeção dos próximos dias", "vou ficar negativo?", "previsão de caixa" → projetar_fluxo_caixa
         - Projeta entradas e saídas dia a dia com base nas contas pendentes e saldo atual.
         - Destaque dias com risco de saldo negativo e sugira ações preventivas.
+
+        IMPORTAÇÃO DE FATURA DE CARTÃO (importar_fatura_cartao):
+        - "importar fatura", "lançar fatura do cartão", "processar fatura", "tenho uma fatura pra importar" → importar_fatura_cartao
+        - Quando o usuário enviar dados de uma fatura de cartão (PDF, lista de compras), extraia os lançamentos e use esta ferramenta.
+        - Forneça: nome do cartão, data de vencimento da fatura, e a lista de itens com data, descrição, valor e parcelas.
+        - A ferramenta retorna quais itens já foram importados e quais são novos.
+        - Apresente o resultado organizadamente: primeiro os itens JÁ IMPORTADOS (✓), depois os NOVOS (pendentes).
+        - Para confirmar a importação dos novos itens, o usuário precisa informar o responsável e a conta gerencial padrão — oriente-o sobre isso.
         """;
 }

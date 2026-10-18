@@ -55,26 +55,32 @@ internal static class MultiBankPdfParser
             totalMatch = Find(string.Join("\n", pages.Where(p => p.Any(l => l.Contains("Detalhes de consumo", StringComparison.OrdinalIgnoreCase))).SelectMany(p => p)), @"(?:^|\n)Total R\$\s*([\d.]+,\d{2})");
         if (!totalMatch.Success) return Failure(bank,"Total da fatura não encontrado.");
         var total = Amount(totalMatch.Groups[1].Value);
-        var previousMatch = Find(all, bank == "BMG" ? @"Saldo da fatura anterior\s*\+?\s*R\$\s*([\d.]+,\d{2})" : @"Fatura anterior\s+R\$\s*([\d.]+,\d{2})");
+        var previousMatch = Find(all, bank switch {
+            "BMG" => @"Saldo da fatura anterior\s*\+?\s*R\$\s*([\d.]+,\d{2})",
+            "Mercado Pago" => @"Total da fatura de \w+\s+R\$\s*([\d.]+,\d{2})",
+            _ => @"Fatura anterior\s+R\$\s*([\d.]+,\d{2})"
+        });
         var previous = previousMatch.Success ? Amount(previousMatch.Groups[1].Value) : 0;
         decimal payments = 0;
         var items = new List<CsvFaturaItem>();
         var marker = bank == "Nubank" ? "TRANSAÇÕES" : bank == "BMG" ? "Lançamentos:" : "Detalhes de consumo";
-        foreach (var page in pages.Where(p => p.Any(l => l.StartsWith(marker, StringComparison.OrdinalIgnoreCase))))
+        var markerSeen = false;
+        foreach (var page in pages)
         {
-            var started = false;
+            var hasMarker = page.Any(l => l.StartsWith(marker, StringComparison.OrdinalIgnoreCase));
+            if (!hasMarker && (!markerSeen || bank != "Mercado Pago")) continue;
+            var started = hasMarker ? false : true;
             foreach (var line in page)
             {
-                if (line.StartsWith(marker, StringComparison.OrdinalIgnoreCase)) { started = true; continue; }
+                if (line.StartsWith(marker, StringComparison.OrdinalIgnoreCase)) { started = true; markerSeen = true; continue; }
                 if (!started) continue;
                 if (bank == "BMG" && line.StartsWith("VALOR TOTAL DA FATURA", StringComparison.OrdinalIgnoreCase)) break;
-                if (bank == "Mercado Pago" && line.StartsWith("Total R$", StringComparison.OrdinalIgnoreCase)) break;
                 if (!Find(line, @"^\d{2}(?:/\d{2}|\s+[A-Z]{3})\b").Success) continue;
                 var row = Find(line, @"^(?<day>\d{2})(?:/(?<month>\d{2})|\s+(?<monthname>[A-Z]{3}))\s+(?<description>.+?)\s+(?<minus>-?)\s*(?:R\$\s*)?(?<value>\d[\d.]*,\d{2})$");
                 if (!row.Success) return Failure(bank,"Lançamento sem valor ou descrição legível.");
                 var value = Amount(row.Groups["value"].Value) * (row.Groups["minus"].Value == "-" ? -1 : 1);
                 var description = Regex.Replace(row.Groups["description"].Value, @"^[•●*]{4}\s*\d{4}\s*", "");
-                if (description.StartsWith("Pagamento em", StringComparison.OrdinalIgnoreCase) || description.StartsWith("Pgto Fatura", StringComparison.OrdinalIgnoreCase)) { payments += value; continue; }
+                if (description.StartsWith("Pagamento em", StringComparison.OrdinalIgnoreCase) || description.StartsWith("Pagamento da", StringComparison.OrdinalIgnoreCase) || description.StartsWith("Pgto Fatura", StringComparison.OrdinalIgnoreCase)) { payments += bank == "Mercado Pago" ? -value : value; continue; }
                 var installment = Find(description, bank switch {
                     "Nubank" => @"\bParcela\s+(\d+)/(\d+)\s*$",
                     "BMG" => @"\bPc\.\s*(\d+)/(\d+)\s*$",

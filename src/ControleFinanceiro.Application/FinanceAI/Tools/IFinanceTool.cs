@@ -6,7 +6,9 @@ public sealed record ToolContext(
     Guid FamiliaId,
     Guid UsuarioId,
     PapelFamilia Papel,
-    string NomeFamilia);
+    string NomeFamilia,
+    string? ArquivoAnexoPath = null,
+    string? ArquivoAnexoNome = null);
 
 public interface IFinanceTool
 {

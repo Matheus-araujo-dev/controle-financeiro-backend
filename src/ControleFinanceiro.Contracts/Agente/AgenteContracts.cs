@@ -29,3 +29,21 @@ public sealed record AgenteCategorizacaoItem(
     double Confianca);
 
 public sealed record AgenteCategorizarResponse(IReadOnlyList<AgenteCategorizacaoItem> Itens);
+
+public sealed record ConversaResumoResponse(
+    Guid Id,
+    DateTime CriadaEmUtc,
+    DateTime? UltimaMensagemUtc,
+    string? UltimaMensagemResumo,
+    int TotalMensagens);
+
+public sealed record ConversaMensagemResponse(
+    Guid Id,
+    string Papel,
+    string Conteudo,
+    DateTime CriadaEmUtc);
+
+public sealed record ConversaDetalheResponse(
+    Guid Id,
+    DateTime CriadaEmUtc,
+    IReadOnlyList<ConversaMensagemResponse> Mensagens);

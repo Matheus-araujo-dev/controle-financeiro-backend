@@ -1,9 +1,12 @@
 using ControleFinanceiro.Api.Configuration;
+using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Contracts.Agente;
+using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Api.Controllers;
 
@@ -13,7 +16,9 @@ namespace ControleFinanceiro.Api.Controllers;
 public sealed class AgenteController(
     IFinanceAgentService agentService,
     FinanceInsightsService insightsService,
-    FinanceCategorizacaoService categorizacaoService) : ApiControllerBase
+    FinanceCategorizacaoService categorizacaoService,
+    IAppDbContext db,
+    ICurrentUser currentUser) : ApiControllerBase
 {
     [HttpPost("perguntar")]
     [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
@@ -32,6 +37,105 @@ public sealed class AgenteController(
             cancellationToken);
 
         return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+    }
+
+    [HttpPost("perguntar-com-arquivo")]
+    [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
+    [RequestSizeLimit(134_217_728)]
+    [ProducesResponseType(typeof(AgentePerguntarResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<AgentePerguntarResponse>> PerguntarComArquivo(
+        [FromForm] string mensagem,
+        [FromForm] Guid? conversaId,
+        IFormFile? arquivo,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(mensagem))
+            return BadRequestResponse("Mensagem é obrigatória.", "mensagem");
+
+        string? tempPath = null;
+        string? fileName = null;
+
+        if (arquivo is { Length: > 0 })
+        {
+            fileName = arquivo.FileName;
+            tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}{Path.GetExtension(fileName)}");
+            await using var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write);
+            await arquivo.CopyToAsync(fs, cancellationToken);
+        }
+
+        try
+        {
+            var agentRequest = new AgentRequest(mensagem, conversaId)
+            {
+                ArquivoAnexoPath = tempPath,
+                ArquivoAnexoNome = fileName
+            };
+
+            var result = await agentService.ProcessarAsync(agentRequest, cancellationToken);
+            return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+        }
+        finally
+        {
+            if (tempPath is not null && System.IO.File.Exists(tempPath))
+                System.IO.File.Delete(tempPath);
+        }
+    }
+
+    [HttpGet("conversas")]
+    [ProducesResponseType(typeof(IReadOnlyList<ConversaResumoResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ConversaResumoResponse>>> ListarConversas(CancellationToken cancellationToken)
+    {
+        _ = Guid.TryParse(currentUser.UserId, out var usuarioId);
+        var familiaId = currentUser.FamiliaId ?? Guid.Empty;
+
+        var conversas = await db.AiConversas.AsNoTracking()
+            .Where(c => c.FamiliaId == familiaId && c.UsuarioId == usuarioId)
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .Take(50)
+            .Select(c => new
+            {
+                c.Id,
+                c.CreatedAtUtc,
+                UltimaMensagem = c.Mensagens.OrderByDescending(m => m.CreatedAtUtc).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var resultado = conversas.Select(c => new ConversaResumoResponse(
+            c.Id,
+            c.CreatedAtUtc,
+            c.UltimaMensagem?.CreatedAtUtc,
+            c.UltimaMensagem?.Conteudo != null
+                ? (c.UltimaMensagem.Conteudo.Length > 100 ? c.UltimaMensagem.Conteudo[..100] + "..." : c.UltimaMensagem.Conteudo)
+                : null,
+            0)).ToList();
+
+        return Ok(resultado);
+    }
+
+    [HttpGet("conversas/{id:guid}")]
+    [ProducesResponseType(typeof(ConversaDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ConversaDetalheResponse>> ObterConversa(Guid id, CancellationToken cancellationToken)
+    {
+        _ = Guid.TryParse(currentUser.UserId, out var usuarioId);
+        var familiaId = currentUser.FamiliaId ?? Guid.Empty;
+
+        var conversa = await db.AiConversas.AsNoTracking()
+            .Include(c => c.Mensagens)
+            .Where(c => c.Id == id && c.FamiliaId == familiaId && c.UsuarioId == usuarioId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (conversa is null)
+            return NotFoundResponse("Conversa não encontrada.");
+
+        var mensagens = conversa.Mensagens
+            .OrderBy(m => m.CreatedAtUtc)
+            .Select(m => new ConversaMensagemResponse(m.Id, m.Papel, m.Conteudo, m.CreatedAtUtc))
+            .ToList();
+
+        return Ok(new ConversaDetalheResponse(conversa.Id, conversa.CreatedAtUtc, mensagens));
     }
 
     [HttpPost("insights")]

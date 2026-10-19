@@ -23,6 +23,12 @@ public sealed record AgentRequest(string Mensagem, Guid? ConversaId = null)
 
     /// <summary>Contato externo (número de telefone para canal WhatsApp).</summary>
     public string? ContatoExterno { get; init; }
+
+    /// <summary>Caminho temporário do arquivo anexado (PDF de fatura, por exemplo).</summary>
+    public string? ArquivoAnexoPath { get; init; }
+
+    /// <summary>Nome original do arquivo anexado.</summary>
+    public string? ArquivoAnexoNome { get; init; }
 }
 
 public sealed record AgentResponse(

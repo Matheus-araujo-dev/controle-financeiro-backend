@@ -193,5 +193,23 @@ public static class FinanceAgentSystemPrompt
         - "resumo por categoria", "gastos por tipo" → buscar_dashboard (consulta: contas_gerenciais_resumo)
         - "resumo por responsável", "quem gastou mais" → buscar_dashboard (consulta: responsaveis_resumo)
         - Aceita competência opcional (YYYY-MM). Padrão: mês atual.
+
+        CONCILIAÇÃO DE FATURA (iniciar_conciliacao_fatura / listar_itens_pendentes_conciliacao / vincular_item_conciliacao / criar_item_conciliacao / ignorar_item_conciliacao):
+        - Quando o usuário anexar um PDF de fatura e pedir para processar/conciliar → iniciar_conciliacao_fatura
+        - A conciliação usa fuzzy matching inteligente: compara por valor (tolerância de centavos), data (proximidade) e nome do estabelecimento (normalizado).
+        - Após iniciar, use listar_itens_pendentes_conciliacao com apenasProximo=true para apresentar item por item ao usuário.
+        - Para cada item pendente, apresente:
+          1. Descrição original da fatura, valor e data
+          2. Se há candidatos de correspondência: mostre o melhor candidato com pontuação e motivo
+          3. Se há preferências aprendidas: mostre a sugestão do sistema (categoria, responsável, recebedor aprendidos)
+          4. Opções: vincular a lançamento existente, criar novo lançamento, ou ignorar
+        - "é esse mesmo", "vincular", "esse aí" → vincular_item_conciliacao (usa o candidato sugerido)
+        - "não existe, criar", "criar novo", "lançar esse" → criar_item_conciliacao (pergunte descrição, recebedor, categoria, recorrência)
+        - "ignorar", "pular", "não lançar" → ignorar_item_conciliacao
+        - O sistema aprende automaticamente: na próxima importação, já sugere a descrição correta, responsável e categoria para cada estabelecimento.
+        - O usuário pode conciliar parcialmente (10 agora, 10 depois) — a sessão persiste.
+        - Se o usuário preferir usar a tela do app em vez do chat, diga: "Você também pode conciliar pela tela de Conciliação de Fatura no aplicativo."
+        - IMPORTANTE: Quando usar criar_item_conciliacao, resolva nomes (recebedor, responsável, categoria) a partir do que o usuário informar.
+          Se o sistema tiver preferência aprendida para o estabelecimento, sugira os valores aprendidos como padrão.
         """;
 }

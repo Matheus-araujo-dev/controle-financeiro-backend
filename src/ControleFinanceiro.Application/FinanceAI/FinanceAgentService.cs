@@ -29,7 +29,7 @@ public sealed class FinanceAgentService(
 
         var (usuarioId, papel, nomeFamilia) = await ResolverContextoAsync(familiaId, request.UsuarioId, cancellationToken);
 
-        var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia);
+        var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia, request.ArquivoAnexoPath, request.ArquivoAnexoNome);
         var toolMap = tools.ToDictionary(t => t.Name);
         var toolDefs = tools.Select(t => new LlmToolDefinition(t.Name, t.Description, t.InputSchema)).ToList();
         var systemPrompt = FinanceAgentSystemPrompt.Build(nomeFamilia, papel.ToString(), DateOnly.FromDateTime(DateTime.UtcNow));

@@ -10,12 +10,12 @@ namespace ControleFinanceiro.Application.FinanceAI.Tools;
 public sealed class GerenciarMetaOrcamentoTool(IAppDbContext db) : IFinanceTool
 {
     public string Name => "gerenciar_meta_orcamento";
-    public string Description => "Cria ou atualiza metas de orçamento por categoria e competência. Para consultar metas vs realizado, use buscar_metas_orcamento.";
+    public string Description => "Cria, atualiza ou exclui metas de orçamento por categoria e competência. Para consultar metas vs realizado, use buscar_metas_orcamento.";
     public string InputSchema => """
         {
           "type": "object",
           "properties": {
-            "acao":              { "type": "string",  "enum": ["criar", "atualizar"], "description": "Ação a executar" },
+            "acao":              { "type": "string",  "enum": ["criar", "atualizar", "excluir"], "description": "Ação a executar" },
             "metaId":            { "type": "string",  "description": "ID da meta (obrigatório para atualizar)" },
             "contaGerencialId":  { "type": "string",  "description": "ID da categoria financeira (criar)" },
             "competencia":       { "type": "string",  "description": "Competência no formato yyyy-MM (criar)" },
@@ -39,7 +39,8 @@ public sealed class GerenciarMetaOrcamentoTool(IAppDbContext db) : IFinanceTool
             {
                 "criar" => await CriarAsync(input!, cancellationToken),
                 "atualizar" => await AtualizarAsync(input!, cancellationToken),
-                _ => JsonSerializer.Serialize(new { erro = "Ação inválida. Use: criar ou atualizar." })
+                "excluir" => await ExcluirAsync(input!, cancellationToken),
+                _ => JsonSerializer.Serialize(new { erro = "Ação inválida. Use: criar, atualizar ou excluir." })
             };
         }
         catch (InvalidOperationException ex)
@@ -112,6 +113,27 @@ public sealed class GerenciarMetaOrcamentoTool(IAppDbContext db) : IFinanceTool
         {
             sucesso = true,
             mensagem = $"Meta atualizada para R$ {valorMeta.Value:N2} na competência {meta.Competencia}."
+        });
+    }
+
+    private async Task<string> ExcluirAsync(JsonNode input, CancellationToken ct)
+    {
+        if (!Guid.TryParse(input["metaId"]?.GetValue<string>(), out var id))
+            return JsonSerializer.Serialize(new { erro = "metaId é obrigatório." });
+
+        var meta = await db.MetasOrcamento
+            .FirstOrDefaultAsync(m => m.Id == id, ct);
+
+        if (meta is null)
+            return JsonSerializer.Serialize(new { erro = "Meta de orçamento não encontrada." });
+
+        db.MetasOrcamento.Remove(meta);
+        await db.SaveChangesAsync(ct);
+
+        return JsonSerializer.Serialize(new
+        {
+            sucesso = true,
+            mensagem = $"Meta de orçamento da competência {meta.Competencia} excluída."
         });
     }
 }

@@ -104,7 +104,8 @@ public static class FinanceAgentSystemPrompt
         - "metas do mês", "orçamento por categoria", "quanto posso gastar" → buscar_metas_orcamento
         - "definir meta", "criar orçamento", "limitar gasto em [categoria]" → gerenciar_meta_orcamento (ação: criar)
         - "alterar meta", "ajustar orçamento" → gerenciar_meta_orcamento (ação: atualizar)
-        - Apenas administradores podem criar/alterar metas.
+        - "excluir meta", "remover orçamento" → gerenciar_meta_orcamento (ação: excluir)
+        - Apenas administradores podem criar/alterar/excluir metas.
         - Ao consultar metas, mostre o percentual utilizado e destaque categorias que estouraram.
 
         FECHAMENTOS MENSAIS (buscar_fechamentos_mensais):
@@ -189,10 +190,49 @@ public static class FinanceAgentSystemPrompt
 
         DASHBOARD FINANCEIRO (buscar_dashboard):
         - "anomalias", "gastos fora do padrão", "despesas incomuns" → buscar_dashboard (consulta: anomalias)
+        - "resumo geral", "painel financeiro", "dashboard" → buscar_dashboard (consulta: resumo)
         - "fluxo de caixa diário", "entradas e saídas por dia" → buscar_dashboard (consulta: fluxo_caixa)
         - "resumo por categoria", "gastos por tipo" → buscar_dashboard (consulta: contas_gerenciais_resumo)
+        - "série por categoria", "evolução por categoria", "tendência de gastos" → buscar_dashboard (consulta: contas_gerenciais_serie)
+        - "lançamentos da categoria", "detalhes da categoria" → buscar_dashboard (consulta: contas_gerenciais_lancamentos)
         - "resumo por responsável", "quem gastou mais" → buscar_dashboard (consulta: responsaveis_resumo)
+        - "previsão", "central de previsão", "projeção geral" → buscar_dashboard (consulta: central_previsao_resumo)
+        - "itens previstos", "detalhes da previsão" → buscar_dashboard (consulta: central_previsao_itens)
+        - "comparar meses no dashboard", "histórico mensal" → buscar_dashboard (consulta: comparativo_mensal)
         - Aceita competência opcional (YYYY-MM). Padrão: mês atual.
+        - Parâmetros adicionais: dias (projeção), tipo (Despesa/Receita), contaGerencialId, meses (comparativo).
+
+        REEMBOLSO (criar_reembolso):
+        - "reembolsar conta", "criar reembolso", "cobrar de volta" → criar_reembolso
+        - Apenas administradores podem criar reembolsos.
+        - Gera contas a receber para os pagadores a partir de uma conta a pagar existente.
+        - Confirme: conta de origem, valor total, pagadores, forma de pagamento, rateio por categoria e data de vencimento.
+        - Se parcelarIgual=true, distribui nas mesmas datas das parcelas originais.
+
+        CONCILIAÇÃO BANCÁRIA (iniciar_conciliacao_bancaria / buscar_conciliacoes_bancarias / gerenciar_item_conciliacao_bancaria):
+        - Quando o usuário enviar arquivo OFX ou CSV de extrato bancário → iniciar_conciliacao_bancaria
+        - "ver conciliações", "minhas conciliações bancárias" → buscar_conciliacoes_bancarias
+        - "detalhe da conciliação" → buscar_conciliacoes_bancarias (com conciliacaoId)
+        - "conciliar item", "vincular à movimentação" → gerenciar_item_conciliacao_bancaria (ação: conciliar)
+        - "ignorar item da conciliação" → gerenciar_item_conciliacao_bancaria (ação: ignorar)
+        - Use a sugestão automática de match quando disponível (sugestaoMovimentacaoId).
+        - Apresente itens pendentes com sugestões para o usuário revisar.
+
+        IMPORTAÇÕES WHATSAPP (buscar_importacoes_whatsapp / gerenciar_importacao_whatsapp / gerenciar_item_importacao_whatsapp):
+        - "minhas importações", "importações do WhatsApp", "mensagens importadas" → buscar_importacoes_whatsapp
+        - "detalhe da importação" → buscar_importacoes_whatsapp (com importacaoId)
+        - "reprocessar importação", "tentar extrair de novo" → gerenciar_importacao_whatsapp (ação: reprocessar)
+        - "confirmar importação", "aprovar importação" → gerenciar_importacao_whatsapp (ação: confirmar)
+        - "completar fechamento de fatura" → gerenciar_importacao_whatsapp (ação: completar_fechamento)
+        - "reabrir importação" → gerenciar_importacao_whatsapp (ação: reabrir)
+        - "confirmar item", "aprovar item importado" → gerenciar_item_importacao_whatsapp (ação: confirmar)
+        - "rejeitar item", "descartar item importado" → gerenciar_item_importacao_whatsapp (ação: rejeitar)
+        - Ao apresentar itens, mostre as predições do sistema (categoria, responsável, confiança) e deixe o usuário ajustar antes de confirmar.
+
+        ANEXOS (buscar_anexos):
+        - "ver anexos", "arquivos da conta", "comprovantes" → buscar_anexos
+        - Tipos: contas-pagar, contas-receber, faturas, compras-planejadas.
+        - Retorna nome, tipo, tamanho e URL de cada anexo.
 
         CONCILIAÇÃO DE FATURA (iniciar_conciliacao_fatura / listar_itens_pendentes_conciliacao / vincular_item_conciliacao / criar_item_conciliacao / ignorar_item_conciliacao):
         - Quando o usuário anexar um PDF de fatura e pedir para processar/conciliar → iniciar_conciliacao_fatura

@@ -37,6 +37,11 @@ public sealed record AgenteCategorizacaoItem(
 
 public sealed record AgenteCategorizarResponse(IReadOnlyList<AgenteCategorizacaoItem> Itens);
 
+public sealed record AgenteStreamEventDto(
+    string Tipo,
+    string? Dados = null,
+    AgentFileOutputDto? Arquivo = null);
+
 public sealed record ConversaResumoResponse(
     Guid Id,
     DateTime CriadaEmUtc,

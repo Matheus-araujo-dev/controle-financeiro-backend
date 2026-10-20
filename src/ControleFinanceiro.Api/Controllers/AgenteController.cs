@@ -180,31 +180,28 @@ public sealed class AgenteController(
         Response.Headers.CacheControl = "no-cache";
         Response.Headers.Connection = "keep-alive";
 
-        var progress = new Progress<AgentStreamEvent>(async evt =>
+        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+
+        async Task WriteSseEvent(AgentStreamEvent evt)
         {
             var dto = new AgenteStreamEventDto(
                 evt.Tipo.ToString().ToLowerInvariant(),
                 evt.Dados,
                 evt.Arquivo is { } a ? new AgentFileOutputDto(a.Nome, a.MimeType, a.Url, a.TamanhoBytes) : null);
 
-            var json = System.Text.Json.JsonSerializer.Serialize(dto,
-                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
-
+            var json = System.Text.Json.JsonSerializer.Serialize(dto, jsonOpts);
             await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
-        });
+        }
 
         try
         {
             var result = await agentService.ProcessarStreamAsync(
                 new AgentRequest(request.Mensagem, request.ConversaId),
-                progress,
+                WriteSseEvent,
                 cancellationToken);
 
-            var finalDto = MapResponse(result);
-            var finalJson = System.Text.Json.JsonSerializer.Serialize(finalDto,
-                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
-
+            var finalJson = System.Text.Json.JsonSerializer.Serialize(MapResponse(result), jsonOpts);
             await Response.WriteAsync($"event: resultado\ndata: {finalJson}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
@@ -212,9 +209,7 @@ public sealed class AgenteController(
         catch (Exception ex)
         {
             var errorJson = System.Text.Json.JsonSerializer.Serialize(
-                new AgenteStreamEventDto("erro", ex.Message),
-                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
-
+                new AgenteStreamEventDto("erro", ex.Message), jsonOpts);
             await Response.WriteAsync($"data: {errorJson}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
@@ -255,7 +250,7 @@ public sealed class AgenteController(
 
         var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
 
-        var progress = new Progress<AgentStreamEvent>(async evt =>
+        async Task WriteSseEvent(AgentStreamEvent evt)
         {
             var dto = new AgenteStreamEventDto(
                 evt.Tipo.ToString().ToLowerInvariant(),
@@ -265,7 +260,7 @@ public sealed class AgenteController(
             var json = System.Text.Json.JsonSerializer.Serialize(dto, jsonOpts);
             await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
-        });
+        }
 
         try
         {
@@ -275,7 +270,7 @@ public sealed class AgenteController(
                 ArquivoAnexoNome = fileName
             };
 
-            var result = await agentService.ProcessarStreamAsync(agentRequest, progress, cancellationToken);
+            var result = await agentService.ProcessarStreamAsync(agentRequest, WriteSseEvent, cancellationToken);
 
             var finalJson = System.Text.Json.JsonSerializer.Serialize(MapResponse(result), jsonOpts);
             await Response.WriteAsync($"event: resultado\ndata: {finalJson}\n\n", cancellationToken);

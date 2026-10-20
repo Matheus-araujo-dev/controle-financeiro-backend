@@ -246,9 +246,9 @@ public sealed class FinanceAgentService(
         }
     }
 
-    public async Task<AgentResponse> ProcessarStreamAsync(AgentRequest request, IProgress<AgentStreamEvent> progress, CancellationToken cancellationToken)
+    public async Task<AgentResponse> ProcessarStreamAsync(AgentRequest request, Func<AgentStreamEvent, Task> onEvent, CancellationToken cancellationToken)
     {
-        progress.Report(new AgentStreamEvent(AgentStreamEventType.Processando, "Iniciando processamento..."));
+        await onEvent(new AgentStreamEvent(AgentStreamEventType.Processando, "Iniciando processamento..."));
 
         var familiaId = request.FamiliaId
             ?? currentUser.FamiliaId
@@ -266,7 +266,7 @@ public sealed class FinanceAgentService(
             var audioExts = new HashSet<string> { ".ogg", ".mp3", ".wav", ".m4a", ".aac", ".flac", ".wma", ".opus", ".webm" };
             if (audioExts.Contains(ext))
             {
-                progress.Report(new AgentStreamEvent(AgentStreamEventType.Processando, "Transcrevendo áudio..."));
+                await onEvent(new AgentStreamEvent(AgentStreamEventType.Processando, "Transcrevendo áudio..."));
                 var audioBytes = await File.ReadAllBytesAsync(arquivoAnexoPath, cancellationToken);
                 var base64 = Convert.ToBase64String(audioBytes);
                 var mime = ext switch
@@ -353,7 +353,7 @@ public sealed class FinanceAgentService(
         var resposta = string.Empty;
         var toolCallsData = new List<(string Nome, string Input, string Output, string Status, int InTokens, int OutTokens)>();
 
-        progress.Report(new AgentStreamEvent(AgentStreamEventType.Processando, "Consultando IA..."));
+        await onEvent(new AgentStreamEvent(AgentStreamEventType.Processando, "Consultando IA..."));
 
         for (var round = 0; round < MaxToolRounds; round++)
         {
@@ -365,14 +365,14 @@ public sealed class FinanceAgentService(
             if (completion.ToolCalls.Count == 0 || completion.StopReason == "end_turn")
             {
                 resposta = completion.Text ?? "Não consegui processar sua solicitação.";
-                progress.Report(new AgentStreamEvent(AgentStreamEventType.Texto, resposta));
+                await onEvent(new AgentStreamEvent(AgentStreamEventType.Texto, resposta));
                 break;
             }
 
             var toolResultsContent = new System.Text.StringBuilder();
             foreach (var toolCall in completion.ToolCalls)
             {
-                progress.Report(new AgentStreamEvent(AgentStreamEventType.Ferramenta, toolCall.ToolName));
+                await onEvent(new AgentStreamEvent(AgentStreamEventType.Ferramenta, toolCall.ToolName));
 
                 string toolOutput;
                 if (toolMap.TryGetValue(toolCall.ToolName, out var tool))
@@ -415,14 +415,14 @@ public sealed class FinanceAgentService(
 
         // Report generated files
         foreach (var arquivo in toolContext.ArquivosGerados)
-            progress.Report(new AgentStreamEvent(AgentStreamEventType.Arquivo, Arquivo: arquivo));
+            await onEvent(new AgentStreamEvent(AgentStreamEventType.Arquivo, Arquivo: arquivo));
 
         await SalvarConversaAsync(conversa, isNewConversa, mensagemFinal, request.ExternalMessageId, resposta, toolCallsData, cancellationToken);
 
         var result = new AgentResponse(resposta, conversa.Id, totalTokens,
             toolContext.ArquivosGerados.Count > 0 ? toolContext.ArquivosGerados : null);
 
-        progress.Report(new AgentStreamEvent(AgentStreamEventType.Concluido));
+        await onEvent(new AgentStreamEvent(AgentStreamEventType.Concluido));
 
         return result;
     }

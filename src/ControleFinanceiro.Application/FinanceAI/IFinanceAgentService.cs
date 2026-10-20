@@ -5,7 +5,7 @@ namespace ControleFinanceiro.Application.FinanceAI;
 public interface IFinanceAgentService
 {
     Task<AgentResponse> ProcessarAsync(AgentRequest request, CancellationToken cancellationToken);
-    Task<AgentResponse> ProcessarStreamAsync(AgentRequest request, IProgress<AgentStreamEvent> progress, CancellationToken cancellationToken);
+    Task<AgentResponse> ProcessarStreamAsync(AgentRequest request, Func<AgentStreamEvent, Task> onEvent, CancellationToken cancellationToken);
 }
 
 public sealed record AgentRequest(string Mensagem, Guid? ConversaId = null)

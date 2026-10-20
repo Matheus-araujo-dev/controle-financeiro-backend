@@ -99,7 +99,7 @@ public sealed class BuscarImportacoesWhatsappTool(ImportacoesWhatsappAppService 
         {
             pagina = resultado.Page,
             totalPaginas = resultado.TotalPages,
-            totalItens = resultado.TotalCount,
+            totalItens = resultado.TotalItems,
             importacoes = resultado.Items.Select(i => new
             {
                 id = i.Id,

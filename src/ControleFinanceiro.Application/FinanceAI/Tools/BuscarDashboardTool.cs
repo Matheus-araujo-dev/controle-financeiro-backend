@@ -1,20 +1,26 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Application.Dashboard;
+using ControleFinanceiro.Contracts.Dashboard;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.FinanceAI.Tools;
 
-public sealed class BuscarDashboardTool(IAppDbContext db) : IFinanceTool
+public sealed class BuscarDashboardTool(IAppDbContext db, DashboardAppService dashboardService) : IFinanceTool
 {
     public string Name => "buscar_dashboard";
-    public string Description => "Consulta dados do dashboard financeiro: anomalias de gastos, fluxo de caixa diário, resumo por categoria ou resumo por responsável.";
+    public string Description => "Consulta dados do dashboard financeiro: anomalias, resumo geral, fluxo de caixa, categorias (resumo/série/lançamentos), responsáveis, central de previsão (resumo/itens) e comparativo mensal.";
     public string InputSchema => """
         {
           "type": "object",
           "properties": {
-            "consulta":     { "type": "string", "enum": ["anomalias", "fluxo_caixa", "contas_gerenciais_resumo", "responsaveis_resumo"], "description": "Tipo de consulta" },
-            "competencia":  { "type": "string", "description": "Competência YYYY-MM (padrão: mês atual)" }
+            "consulta":          { "type": "string", "enum": ["anomalias", "resumo", "fluxo_caixa", "contas_gerenciais_resumo", "contas_gerenciais_serie", "contas_gerenciais_lancamentos", "responsaveis_resumo", "central_previsao_resumo", "central_previsao_itens", "comparativo_mensal"], "description": "Tipo de consulta" },
+            "competencia":       { "type": "string", "description": "Competência YYYY-MM (padrão: mês atual)" },
+            "dias":              { "type": "integer", "description": "Número de dias para projeção/análise (padrão: 30)" },
+            "tipo":              { "type": "string", "description": "Tipo de conta gerencial: Despesa ou Receita (para contas_gerenciais_serie e lancamentos)" },
+            "contaGerencialId":  { "type": "string", "description": "ID da conta gerencial (GUID) para filtrar série ou lançamentos" },
+            "meses":             { "type": "integer", "description": "Número de meses para comparativo mensal (padrão: 6)" }
           },
           "required": ["consulta"]
         }
@@ -25,17 +31,35 @@ public sealed class BuscarDashboardTool(IAppDbContext db) : IFinanceTool
         var input = JsonNode.Parse(inputJson);
         var consulta = input?["consulta"]?.GetValue<string>();
         var compStr = input?["competencia"]?.GetValue<string>();
-        var competencia = ParseCompetencia(compStr);
+        var dias = input?["dias"]?.GetValue<int>() ?? 30;
+        var tipo = input?["tipo"]?.GetValue<string>();
+        var meses = input?["meses"]?.GetValue<int>() ?? 6;
+        Guid? contaGerencialId = Guid.TryParse(input?["contaGerencialId"]?.GetValue<string>(), out var cgId) ? cgId : null;
 
-        return consulta switch
+        try
         {
-            "anomalias" => await AnomaliaAsync(competencia, cancellationToken),
-            "fluxo_caixa" => await FluxoCaixaAsync(competencia, cancellationToken),
-            "contas_gerenciais_resumo" => await ResumoCategoriasAsync(competencia, cancellationToken),
-            "responsaveis_resumo" => await ResumoResponsaveisAsync(competencia, cancellationToken),
-            _ => JsonSerializer.Serialize(new { erro = "Consulta inválida. Use: anomalias, fluxo_caixa, contas_gerenciais_resumo ou responsaveis_resumo." })
-        };
+            return consulta switch
+            {
+                "anomalias" => await AnomaliaAsync(ParseCompetencia(compStr), cancellationToken),
+                "resumo" => await ResumoGeralAsync(compStr, dias, cancellationToken),
+                "fluxo_caixa" => await FluxoCaixaAsync(ParseCompetencia(compStr), cancellationToken),
+                "contas_gerenciais_resumo" => await ResumoCategoriasAsync(ParseCompetencia(compStr), cancellationToken),
+                "contas_gerenciais_serie" => await SerieCategoriasAsync(compStr, dias, tipo, contaGerencialId, cancellationToken),
+                "contas_gerenciais_lancamentos" => await LancamentosCategoriasAsync(compStr, dias, tipo, contaGerencialId, cancellationToken),
+                "responsaveis_resumo" => await ResumoResponsaveisAsync(ParseCompetencia(compStr), cancellationToken),
+                "central_previsao_resumo" => await CentralPrevisaoResumoAsync(compStr, dias, cancellationToken),
+                "central_previsao_itens" => await CentralPrevisaoItensAsync(compStr, dias, cancellationToken),
+                "comparativo_mensal" => await ComparativoMensalAsync(meses, cancellationToken),
+                _ => JsonSerializer.Serialize(new { erro = "Consulta inválida. Use: anomalias, resumo, fluxo_caixa, contas_gerenciais_resumo, contas_gerenciais_serie, contas_gerenciais_lancamentos, responsaveis_resumo, central_previsao_resumo, central_previsao_itens ou comparativo_mensal." })
+            };
+        }
+        catch (Exception ex) when (ex is FormatException or ArgumentException or InvalidOperationException)
+        {
+            return JsonSerializer.Serialize(new { erro = ex.Message });
+        }
     }
+
+    // ── Queries diretas (originais) ──────────────────────────────────────────
 
     private async Task<string> AnomaliaAsync((DateOnly inicio, DateOnly fim) periodo, CancellationToken ct)
     {
@@ -184,6 +208,52 @@ public sealed class BuscarDashboardTool(IAppDbContext db) : IFinanceTool
             responsaveis = resultado
         });
     }
+
+    // ── Queries via DashboardAppService (novas) ──────────────────────────────
+
+    private async Task<string> ResumoGeralAsync(string? competencia, int dias, CancellationToken ct)
+    {
+        var response = await dashboardService.ObterResumoAsync(
+            new DashboardResumoQueryRequest { MesReferencia = competencia, DiasProjetados = dias }, ct);
+        return JsonSerializer.Serialize(response);
+    }
+
+    private async Task<string> SerieCategoriasAsync(string? competencia, int dias, string? tipo, Guid? contaGerencialId, CancellationToken ct)
+    {
+        var response = await dashboardService.ObterContasGerenciaisSerieAsync(
+            new DashboardContaGerencialSerieQueryRequest { MesReferencia = competencia, Dias = dias, Tipo = tipo, ContaGerencialId = contaGerencialId }, ct);
+        return JsonSerializer.Serialize(response);
+    }
+
+    private async Task<string> LancamentosCategoriasAsync(string? competencia, int dias, string? tipo, Guid? contaGerencialId, CancellationToken ct)
+    {
+        var response = await dashboardService.ObterContaGerencialLancamentosAsync(
+            new DashboardContaGerencialLancamentosQueryRequest { MesReferencia = competencia, Dias = dias, Tipo = tipo, ContaGerencialId = contaGerencialId }, ct);
+        return JsonSerializer.Serialize(response);
+    }
+
+    private async Task<string> CentralPrevisaoResumoAsync(string? competencia, int dias, CancellationToken ct)
+    {
+        var response = await dashboardService.ObterCentralPrevisaoResumoAsync(
+            new DashboardCentralPrevisaoQueryRequest { MesReferencia = competencia, Dias = dias }, ct);
+        return JsonSerializer.Serialize(response);
+    }
+
+    private async Task<string> CentralPrevisaoItensAsync(string? competencia, int dias, CancellationToken ct)
+    {
+        var response = await dashboardService.ObterCentralPrevisaoItensAsync(
+            new DashboardCentralPrevisaoItensQueryRequest { MesReferencia = competencia, Dias = dias }, ct);
+        return JsonSerializer.Serialize(response);
+    }
+
+    private async Task<string> ComparativoMensalAsync(int meses, CancellationToken ct)
+    {
+        var response = await dashboardService.ObterComparativoMensalAsync(
+            new DashboardComparativoMensalQueryRequest { Meses = meses }, ct);
+        return JsonSerializer.Serialize(response);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static (DateOnly inicio, DateOnly fim) ParseCompetencia(string? competencia)
     {

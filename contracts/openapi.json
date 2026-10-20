@@ -15952,23 +15952,6 @@
         },
         "additionalProperties": false
       },
-      "AgenteStreamEventDto": {
-        "type": "object",
-        "properties": {
-          "tipo": {
-            "type": "string",
-            "nullable": true
-          },
-          "dados": {
-            "type": "string",
-            "nullable": true
-          },
-          "arquivo": {
-            "$ref": "#/components/schemas/AgentFileOutputDto"
-          }
-        },
-        "additionalProperties": false
-      },
       "AgentFileOutputDto": {
         "type": "object",
         "properties": {
@@ -23604,6 +23587,18 @@
             "items": {
               "type": "string"
             },
+            "nullable": true
+          },
+          "midiaBase64": {
+            "type": "string",
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "nomeArquivo": {
+            "type": "string",
             "nullable": true
           }
         },

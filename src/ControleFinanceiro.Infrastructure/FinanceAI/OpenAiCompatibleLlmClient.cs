@@ -33,7 +33,23 @@ public sealed class OpenAiCompatibleLlmClient(
                 LlmRole.ToolResult => "tool",
                 _ => "user"
             };
-            messages.Add(new { role, content = m.Content });
+
+            if (m.ImageBase64 is not null && m.ImageMimeType is not null)
+            {
+                messages.Add(new
+                {
+                    role,
+                    content = (object)new object[]
+                    {
+                        new { type = "image_url", image_url = new { url = $"data:{m.ImageMimeType};base64,{m.ImageBase64}" } },
+                        new { type = "text", text = m.Content }
+                    }
+                });
+            }
+            else
+            {
+                messages.Add(new { role, content = (object)m.Content });
+            }
         }
 
         var body = new Dictionary<string, object>

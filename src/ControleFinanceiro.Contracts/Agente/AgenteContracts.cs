@@ -7,10 +7,17 @@ public sealed record AgentePerguntarRequest(
     [Required, StringLength(2000, MinimumLength = 1)] string Mensagem,
     Guid? ConversaId = null);
 
+public sealed record AgentFileOutputDto(
+    string Nome,
+    string MimeType,
+    string Url,
+    long TamanhoBytes);
+
 public sealed record AgentePerguntarResponse(
     string Resposta,
     Guid ConversaId,
-    int TokensUsados);
+    int TokensUsados,
+    IReadOnlyList<AgentFileOutputDto>? Arquivos = null);
 
 public sealed record AgenteInsightsRequest(
     [Required, RegularExpression(@"^\d{4}-\d{2}$")] string MesReferencia);
@@ -29,6 +36,11 @@ public sealed record AgenteCategorizacaoItem(
     double Confianca);
 
 public sealed record AgenteCategorizarResponse(IReadOnlyList<AgenteCategorizacaoItem> Itens);
+
+public sealed record AgenteStreamEventDto(
+    string Tipo,
+    string? Dados = null,
+    AgentFileOutputDto? Arquivo = null);
 
 public sealed record ConversaResumoResponse(
     Guid Id,

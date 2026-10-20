@@ -9,7 +9,13 @@ public sealed record WhatsappMensagemRequest(
     string MessageId,
     DateTimeOffset Timestamp);
 
-public sealed record WhatsappResposta(string Tipo, string Conteudo, IReadOnlyList<string>? Opcoes = null);
+public sealed record WhatsappResposta(
+    string Tipo,
+    string Conteudo,
+    IReadOnlyList<string>? Opcoes = null,
+    string? MidiaBase64 = null,
+    string? MimeType = null,
+    string? NomeArquivo = null);
 
 public sealed record WhatsappMensagemResponse(IReadOnlyList<WhatsappResposta> Respostas);
 

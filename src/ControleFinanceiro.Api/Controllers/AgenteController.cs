@@ -15,6 +15,7 @@ namespace ControleFinanceiro.Api.Controllers;
 [Route("api/v1/agente")]
 public sealed class AgenteController(
     IFinanceAgentService agentService,
+    IAgentFileService fileService,
     FinanceInsightsService insightsService,
     FinanceCategorizacaoService categorizacaoService,
     IAppDbContext db,
@@ -36,7 +37,7 @@ public sealed class AgenteController(
             new AgentRequest(request.Mensagem, request.ConversaId),
             cancellationToken);
 
-        return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+        return Ok(MapResponse(result));
     }
 
     [HttpPost("perguntar-com-arquivo")]
@@ -74,7 +75,7 @@ public sealed class AgenteController(
             };
 
             var result = await agentService.ProcessarAsync(agentRequest, cancellationToken);
-            return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+            return Ok(MapResponse(result));
         }
         finally
         {
@@ -159,4 +160,168 @@ public sealed class AgenteController(
         var result = await categorizacaoService.CategorizarAsync(request.Descricoes, cancellationToken);
         return Ok(new AgenteCategorizarResponse(result));
     }
+
+    [HttpPost("perguntar-stream")]
+    [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task PerguntarStream(
+        [FromBody] AgentePerguntarRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Mensagem))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        SetSseHeaders();
+
+        var result = await ExecuteStreamAsync(
+            new AgentRequest(request.Mensagem, request.ConversaId), cancellationToken);
+
+        if (result is not null)
+        {
+            var finalJson = System.Text.Json.JsonSerializer.Serialize(MapResponse(result), SseJsonOptions);
+            await Response.WriteAsync($"event: resultado\ndata: {finalJson}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+    }
+
+    [HttpPost("perguntar-stream-com-arquivo")]
+    [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
+    [RequestSizeLimit(134_217_728)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task PerguntarStreamComArquivo(
+        [FromForm] string mensagem,
+        [FromForm] Guid? conversaId,
+        IFormFile? arquivo,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(mensagem))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        string? tempPath = null;
+        string? fileName = null;
+
+        if (arquivo is { Length: > 0 })
+        {
+            fileName = arquivo.FileName;
+            tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}{Path.GetExtension(fileName)}");
+            await using var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write);
+            await arquivo.CopyToAsync(fs, cancellationToken);
+        }
+
+        SetSseHeaders();
+
+        try
+        {
+            var agentRequest = new AgentRequest(mensagem, conversaId)
+            {
+                ArquivoAnexoPath = tempPath,
+                ArquivoAnexoNome = fileName
+            };
+
+            var result = await ExecuteStreamAsync(agentRequest, cancellationToken);
+
+            if (result is not null)
+            {
+                var finalJson = System.Text.Json.JsonSerializer.Serialize(MapResponse(result), SseJsonOptions);
+                await Response.WriteAsync($"event: resultado\ndata: {finalJson}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (tempPath is not null && System.IO.File.Exists(tempPath))
+                System.IO.File.Delete(tempPath);
+        }
+    }
+
+    [HttpGet("arquivos/{fileId}/{nomeArquivo}")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> BaixarArquivo(
+        string fileId,
+        string nomeArquivo,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var url = $"/api/v1/agente/arquivos/{fileId}/{nomeArquivo}";
+            var bytes = await fileService.LerAsync(url, cancellationToken);
+            var mime = InferirMimeType(nomeArquivo);
+            return File(bytes, mime, nomeArquivo);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions SseJsonOptions = new()
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    };
+
+    private void SetSseHeaders()
+    {
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Connection = "keep-alive";
+        Response.Headers["X-Accel-Buffering"] = "no";
+    }
+
+    private async Task<AgentResponse?> ExecuteStreamAsync(AgentRequest agentRequest, CancellationToken cancellationToken)
+    {
+        async Task WriteSseEvent(AgentStreamEvent evt)
+        {
+            var dto = new AgenteStreamEventDto(
+                evt.Tipo.ToString().ToLowerInvariant(),
+                evt.Dados,
+                evt.Arquivo is { } a ? new AgentFileOutputDto(a.Nome, a.MimeType, a.Url, a.TamanhoBytes) : null);
+
+            var json = System.Text.Json.JsonSerializer.Serialize(dto, SseJsonOptions);
+            await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+
+        try
+        {
+            return await agentService.ProcessarStreamAsync(agentRequest, WriteSseEvent, cancellationToken);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            var errorJson = System.Text.Json.JsonSerializer.Serialize(
+                new AgenteStreamEventDto("erro", ex.Message), SseJsonOptions);
+            await Response.WriteAsync($"data: {errorJson}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+            return null;
+        }
+    }
+
+    private static AgentePerguntarResponse MapResponse(AgentResponse result) =>
+        new(result.Resposta, result.ConversaId, result.TokensUsados,
+            result.Arquivos?.Select(a => new AgentFileOutputDto(a.Nome, a.MimeType, a.Url, a.TamanhoBytes)).ToList());
+
+    private static string InferirMimeType(string nome) =>
+        Path.GetExtension(nome).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".pdf" => "application/pdf",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".csv" => "text/csv",
+            _ => "application/octet-stream"
+        };
 }

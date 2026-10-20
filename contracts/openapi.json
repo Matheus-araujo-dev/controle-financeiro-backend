@@ -15605,6 +15605,39 @@
           }
         ]
       }
+    },
+    "/api/v1/agente/arquivos/{fileId}/{nomeArquivo}": {
+      "get": {
+        "tags": [
+          "Agente"
+        ],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nomeArquivo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15718,6 +15751,28 @@
         },
         "additionalProperties": false
       },
+      "AgentFileOutputDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "tamanhoBytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
       "AgentePerguntarResponse": {
         "type": "object",
         "properties": {
@@ -15732,6 +15787,13 @@
           "tokensUsados": {
             "type": "integer",
             "format": "int32"
+          },
+          "arquivos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentFileOutputDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

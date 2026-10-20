@@ -28,6 +28,26 @@ public sealed class WhatsappOutboundService(
         }
     }
 
+    public async Task EnviarMidiaAsync(string telefone, string tipo, string base64Content, string mimeType, string? nomeArquivo, string? legenda, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var payload = new { telefone, tipo, base64 = base64Content, mimeType, nomeArquivo, legenda };
+            var response = await httpClient.PostAsJsonAsync("/enviar-midia", payload, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                logger.LogWarning("Bridge outbound mídia retornou {Status} para {Telefone}: {Body}",
+                    (int)response.StatusCode, telefone, body);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Falha ao enviar mídia para {Telefone}.", telefone);
+        }
+    }
+
     public async Task<WhatsappBridgeQrResponse> ObterQrAsync(CancellationToken cancellationToken)
     {
         try

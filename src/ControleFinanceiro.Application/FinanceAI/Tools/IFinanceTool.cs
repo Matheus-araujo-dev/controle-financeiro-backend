@@ -1,3 +1,4 @@
+using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Domain.Identidade;
 
 namespace ControleFinanceiro.Application.FinanceAI.Tools;
@@ -8,7 +9,11 @@ public sealed record ToolContext(
     PapelFamilia Papel,
     string NomeFamilia,
     string? ArquivoAnexoPath = null,
-    string? ArquivoAnexoNome = null);
+    string? ArquivoAnexoNome = null,
+    IAgentFileService? FileService = null)
+{
+    public List<AgentFileOutput> ArquivosGerados { get; } = [];
+}
 
 public interface IFinanceTool
 {

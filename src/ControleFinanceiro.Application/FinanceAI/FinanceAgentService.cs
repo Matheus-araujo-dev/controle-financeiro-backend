@@ -14,9 +14,10 @@ public sealed class FinanceAgentService(
     IAppDbContext db,
     ICurrentUser currentUser,
     IEnumerable<IFinanceTool> tools,
+    IAgentFileService fileService,
     ILogger<FinanceAgentService> logger) : IFinanceAgentService
 {
-    private const int MaxToolRounds = 5;
+    private const int MaxToolRounds = 15;
     private static readonly Regex ThinkTagRegex = new(@"<think>[\s\S]*?</think>\s*", RegexOptions.Compiled);
 
     public async Task<AgentResponse> ProcessarAsync(AgentRequest request, CancellationToken cancellationToken)
@@ -29,7 +30,7 @@ public sealed class FinanceAgentService(
 
         var (usuarioId, papel, nomeFamilia) = await ResolverContextoAsync(familiaId, request.UsuarioId, cancellationToken);
 
-        var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia, request.ArquivoAnexoPath, request.ArquivoAnexoNome);
+        var toolContext = new ToolContext(familiaId, usuarioId, papel, nomeFamilia, request.ArquivoAnexoPath, request.ArquivoAnexoNome, fileService);
         var toolMap = tools.ToDictionary(t => t.Name);
         var toolDefs = tools.Select(t => new LlmToolDefinition(t.Name, t.Description, t.InputSchema)).ToList();
         var systemPrompt = FinanceAgentSystemPrompt.Build(nomeFamilia, papel.ToString(), DateOnly.FromDateTime(DateTime.UtcNow));
@@ -65,6 +66,33 @@ public sealed class FinanceAgentService(
                 m.Conteudo))
             .ToList();
 
+        // Vision: se a mensagem atual tem imagem anexada, inclui no último LlmMessage (user)
+        if (request.ArquivoAnexoPath is not null)
+        {
+            var ext = Path.GetExtension(request.ArquivoAnexoPath).ToLowerInvariant();
+            var imageMimes = new HashSet<string> { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" };
+            if (imageMimes.Contains(ext) && File.Exists(request.ArquivoAnexoPath))
+            {
+                var imageBytes = await File.ReadAllBytesAsync(request.ArquivoAnexoPath, cancellationToken);
+                var base64 = Convert.ToBase64String(imageBytes);
+                var mime = ext switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    ".bmp" => "image/bmp",
+                    _ => "image/jpeg"
+                };
+
+                if (messages.Count > 0)
+                {
+                    var last = messages[^1];
+                    messages[^1] = last with { ImageBase64 = base64, ImageMimeType = mime };
+                }
+            }
+        }
+
         var totalTokens = 0;
         var resposta = string.Empty;
         var toolCallsData = new List<(string Nome, string Input, string Output, string Status, int InTokens, int OutTokens)>();
@@ -72,7 +100,8 @@ public sealed class FinanceAgentService(
         // Loop de function calling
         for (var round = 0; round < MaxToolRounds; round++)
         {
-            var llmRequest = new LlmRequest(LlmModelTier.Fast, systemPrompt, messages, toolDefs);
+            var tier = messages.Any(m => m.ImageBase64 is not null) ? LlmModelTier.Reasoning : LlmModelTier.Fast;
+            var llmRequest = new LlmRequest(tier, systemPrompt, messages, toolDefs);
             var completion = await llmClient.CompleteAsync(llmRequest, cancellationToken);
             totalTokens += completion.Usage.InputTokens + completion.Usage.OutputTokens;
 
@@ -131,7 +160,8 @@ public sealed class FinanceAgentService(
         // Persist conversation data
         await SalvarConversaAsync(conversa, isNewConversa, request, resposta, toolCallsData, cancellationToken);
 
-        return new AgentResponse(resposta, conversa.Id, totalTokens);
+        return new AgentResponse(resposta, conversa.Id, totalTokens,
+            toolContext.ArquivosGerados.Count > 0 ? toolContext.ArquivosGerados : null);
     }
 
     private async Task SalvarConversaAsync(

@@ -12,7 +12,11 @@ public sealed record LlmRequest(
     IReadOnlyList<LlmToolDefinition>? Tools = null,
     string? ResponseFormatSchema = null);
 
-public sealed record LlmMessage(LlmRole Role, string Content);
+public sealed record LlmMessage(LlmRole Role, string Content)
+{
+    public string? ImageBase64 { get; init; }
+    public string? ImageMimeType { get; init; }
+}
 
 public sealed record LlmToolDefinition(
     string Name,

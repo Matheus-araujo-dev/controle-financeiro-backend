@@ -31,7 +31,14 @@ public sealed record AgentRequest(string Mensagem, Guid? ConversaId = null)
     public string? ArquivoAnexoNome { get; init; }
 }
 
+public sealed record AgentFileOutput(
+    string Nome,
+    string MimeType,
+    string Url,
+    long TamanhoBytes);
+
 public sealed record AgentResponse(
     string Resposta,
     Guid ConversaId,
-    int TokensUsados);
+    int TokensUsados,
+    IReadOnlyList<AgentFileOutput>? Arquivos = null);

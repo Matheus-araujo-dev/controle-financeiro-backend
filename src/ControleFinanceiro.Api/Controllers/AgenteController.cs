@@ -15,6 +15,7 @@ namespace ControleFinanceiro.Api.Controllers;
 [Route("api/v1/agente")]
 public sealed class AgenteController(
     IFinanceAgentService agentService,
+    IAgentFileService fileService,
     FinanceInsightsService insightsService,
     FinanceCategorizacaoService categorizacaoService,
     IAppDbContext db,
@@ -36,7 +37,7 @@ public sealed class AgenteController(
             new AgentRequest(request.Mensagem, request.ConversaId),
             cancellationToken);
 
-        return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+        return Ok(MapResponse(result));
     }
 
     [HttpPost("perguntar-com-arquivo")]
@@ -74,7 +75,7 @@ public sealed class AgenteController(
             };
 
             var result = await agentService.ProcessarAsync(agentRequest, cancellationToken);
-            return Ok(new AgentePerguntarResponse(result.Resposta, result.ConversaId, result.TokensUsados));
+            return Ok(MapResponse(result));
         }
         finally
         {
@@ -159,4 +160,43 @@ public sealed class AgenteController(
         var result = await categorizacaoService.CategorizarAsync(request.Descricoes, cancellationToken);
         return Ok(new AgenteCategorizarResponse(result));
     }
+
+    [HttpGet("arquivos/{fileId}/{nomeArquivo}")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> BaixarArquivo(
+        string fileId,
+        string nomeArquivo,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var url = $"/api/v1/agente/arquivos/{fileId}/{nomeArquivo}";
+            var bytes = await fileService.LerAsync(url, cancellationToken);
+            var mime = InferirMimeType(nomeArquivo);
+            return File(bytes, mime, nomeArquivo);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    private static AgentePerguntarResponse MapResponse(AgentResponse result) =>
+        new(result.Resposta, result.ConversaId, result.TokensUsados,
+            result.Arquivos?.Select(a => new AgentFileOutputDto(a.Nome, a.MimeType, a.Url, a.TamanhoBytes)).ToList());
+
+    private static string InferirMimeType(string nome) =>
+        Path.GetExtension(nome).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".pdf" => "application/pdf",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".csv" => "text/csv",
+            _ => "application/octet-stream"
+        };
 }

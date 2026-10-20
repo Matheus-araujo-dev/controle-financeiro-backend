@@ -155,6 +155,12 @@ public static class DependencyInjection
         services.AddScoped<IFinanceTool, GerenciarImportacaoWhatsappTool>();
         services.AddScoped<IFinanceTool, GerenciarItemImportacaoWhatsappTool>();
         services.AddScoped<IFinanceTool, BuscarAnexosTool>();
+        services.AddScoped<IFinanceTool, GerarGraficoTool>();
+        services.AddScoped<IFinanceTool, GerarExcelTool>();
+        services.AddScoped<IFinanceTool, GerarPdfTool>();
+        services.AddScoped<IFinanceTool, GerarApresentacaoTool>();
+        services.AddScoped<IAgentFileService, LocalAgentFileService>();
+        services.AddScoped<IContentGenerator, ContentGenerationService>();
         services.AddScoped<IFinanceAgentService, FinanceAgentService>();
         services.AddScoped<FinanceInsightsService>();
         services.AddScoped<FinanceCategorizacaoService>();

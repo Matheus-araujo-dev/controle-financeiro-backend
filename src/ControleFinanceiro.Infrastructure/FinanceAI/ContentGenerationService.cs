@@ -42,8 +42,7 @@ public sealed class ContentGenerationService : IContentGenerator
                     return slice;
                 }).ToList();
 
-                var pie = plot.Add.Pie(slices);
-                pie.ShowSliceLabels = true;
+                plot.Add.Pie(slices);
                 break;
             }
             case "barra":
@@ -91,7 +90,7 @@ public sealed class ContentGenerationService : IContentGenerator
             }
         }
 
-        var bytes = plot.GetImageBytes(request.Largura, request.Altura, ImageFormat.Png);
+        var bytes = plot.GetImageBytes(request.Largura, request.Altura, ScottPlot.ImageFormat.Png);
         return Task.FromResult(bytes);
     }
 
@@ -156,10 +155,10 @@ public sealed class ContentGenerationService : IContentGenerator
 
                 page.Header().Column(col =>
                 {
-                    col.Item().Text(request.Titulo).Bold().FontSize(20).FontColor(Colors.Blue.Darken3);
+                    col.Item().Text(request.Titulo).Bold().FontSize(20).FontColor(QuestPDF.Helpers.Colors.Blue.Darken3);
                     if (!string.IsNullOrEmpty(request.Subtitulo))
-                        col.Item().Text(request.Subtitulo).FontSize(14).FontColor(Colors.Grey.Darken1);
-                    col.Item().PaddingBottom(5).LineHorizontal(1).LineColor(Colors.Blue.Darken3);
+                        col.Item().Text(request.Subtitulo).FontSize(14).FontColor(QuestPDF.Helpers.Colors.Grey.Darken1);
+                    col.Item().PaddingBottom(5).LineHorizontal(1).LineColor(QuestPDF.Helpers.Colors.Blue.Darken3);
                 });
 
                 page.Content().PaddingVertical(10).Column(col =>
@@ -176,11 +175,11 @@ public sealed class ContentGenerationService : IContentGenerator
 
                         if (trimmed.StartsWith("## "))
                         {
-                            col.Item().PaddingTop(10).Text(trimmed[3..]).Bold().FontSize(16).FontColor(Colors.Blue.Darken2);
+                            col.Item().PaddingTop(10).Text(trimmed[3..]).Bold().FontSize(16).FontColor(QuestPDF.Helpers.Colors.Blue.Darken2);
                         }
                         else if (trimmed.StartsWith("# "))
                         {
-                            col.Item().PaddingTop(12).Text(trimmed[2..]).Bold().FontSize(18).FontColor(Colors.Blue.Darken3);
+                            col.Item().PaddingTop(12).Text(trimmed[2..]).Bold().FontSize(18).FontColor(QuestPDF.Helpers.Colors.Blue.Darken3);
                         }
                         else if (trimmed.StartsWith("- ") || trimmed.StartsWith("• "))
                         {

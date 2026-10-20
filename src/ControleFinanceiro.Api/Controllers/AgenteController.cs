@@ -220,6 +220,82 @@ public sealed class AgenteController(
         }
     }
 
+    [HttpPost("perguntar-stream-com-arquivo")]
+    [EnableRateLimiting(RateLimitPolicies.AiPolicy)]
+    [RequestSizeLimit(134_217_728)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task PerguntarStreamComArquivo(
+        [FromForm] string mensagem,
+        [FromForm] Guid? conversaId,
+        IFormFile? arquivo,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(mensagem))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        string? tempPath = null;
+        string? fileName = null;
+
+        if (arquivo is { Length: > 0 })
+        {
+            fileName = arquivo.FileName;
+            tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}{Path.GetExtension(fileName)}");
+            await using var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write);
+            await arquivo.CopyToAsync(fs, cancellationToken);
+        }
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Connection = "keep-alive";
+
+        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+
+        var progress = new Progress<AgentStreamEvent>(async evt =>
+        {
+            var dto = new AgenteStreamEventDto(
+                evt.Tipo.ToString().ToLowerInvariant(),
+                evt.Dados,
+                evt.Arquivo is { } a ? new AgentFileOutputDto(a.Nome, a.MimeType, a.Url, a.TamanhoBytes) : null);
+
+            var json = System.Text.Json.JsonSerializer.Serialize(dto, jsonOpts);
+            await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        });
+
+        try
+        {
+            var agentRequest = new AgentRequest(mensagem, conversaId)
+            {
+                ArquivoAnexoPath = tempPath,
+                ArquivoAnexoNome = fileName
+            };
+
+            var result = await agentService.ProcessarStreamAsync(agentRequest, progress, cancellationToken);
+
+            var finalJson = System.Text.Json.JsonSerializer.Serialize(MapResponse(result), jsonOpts);
+            await Response.WriteAsync($"event: resultado\ndata: {finalJson}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            var errorJson = System.Text.Json.JsonSerializer.Serialize(
+                new AgenteStreamEventDto("erro", ex.Message), jsonOpts);
+            await Response.WriteAsync($"data: {errorJson}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
+        finally
+        {
+            if (tempPath is not null && System.IO.File.Exists(tempPath))
+                System.IO.File.Delete(tempPath);
+        }
+    }
+
     [HttpGet("arquivos/{fileId}/{nomeArquivo}")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]

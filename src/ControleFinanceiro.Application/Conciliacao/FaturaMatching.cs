@@ -42,7 +42,7 @@ public static class FaturaMatching
             var reason = (difference == 0 ? "Mesmo valor" : "Diferença de centavos") +
                 (days == 0 ? ", mesma data" : dataProxima ? ", data próxima" : ", data original divergente") +
                 (identified ? ", estabelecimento reconhecido" : ", conferir estabelecimento");
-            candidates.Add(new(conta.Id, difference, points, reason, identified));
+            candidates.Add(new(conta.Id, difference, points, reason, identified || points >= 55));
         }
         // A correspondência é apenas uma sugestão. Empate ou candidatos concorrentes exigem escolha humana.
         var clearCount = candidates.Count(c => c.CorrespondenciaClara);

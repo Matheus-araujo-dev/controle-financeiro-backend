@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ControleFinanceiro.Application.Financeiro.Reembolsos;
 using ControleFinanceiro.Contracts.Financeiro.Reembolsos;
 using System.Security.Cryptography;
@@ -49,7 +50,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
             ocorrencias.TryGetValue(key, out var count);
             ocorrencias[key] = ++count;
             if (count > 1) key += $"-{count}";
-            return ItemConciliacao.CriarFatura(x.DataTransacao, x.Descricao, x.Valor, key, x.NumeroParcela, x.QuantidadeParcelas);
+            return ItemConciliacao.CriarFatura(x.DataTransacao, LimparDescricaoParcela(x.Descricao), x.Valor, key, x.NumeroParcela, x.QuantidadeParcelas);
         }).ToArray();
         var session = Domain.Conciliacao.Conciliacao.CriarFatura(Path.GetFileName(nome), faturaId, hash, itens, parsed.AvisoFormato, parsed.TotalDocumento);
         db.Conciliacoes.Add(session);
@@ -221,6 +222,9 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         await db.SaveChangesAsync(ct);
         return true;
     }
+
+    private static readonly Regex ParcelaRegex = new(@"\s*parcela\s+\d+\s+de\s+\d+\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    internal static string LimparDescricaoParcela(string descricao) => ParcelaRegex.Replace(descricao, "").Trim();
 
     private static CompraComparavel Comparavel(ContaPagar c) => new(c.Id, c.DataCompra ?? c.DataEmissao, c.Descricao, c.ValorLiquido, c.NumeroParcela, c.QuantidadeParcelas);
     private static Exception Erro(string message) => ValidationExceptionFactory.Create("Conciliacao", message);

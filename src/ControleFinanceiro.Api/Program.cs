@@ -1,4 +1,4 @@
-using ControleFinanceiro.Api.Configuration;
+﻿using ControleFinanceiro.Api.Configuration;
 using ControleFinanceiro.Api.Extensions;
 using ControleFinanceiro.Api.Middleware;
 using ControleFinanceiro.Api.Swagger;
@@ -8,6 +8,8 @@ using ControleFinanceiro.Infrastructure;
 using ControleFinanceiro.Infrastructure.Persistence;
 using ControleFinanceiro.SharedKernel.Logging;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
@@ -28,12 +30,12 @@ if (args.Length > 0)
     builder.Configuration.AddCommandLine(args);
 }
 
-var connectionString = builder.Configuration.GetConnectionString("SqlServer");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (connectionString?.Contains("${DB_PASSWORD}") == true)
 {
-    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") 
-        ?? throw new InvalidOperationException("A variável de ambiente DB_PASSWORD deve estar configurada para expandir ${DB_PASSWORD} na connection string.");
-    builder.Configuration["ConnectionStrings:SqlServer"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD")
+        ?? throw new InvalidOperationException("A variÃ¡vel de ambiente DB_PASSWORD deve estar configurada para expandir ${DB_PASSWORD} na connection string.");
+    builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString.Replace("${DB_PASSWORD}", dbPassword);
 }
 
 Log.Logger = new LoggerConfiguration()
@@ -61,9 +63,18 @@ builder.Services.Configure<WhatsappWebhookOptions>(builder.Configuration.GetSect
 builder.Services.AddFeatureFlags(builder.Configuration);
 builder.Services.AddObservability(builder.Configuration);
 builder.Services.AddMemoryCache();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/json"]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddApiFoundation(builder.Configuration);
+builder.Services.AddApiFoundation(builder.Configuration, builder.Environment);
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
@@ -91,14 +102,14 @@ static string GetPartitionKey(HttpContext httpContext)
         var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
                      ?? httpContext.User.FindFirstValue("sub")
                      ?? httpContext.User.FindFirstValue("userId");
-        var familiaId = httpContext.User.FindFirstValue("familiaId");
+        var workspaceId = httpContext.User.FindFirstValue("workspaceId") ?? httpContext.User.FindFirstValue("familiaId");
 
         if (!string.IsNullOrEmpty(userId))
         {
-            // Partition per tenant+user to isolate rate limits across families.
-            return string.IsNullOrEmpty(familiaId)
+            // Partition per workspace+user to isolate rate limits across workspaces.
+            return string.IsNullOrEmpty(workspaceId)
                 ? $"user:{userId}"
-                : $"familia:{familiaId}:user:{userId}";
+                : $"workspace:{workspaceId}:user:{userId}";
         }
     }
 
@@ -106,13 +117,18 @@ static string GetPartitionKey(HttpContext httpContext)
            ?? httpContext.Request.Headers.Host.ToString();
 }
 var healthChecks = builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("database", tags: ["db", "sqlserver"])
+    .AddDbContextCheck<AppDbContext>("database", tags: ["db", "postgres"])
     .AddCheck("self", () => HealthCheckResult.Healthy("API is running"), tags: ["self", "live"])
     .AddCheck("logging", () => HealthCheckResult.Healthy("Logging is available"), tags: ["logging", "infra"]);
 
 healthChecks.AddCheck<DistributedCacheHealthCheck>("cache", tags: ["cache", "infra"]);
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.MigrationStartupService>();
+}
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.RecorrenciaMensalWorker>();
 builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.AtualizacaoStatusContasWorker>();
+builder.Services.AddHostedService<ControleFinanceiro.Api.BackgroundServices.TransicaoStatusFuturoWorker>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -138,6 +154,14 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Use um token Bearer quando a API estiver configurada em modo JwtBearer/Auth0."
     });
 
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Name = "X-Api-Key",
+        Description = "API Key para agentes de serviço (WhatsApp, automações)."
+    });
+
     if (builder.Environment.IsDevelopment())
     {
         options.AddSecurityDefinition("DebugUser", new OpenApiSecurityScheme
@@ -154,6 +178,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+app.UseResponseCompression();
 
 app.Use(async (context, next) =>
 {
@@ -185,10 +211,10 @@ app.UseSerilogRequestLogging(options =>
         {
             var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
                          ?? httpContext.User.FindFirstValue("sub");
-            var familiaId = httpContext.User.FindFirstValue("familiaId");
+            var workspaceId = httpContext.User.FindFirstValue("workspaceId") ?? httpContext.User.FindFirstValue("familiaId");
 
             if (userId is not null) diagnosticContext.Set("UserId", userId);
-            if (familiaId is not null) diagnosticContext.Set("TenantId", familiaId);
+            if (workspaceId is not null) diagnosticContext.Set("TenantId", workspaceId);
         }
     };
 });
@@ -196,19 +222,28 @@ app.UseSerilogRequestLogging(options =>
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors(CorsOptions.PolicyName);
 
+// Swagger UI (habilitado apenas em Development/Testing) injeta estilos inline; fora desses
+// ambientes a API serve apenas JSON, então dispensamos 'unsafe-inline' em style-src.
+var permiteEstiloInline = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing");
+var styleSrc = permiteEstiloInline ? "style-src 'self' 'unsafe-inline'; " : "style-src 'self'; ";
+var contentSecurityPolicy =
+    "default-src 'self'; " +
+    "script-src 'self' https://accounts.google.com/gsi/client; " +
+    "frame-src https://accounts.google.com; " +
+    "connect-src 'self' https://apis.google.com; " +
+    styleSrc +
+    "img-src 'self' data: https://lh3.googleusercontent.com;";
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
     context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    // Bloqueia acesso a recursos sensíveis do navegador que a aplicação não utiliza.
+    context.Response.Headers.Append("Permissions-Policy",
+        "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()");
     // CSP permite Google Sign-In e comunicação com Anthropic (usados pelo frontend e backend)
-    context.Response.Headers.Append("Content-Security-Policy",
-        "default-src 'self'; " +
-        "script-src 'self' https://accounts.google.com/gsi/client; " +
-        "frame-src https://accounts.google.com; " +
-        "connect-src 'self' https://apis.google.com; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data: https://lh3.googleusercontent.com;");
+    context.Response.Headers.Append("Content-Security-Policy", contentSecurityPolicy);
     await next();
 });
 
@@ -254,3 +289,6 @@ app.MapControllers();
 app.Run();
 
 public partial class Program;
+
+
+

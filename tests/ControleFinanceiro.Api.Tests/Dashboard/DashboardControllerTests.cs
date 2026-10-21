@@ -15,6 +15,20 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
+    public async Task GetResumo_DeveContarFaturaUmaVezSemSomarComprasInternas()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        await CriarCompraCartaoAsync(client, fixture, "2026-04-05", 300m, "Compra interna");
+        var resumo = await client.GetFromJsonAsync<DashboardResumoResponse>(
+            "/api/v1/dashboard/resumo?mesReferencia=2026-04");
+        resumo.Should().NotBeNull();
+        resumo!.TotalAPagar.Should().Be(300m, "a obrigação é a fatura, não a fatura mais os itens internos");
+    }
+
+
+    [Fact]
     public async Task GetResumo_DeveConsolidarCardsListasMovimentosERisco()
     {
         await _factory.ResetDatabaseAsync();
@@ -176,7 +190,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         criarRecorrenciaResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -262,7 +276,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         criarRecorrenciaResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -453,13 +467,16 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
         var mesAtual = new DateOnly(hoje.Year, hoje.Month, 1);
         var mesAtualLabel = mesAtual.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        var diaVencido = hoje.Day > 1 ? hoje.AddDays(-1) : hoje;
+        // Use AddDays(-1) unconditionally: if today is the 1st, this resolves to the last day of
+        // the previous month, which is still < dataReferencia (today) and satisfies the vencida filter.
+        var diaVencido = hoje.AddDays(-1);
+        var dataEmissaoVencida = diaVencido.AddDays(-30);  // 30 days before vencimento, always valid
         var diaAVencer = hoje.Day < DateTime.DaysInMonth(hoje.Year, hoje.Month) ? hoje.AddDays(1) : hoje;
 
         await CriarContaPagarAsync(
             client,
             fixture,
-            dataEmissao: mesAtual.ToString("yyyy-MM-01", CultureInfo.InvariantCulture),
+            dataEmissao: dataEmissaoVencida.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             dataVencimento: diaVencido.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             valor: 300m,
             descricao: "Conta vencida no mês atual",
@@ -698,7 +715,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             contaGerencialId: fixture.ContaGerencialDespesaId,
             origemCompraPlanejadaId: compraPlanejadaConvertidaId);
 
-        using (var scope = _factory.Services.CreateScope())
+        using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
 
@@ -773,8 +790,8 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             item.ValorTotal == 50m);
         response.Itens.Should().Contain(item =>
             item.Data == new DateOnly(2026, 5, 20) &&
-            item.Origem == "Recorrencia" &&
-            item.Status == "Previsto" &&
+            item.Origem == "ContaFuturaGerada" &&
+            item.Status == "Substituido" &&
             item.TipoMovimentacao == "Entrada" &&
             item.ValorTotal == 80m);
         response.Itens.Should().NotContain(item => item.Origem == "CompraPlanejada");
@@ -887,7 +904,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         fluxoMesAtual.Should().NotBeNull();
         fluxoMesSeguinte.Should().NotBeNull();
-        fluxoMesAtual!.Itens.Single(item => item.Data == new DateOnly(mesAtual.Year, mesAtual.Month, 15)).SaidasPrevistas.Should().Be(0m);
+        fluxoMesAtual!.Itens.Single(item => item.Data == new DateOnly(mesAtual.Year, mesAtual.Month, 15)).SaidasPrevistas.Should().Be(50m);
         fluxoMesSeguinte!.Itens.Single(item => item.Data == new DateOnly(mesSeguinte.Year, mesSeguinte.Month, 15)).SaidasPrevistas.Should().Be(50m);
     }
 
@@ -944,13 +961,11 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
 
         resumoMesAtual.Should().NotBeNull();
         resumoMesSeguinte.Should().NotBeNull();
-        resumoMesAtual!.Itens.Should().NotContain(item =>
-            item.Origem == "Recorrencia" ||
-            item.Origem == "ContaFuturaGerada");
+        resumoMesAtual!.Itens.Should().NotContain(item => item.Origem == "Recorrencia");
         resumoMesSeguinte!.Itens.Should().Contain(item =>
             item.Data == new DateOnly(mesSeguinte.Year, mesSeguinte.Month, 15) &&
-            item.Origem == "Recorrencia" &&
-            item.Status == "Previsto" &&
+            item.Origem == "ContaFuturaGerada" &&
+            item.Status == "Substituido" &&
             item.ValorTotal == 81m);
     }
 
@@ -980,6 +995,72 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         response.Itens.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetComparativoMensal_DeveRetornarOkComItens()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        await FinancialFixtureSeed.CreateAsync(client);
+
+        var resp = await client.GetAsync("/api/v1/dashboard/comparativo-mensal?meses=3");
+
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var data = await resp.Content.ReadFromJsonAsync<DashboardComparativoMensalResponse>();
+        data.Should().NotBeNull();
+        data!.Itens.Should().NotBeNull();
+    }
+
+    private sealed record DashboardComparativoMensalResponse(
+        IReadOnlyList<DashboardComparativoMensalItemResponse> Itens);
+
+    private sealed record DashboardComparativoMensalItemResponse(
+        string Competencia,
+        string CompetenciaLabel,
+        decimal Receitas,
+        decimal Despesas,
+        decimal Saldo,
+        decimal? VariacaoReceitas,
+        decimal? VariacaoDespesas);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FluxoCaixa_ContaParcial_DeveSomarRealizadoESomenteSaldoRestante(bool receber)
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = receber
+            ? await CriarContaReceberAsync(client, fixture, "2027-01-01", "2027-01-20", 100m, "Parcial")
+            : await CriarContaPagarAsync(client, fixture, "2027-01-01", "2027-01-20", 100m, "Parcial");
+        var rota = receber ? "contas-receber" : "contas-pagar";
+        (await client.PostAsJsonAsync($"/api/v1/{rota}/{id}/liquidar", new {
+            dataLiquidacao = "2027-01-10", contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 40m, atualizarValorConta = false, cancelarValorRestante = false
+        })).EnsureSuccessStatusCode();
+        var fluxo = await client.GetFromJsonAsync<DashboardFluxoCaixaResponse>("/api/v1/dashboard/fluxo-caixa?mesReferencia=2027-01");
+        var dia = fluxo!.Itens.Single(x => x.Data == new DateOnly(2027, 1, 20));
+        (receber ? dia.EntradasPrevistas : dia.SaidasPrevistas).Should().Be(60m);
+        fluxo.Itens.Sum(x => receber ? x.EntradasPrevistas : x.SaidasPrevistas).Should().Be(100m);
+    }
+    [Fact]
+    public async Task FluxoCaixa_ImportacaoMaterializada_NaoSomaNovamenteOItemConfirmado()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture, "2027-01-01", "2027-01-20", 100m, "Compra importada");
+        using (var scope = _factory.Services.CreateWorkspaceScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+            AdicionarCompraCartaoImportadaConfirmada(db, "Compra importada", "2027-01-01", "2027-01-20", 100m, fixture.ContaGerencialDespesaId, fixture.ResponsavelId);
+            await db.SaveChangesAsync(CancellationToken.None);
+            db.ContasPagar.Single(c => c.Id == id).VincularOrigemImportacao(db.ItensImportadosWhatsapp.Single().ImportacaoWhatsappId);
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+        var fluxo = await client.GetFromJsonAsync<DashboardFluxoCaixaResponse>("/api/v1/dashboard/fluxo-caixa?mesReferencia=2027-01");
+        fluxo!.Itens.Sum(d => d.SaidasPrevistas).Should().Be(100m);
+    }
     private static async Task<Guid> CriarContaPagarAsync(
         HttpClient client,
         FinancialFixtureSeed.FixtureIds fixture,

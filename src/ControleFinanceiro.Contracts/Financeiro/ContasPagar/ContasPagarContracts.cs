@@ -1,6 +1,7 @@
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Contracts.Financeiro.Common;
+using ControleFinanceiro.Contracts.Financeiro.Reembolsos;
 
 namespace ControleFinanceiro.Contracts.Financeiro.ContasPagar;
 
@@ -36,6 +37,8 @@ public sealed record ContaPagarListQueryRequest : ListQueryRequest
     public Guid? FormaPagamentoId { get; init; }
 
     public IReadOnlyCollection<Guid>? FormaPagamentoIds { get; init; }
+
+    public IReadOnlyCollection<Guid>? ResponsavelIds { get; init; }
 
     public string? StatusCodigo { get; init; }
 
@@ -75,7 +78,13 @@ public sealed record CriarContaPagarRequest(
     string Descricao,
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
-    RecorrenciaConfigRequest? Recorrencia);
+    RecorrenciaConfigRequest? Recorrencia,
+    DateOnly? DataCompra = null,
+    bool ForcarProximaFatura = false,
+    Guid? ContaVinculadaOrigemId = null,
+    /// <summary>Quando informado com 2+ ids, cria uma conta por responsável. Se ValoresPorResponsavel tiver o mesmo comprimento, usa valores customizados; caso contrário divide igualmente.</summary>
+    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null,
+    IReadOnlyList<decimal>? ValoresPorResponsavel = null);
 
 public sealed record AtualizarContaPagarRequest(
     Guid Id,
@@ -96,14 +105,24 @@ public sealed record AtualizarContaPagarRequest(
     string Descricao,
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
-    RecorrenciaConfigRequest? Recorrencia);
+    RecorrenciaConfigRequest? Recorrencia,
+    bool AtualizarParcelasFuturas = false,
+    DateOnly? DataCompra = null,
+    bool ForcarProximaFatura = false);
 
 public sealed record LiquidarContaPagarRequest(
     decimal ValorLiquidacao,
     DateOnly DataLiquidacao,
     Guid ContaBancariaId,
     Guid? FormaPagamentoId = null,
-    bool AtualizarValorConta = false);
+    bool AtualizarValorConta = false,
+    bool AtualizarRecorrencia = false,
+    bool CancelarValorRestante = false);
+
+public sealed record CancelarContaPagarRequest(
+    bool? CancelarPlanejamentoRelacionado = null,
+    bool? PausarRecorrenciaRelacionada = null,
+    bool? CancelarParcelasFuturas = null);
 
 public sealed record ContaPagarResumoResponse(
     Guid Id,
@@ -118,6 +137,7 @@ public sealed record ContaPagarResumoResponse(
     Guid FormaPagamentoId,
     string FormaPagamentoNome,
     decimal ValorLiquido,
+    decimal? ValorPago,
     string StatusCodigo,
     string StatusNome,
     int QuantidadeParcelas,
@@ -151,6 +171,7 @@ public sealed record ContaPagarDetalheResponse(
     string RecebedorNome,
     DateOnly DataVencimento,
     DateOnly? DataLiquidacao,
+    DateOnly? DataCompra,
     Guid FormaPagamentoId,
     string FormaPagamentoNome,
     bool FormaPagamentoEhCartao,
@@ -164,6 +185,7 @@ public sealed record ContaPagarDetalheResponse(
     decimal ValorJuros,
     decimal ValorMulta,
     decimal ValorLiquido,
+    decimal? ValorPago,
     int QuantidadeParcelas,
     int NumeroParcela,
     Guid? GrupoParcelamentoId,
@@ -178,6 +200,12 @@ public sealed record ContaPagarDetalheResponse(
     string? CompetenciaFaturaCartao,
     DateOnly? DataFechamentoFaturaCartao,
     DateOnly? DataVencimentoFaturaCartao,
+    string? StatusFaturaCartao,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    ContaVinculadaResumo? ContaVinculada = null,
+    Guid? GrupoReembolsoId = null,
+    Guid? GrupoResponsaveisId = null,
+    GrupoReembolsoInfo? GrupoReembolso = null,
+    GrupoResponsaveisInfo? GrupoResponsaveis = null);

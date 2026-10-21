@@ -39,4 +39,42 @@ public sealed class ContaBancariaTests
         action.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("limiteCartoesCompartilhado");
     }
+
+    [Fact]
+    public void Criar_ComIconeECor_DeveArmazenarValoresNormalizados()
+    {
+        var conta = ContaBancaria.Criar(
+            "Nubank",
+            "Nubank",
+            null,
+            null,
+            "Digital",
+            0m,
+            new DateOnly(2026, 1, 1),
+            null,
+            true,
+            icone: "  account_balance  ",
+            cor: "  #8b5cf6  ");
+
+        conta.Icone.Should().Be("account_balance");
+        conta.Cor.Should().Be("#8b5cf6");
+    }
+
+    [Fact]
+    public void Criar_SemIconeECor_DeveManterNull()
+    {
+        var conta = ContaBancaria.Criar(
+            "Bradesco",
+            "Bradesco",
+            null,
+            null,
+            "Corrente",
+            0m,
+            new DateOnly(2026, 1, 1),
+            null,
+            true);
+
+        conta.Icone.Should().BeNull();
+        conta.Cor.Should().BeNull();
+    }
 }

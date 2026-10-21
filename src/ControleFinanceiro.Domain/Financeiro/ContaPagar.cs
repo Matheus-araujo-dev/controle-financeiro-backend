@@ -28,6 +28,8 @@ public sealed class ContaPagar : TenantEntity
 
     public DateOnly? DataLiquidacao { get; private set; }
 
+    public DateOnly? DataCompra { get; private set; }
+
     public Guid FormaPagamentoId { get; private set; }
 
     public Guid? CartaoId { get; private set; }
@@ -70,6 +72,14 @@ public sealed class ContaPagar : TenantEntity
 
     public OrigemLancamento Origem { get; private set; }
 
+    public Guid? ContaVinculadaId { get; private set; }
+
+    public TipoContaVinculada? TipoContaVinculada { get; private set; }
+
+    public Guid? GrupoReembolsoId { get; private set; }
+
+    public Guid? GrupoResponsaveisId { get; private set; }
+
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
     public static ContaPagar Criar(
@@ -95,7 +105,8 @@ public sealed class ContaPagar : TenantEntity
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
         OrigemLancamento origem,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataCompra = null)
     {
         var conta = new ContaPagar();
         conta.DefinirCampos(
@@ -120,7 +131,8 @@ public sealed class ContaPagar : TenantEntity
             statusContaId,
             ehRecorrente,
             regraRecorrenciaId,
-            origem);
+            origem,
+            dataCompra);
         conta.SubstituirRateios(rateios);
         conta.AddDomainEvent(new ContaPagarCriadaEvent(
             conta.Id,
@@ -134,6 +146,36 @@ public sealed class ContaPagar : TenantEntity
             conta.GrupoParcelamentoId,
             conta.EhRecorrente,
             conta.RegraRecorrenciaId));
+        return conta;
+    }
+
+    public static ContaPagar CriarParaFatura(
+        Guid recebedorId,
+        DateOnly dataVencimento,
+        Guid formaPagamentoId,
+        decimal valorTotal,
+        string descricao)
+    {
+        var conta = new ContaPagar();
+        conta.DefinirCampos(
+            null,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            null,
+            recebedorId,
+            dataVencimento,
+            formaPagamentoId,
+            null,
+            null,
+            valorTotal,
+            0m, 0m, 0m,
+            1, 1,
+            null, null,
+            descricao,
+            null,
+            StatusConta.PendenteId,
+            false,
+            null,
+            OrigemLancamento.Manual);
         return conta;
     }
 
@@ -158,7 +200,8 @@ public sealed class ContaPagar : TenantEntity
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
         OrigemLancamento origem,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataAtual = null)
     {
         if (quantidadeParcelas <= 1)
         {
@@ -205,15 +248,23 @@ public sealed class ContaPagar : TenantEntity
 
         for (var index = 0; index < quantidadeParcelas; index++)
         {
+            var dataVenc = dataVencimento.AddMonths(index);
+            var statusParaParcela = dataAtual.HasValue &&
+                (dataVenc.Year > dataAtual.Value.Year ||
+                 (dataVenc.Year == dataAtual.Value.Year && dataVenc.Month > dataAtual.Value.Month))
+                ? StatusConta.FuturoId
+                : statusContaId;
+
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
+            var descricaoParcela = AjustarDescricaoParcela(descricao, index + 1, quantidadeParcelas);
 
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissao,
                 responsavelCompraId,
                 recebedorId,
-                dataVencimento.AddMonths(index),
+                dataVenc,
                 formaPagamentoId,
                 cartaoId,
                 contaBancariaId,
@@ -225,9 +276,9 @@ public sealed class ContaPagar : TenantEntity
                 index + 1,
                 grupoParcelamentoId,
                 origemCompraPlanejadaId,
-                descricao,
+                descricaoParcela,
                 observacao,
-                statusContaId,
+                statusParaParcela,
                 ehRecorrente,
                 regraRecorrenciaId,
                 origem,
@@ -258,14 +309,19 @@ public sealed class ContaPagar : TenantEntity
         OrigemLancamento origem,
         IReadOnlyCollection<RateioPlano> rateios,
         int diaFechamentoFatura,
-        int diaVencimentoFatura)
+        int diaVencimentoFatura,
+        DateOnly? dataCompra = null,
+        DateOnly? dataVencimentoFaturaOverride = null)
     {
         var valorLiquidoTotal = CalcularValorLiquido(valorOriginal, valorDesconto, valorJuros, valorMulta);
         ValidarRateios(rateios, valorLiquidoTotal);
 
+        var dataReferenciaCompetencia = dataCompra ?? dataEmissao;
+
         if (quantidadeParcelas <= 1)
         {
-            var competenciaPrimeiraParcela = FaturaCartaoCompetencia.Calcular(dataEmissao, diaFechamentoFatura, diaVencimentoFatura);
+            var dataVencimento = dataVencimentoFaturaOverride
+                ?? FaturaCartaoCompetencia.Calcular(dataReferenciaCompetencia, diaFechamentoFatura, diaVencimentoFatura).DataVencimento;
             return
             [
                 Criar(
@@ -273,7 +329,7 @@ public sealed class ContaPagar : TenantEntity
                     dataEmissao,
                     responsavelCompraId,
                     recebedorId,
-                    competenciaPrimeiraParcela.DataVencimento,
+                    dataVencimento,
                     formaPagamentoId,
                     cartaoId,
                     null,
@@ -291,7 +347,8 @@ public sealed class ContaPagar : TenantEntity
                     ehRecorrente,
                     regraRecorrenciaId,
                     origem,
-                    rateios)
+                    rateios,
+                    dataCompra)
             ];
         }
 
@@ -307,17 +364,19 @@ public sealed class ContaPagar : TenantEntity
         for (var index = 0; index < quantidadeParcelas; index++)
         {
             var dataEmissaoParcela = dataEmissao.AddMonths(index);
-            var competenciaParcela = FaturaCartaoCompetencia.Calcular(dataEmissaoParcela, diaFechamentoFatura, diaVencimentoFatura);
+            var dataVencimentoParcela = dataVencimentoFaturaOverride.HasValue
+                ? dataVencimentoFaturaOverride.Value.AddMonths(index)
+                : FaturaCartaoCompetencia.Calcular(dataReferenciaCompetencia.AddMonths(index), diaFechamentoFatura, diaVencimentoFatura).DataVencimento;
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
-            var descricaoParcela = AtualizarMarcadorParcelaDescricao(descricao, index + 1, quantidadeParcelas);
+            var descricaoParcela = AjustarDescricaoParcela(descricao, index + 1, quantidadeParcelas);
 
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissaoParcela,
                 responsavelCompraId,
                 recebedorId,
-                competenciaParcela.DataVencimento,
+                dataVencimentoParcela,
                 formaPagamentoId,
                 cartaoId,
                 null,
@@ -335,20 +394,61 @@ public sealed class ContaPagar : TenantEntity
                 ehRecorrente,
                 regraRecorrenciaId,
                 origem,
-                rateiosParcela));
+                rateiosParcela,
+                dataCompra));
         }
 
         return parcelas;
     }
 
-    private static string AtualizarMarcadorParcelaDescricao(string descricao, int numeroParcela, int quantidadeParcelas)
+    public static IReadOnlyCollection<ContaPagar> CriarParcelasCartaoImportadas(
+        DateOnly dataEmissaoParcelaAtual,
+        Guid? responsavelCompraId,
+        Guid recebedorId,
+        Guid formaPagamentoId,
+        Guid cartaoId,
+        decimal valorParcela,
+        int numeroParcelaAtual,
+        int quantidadeParcelas,
+        string descricao,
+        string? observacao,
+        bool ehRecorrente,
+        Guid? regraRecorrenciaId,
+        IReadOnlyCollection<RateioPlano> rateiosParcela,
+        DateOnly dataVencimentoParcelaAtual,
+        DateOnly? dataCompra = null)
     {
-        if (string.IsNullOrWhiteSpace(descricao))
+        if (numeroParcelaAtual < 1 || quantidadeParcelas < numeroParcelaAtual)
+            throw new ArgumentException("Parcela atual inválida.", nameof(numeroParcelaAtual));
+
+        ValidarRateios(rateiosParcela, valorParcela);
+        var grupoParcelamentoId = quantidadeParcelas > 1 ? Guid.NewGuid() : (Guid?)null;
+        var parcelas = new List<ContaPagar>(quantidadeParcelas - numeroParcelaAtual + 1);
+
+        for (var numero = numeroParcelaAtual; numero <= quantidadeParcelas; numero++)
         {
-            return descricao;
+            var deslocamento = numero - numeroParcelaAtual;
+            var rateios = rateiosParcela
+                .Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor))
+                .ToArray();
+            parcelas.Add(Criar(
+                null, dataEmissaoParcelaAtual.AddMonths(deslocamento), responsavelCompraId, recebedorId,
+                dataVencimentoParcelaAtual.AddMonths(deslocamento), formaPagamentoId, cartaoId, null,
+                valorParcela, 0, 0, 0, quantidadeParcelas, numero, grupoParcelamentoId, null,
+                quantidadeParcelas > 1 ? AjustarDescricaoParcela(descricao, numero, quantidadeParcelas) : descricao,
+                observacao, StatusConta.EmFaturaId, ehRecorrente, regraRecorrenciaId,
+                OrigemLancamento.Importacao, rateios, dataCompra));
         }
 
-        return ParcelaDescricaoRegex.Replace(descricao, $"{numeroParcela}/{quantidadeParcelas}", 1);
+        return parcelas;
+    }
+    private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)
+    {
+        if (string.IsNullOrWhiteSpace(descricao))
+            return descricao;
+
+        var semMarcador = ParcelaDescricaoRegex.Replace(descricao, string.Empty).Trim();
+        return $"{semMarcador} {numeroParcela}/{quantidadeParcelas}";
     }
 
     public void Atualizar(
@@ -367,7 +467,8 @@ public sealed class ContaPagar : TenantEntity
         string descricao,
         string? observacao,
         Guid statusContaId,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataCompra = null)
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
         {
@@ -396,7 +497,8 @@ public sealed class ContaPagar : TenantEntity
             statusContaId,
             EhRecorrente,
             RegraRecorrenciaId,
-            Origem);
+            Origem,
+            dataCompra);
         SubstituirRateios(rateios);
     }
 
@@ -429,6 +531,27 @@ public sealed class ContaPagar : TenantEntity
         AddDomainEvent(new ContaPagarLiquidadaEvent(Id, ValorLiquido, dataLiquidacao, contaBancariaId, Descricao));
     }
 
+    public void AjustarValorConciliacaoFatura(decimal valorFatura, IReadOnlyCollection<RateioPlano> rateios)
+    {
+        if (!CartaoId.HasValue || StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
+            throw new InvalidOperationException("Somente compras de cartão abertas podem ter o valor conciliado.");
+        if (valorFatura == 0 || Math.Sign(valorFatura) != Math.Sign(ValorLiquido)
+            || decimal.Round(valorFatura, 2) != valorFatura)
+            throw new ArgumentException("Valor da fatura deve preservar o sinal e conter no máximo duas casas decimais.", nameof(valorFatura));
+
+        // Valida antes de mudar o agregado, preservando os componentes financeiros e os vínculos.
+        ValidarRateios(rateios, valorFatura);
+        foreach (var rateio in rateios)
+            if (rateio.ContaGerencialId == Guid.Empty || rateio.Valor == 0
+                || Math.Sign(rateio.Valor) != Math.Sign(valorFatura)
+                || decimal.Round(rateio.Valor, 2) != rateio.Valor)
+                throw new ArgumentException("Rateio inválido para o valor conciliado.", nameof(rateios));
+
+        ValorOriginal = valorFatura + ValorDesconto - ValorJuros - ValorMulta;
+        ValorLiquido = valorFatura;
+        SubstituirRateios(rateios);
+    }
+
     public void AtualizarValorLiquido(decimal novoValorLiquido, IReadOnlyCollection<RateioPlano> rateios)
     {
         if (StatusContaId == StatusConta.LiquidadaId || StatusContaId == StatusConta.CanceladaId)
@@ -454,14 +577,31 @@ public sealed class ContaPagar : TenantEntity
 
     public void Estornar(Guid statusContaPendenteId)
     {
-        if (StatusContaId != StatusConta.LiquidadaId)
+        if (StatusContaId != StatusConta.LiquidadaId && StatusContaId != StatusConta.ParcialId)
         {
-            throw new InvalidOperationException("Apenas contas liquidadas podem ser estornadas.");
+            throw new InvalidOperationException("Apenas contas liquidadas ou com pagamento parcial podem ser estornadas.");
         }
 
         StatusContaId = statusContaPendenteId;
         DataLiquidacao = null;
         ContaBancariaId = null;
+    }
+
+    public bool CanceladaPorPausaRecorrencia { get; private set; }
+
+    public void CancelarPorPausaRecorrencia()
+    {
+        // Ocorrências de cartão nascem EmFatura (fatura futura); as demais, Futuro.
+        if (StatusContaId != StatusConta.FuturoId && StatusContaId != StatusConta.EmFaturaId) return;
+        Cancelar(StatusConta.CanceladaId);
+        CanceladaPorPausaRecorrencia = true;
+    }
+
+    public void RetomarAposPausaRecorrencia()
+    {
+        if (!CanceladaPorPausaRecorrencia || StatusContaId != StatusConta.CanceladaId) return;
+        StatusContaId = CartaoId.HasValue ? StatusConta.EmFaturaId : StatusConta.FuturoId;
+        CanceladaPorPausaRecorrencia = false;
     }
 
     public void Cancelar(Guid statusContaCanceladaId)
@@ -472,6 +612,16 @@ public sealed class ContaPagar : TenantEntity
         }
 
         StatusContaId = statusContaCanceladaId;
+    }
+
+    public void DefinirGrupoReembolso(Guid grupoReembolsoId)
+    {
+        GrupoReembolsoId = grupoReembolsoId;
+    }
+
+    public void DefinirGrupoResponsaveis(Guid grupoResponsaveisId)
+    {
+        GrupoResponsaveisId = grupoResponsaveisId;
     }
 
     public void VincularOrigemImportacao(Guid importacaoWhatsappId)
@@ -494,9 +644,31 @@ public sealed class ContaPagar : TenantEntity
         FaturaCartaoId = faturaCartaoId;
     }
 
+    public void ReatribuirFaturaCartao(Guid? novaFaturaCartaoId)
+    {
+        FaturaCartaoId = novaFaturaCartaoId;
+    }
+
     public void DefinirChaveSerieImportacaoCartao(string? chaveSerie)
     {
         ChaveSerieImportacaoCartao = string.IsNullOrWhiteSpace(chaveSerie) ? null : chaveSerie.Trim();
+    }
+
+    public void VincularContaContraria(Guid contaVinculadaId, TipoContaVinculada tipo)
+    {
+        if (contaVinculadaId == Guid.Empty)
+        {
+            throw new ArgumentException("Conta vinculada é obrigatória.", nameof(contaVinculadaId));
+        }
+
+        ContaVinculadaId = contaVinculadaId;
+        TipoContaVinculada = tipo;
+    }
+
+    public void DesvincularContaContraria()
+    {
+        ContaVinculadaId = null;
+        TipoContaVinculada = null;
     }
 
     private void DefinirCampos(
@@ -521,7 +693,8 @@ public sealed class ContaPagar : TenantEntity
         Guid statusContaId,
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
-        OrigemLancamento origem)
+        OrigemLancamento origem,
+        DateOnly? dataCompra = null)
     {
         if (recebedorId == Guid.Empty)
         {
@@ -579,6 +752,7 @@ public sealed class ContaPagar : TenantEntity
         EhRecorrente = ehRecorrente;
         RegraRecorrenciaId = regraRecorrenciaId;
         Origem = origem;
+        DataCompra = dataCompra;
 
         if (ValorLiquido == 0)
         {
@@ -614,7 +788,5 @@ public sealed class ContaPagar : TenantEntity
     }
 
     private static decimal CalcularValorLiquido(decimal valorOriginal, decimal valorDesconto, decimal valorJuros, decimal valorMulta)
-    {
-        return decimal.Round(valorOriginal - valorDesconto + valorJuros + valorMulta, 2, MidpointRounding.AwayFromZero);
-    }
+        => CalculoFinanceiro.ValorLiquido(valorOriginal, valorDesconto, valorJuros, valorMulta);
 }

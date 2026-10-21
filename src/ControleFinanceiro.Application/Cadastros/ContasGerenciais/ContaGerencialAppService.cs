@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 
-public sealed class ContaGerencialAppService(IAppDbContext dbContext)
+public sealed class ContaGerencialAppService(
+    IAppDbContext dbContext,
+    ContasGerenciaisPadraoSeedService padraoSeedService)
 {
     public async Task<PagedResult<ContaGerencialResumoResponse>> ListarAsync(
         ContaGerencialListQueryRequest query,
@@ -18,10 +20,10 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Descricao, termo) ||
-                (x.Codigo != null && EF.Functions.Like(x.Codigo, termo)));
+                EF.Functions.Like(x.Descricao.ToLower(), termo) ||
+                (x.Codigo != null && EF.Functions.Like(x.Codigo.ToLower(), termo)));
         }
 
         if (query.Tipo.HasValue)
@@ -42,12 +44,12 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.ContaPai))
         {
-            var contaPai = $"%{query.ContaPai.Trim()}%";
+            var contaPai = $"%{query.ContaPai.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
                 x.ContaPaiId.HasValue &&
                 dbContext.ContasGerenciais.Any(parent =>
                     parent.Id == x.ContaPaiId.Value &&
-                    EF.Functions.Like(parent.Descricao, contaPai)));
+                    EF.Functions.Like(parent.Descricao.ToLower(), contaPai)));
         }
 
         if (query.ResponsavelPadraoId.HasValue)
@@ -57,12 +59,12 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.ResponsavelPadrao))
         {
-            var responsavelPadrao = $"%{query.ResponsavelPadrao.Trim()}%";
+            var responsavelPadrao = $"%{query.ResponsavelPadrao.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
                 x.ResponsavelPadraoId.HasValue &&
                 dbContext.Pessoas.Any(pessoa =>
                     pessoa.Id == x.ResponsavelPadraoId.Value &&
-                    EF.Functions.Like(pessoa.Nome, responsavelPadrao)));
+                    EF.Functions.Like(pessoa.Nome.ToLower(), responsavelPadrao)));
         }
 
         if (query.Ativo.HasValue)
@@ -164,6 +166,14 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         var responsaveisPadrao = await dbContext.Pessoas.AsNoTracking()
             .Where(x => responsaveisPadraoIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Nome, cancellationToken);
+        var contasContrariaIds = entidades
+            .Where(x => x.ContaGerencialContrariaId.HasValue)
+            .Select(x => x.ContaGerencialContrariaId!.Value)
+            .Distinct()
+            .ToArray();
+        var contasContrarias = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => contasContrariaIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Descricao, cancellationToken);
         var contasComFilhosSet = contasComFilhos.ToHashSet();
         var items = entidades
             .Select(x => new ContaGerencialResumoResponse(
@@ -181,7 +191,11 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
                     : null,
                 x.Ativo,
                 !contasComFilhosSet.Contains(x.Id),
-                x.EhPadraoRecebimentoFaturaCartao))
+                x.EhPadraoRecebimentoFaturaCartao,
+                x.ContaGerencialContrariaId,
+                x.ContaGerencialContrariaId.HasValue && contasContrarias.TryGetValue(x.ContaGerencialContrariaId.Value, out var contaContrariaNome)
+                    ? contaContrariaNome
+                    : null))
             .ToArray();
 
         return PagedResult<ContaGerencialResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -212,6 +226,12 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             : null;
         var aceitaLancamentos = !await dbContext.ContasGerenciais.AsNoTracking()
             .AnyAsync(x => x.ContaPaiId == conta.Id, cancellationToken);
+        var contaContrariaNome = conta.ContaGerencialContrariaId.HasValue
+            ? await dbContext.ContasGerenciais.AsNoTracking()
+                .Where(x => x.Id == conta.ContaGerencialContrariaId.Value)
+                .Select(x => x.Descricao)
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
 
         return new ContaGerencialDetalheResponse(
             conta.Id,
@@ -226,7 +246,9 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             aceitaLancamentos,
             conta.EhPadraoRecebimentoFaturaCartao,
             conta.CreatedAtUtc,
-            conta.UpdatedAtUtc);
+            conta.UpdatedAtUtc,
+            conta.ContaGerencialContrariaId,
+            contaContrariaNome);
     }
 
     public async Task<ContaGerencialDetalheResponse> CriarAsync(
@@ -237,19 +259,22 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(null, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
         await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        await ValidarContaContrariaAsync(null, request.ContaGerencialContrariaId, MapearTipo(tipoEfetivo), cancellationToken);
+        var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken);
 
         ContaGerencial conta;
 
         try
         {
             conta = ContaGerencial.Criar(
-                request.Codigo,
+                codigo,
                 request.Descricao,
                 MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
                 request.ResponsavelPadraoId,
                 request.Ativo,
-                request.EhPadraoRecebimentoFaturaCartao);
+                request.EhPadraoRecebimentoFaturaCartao,
+                request.ContaGerencialContrariaId);
         }
         catch (ArgumentException exception)
         {
@@ -279,17 +304,20 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(id, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
         await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        await ValidarContaContrariaAsync(id, request.ContaGerencialContrariaId, MapearTipo(tipoEfetivo), cancellationToken);
+        var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken, id);
 
         try
         {
             conta.Atualizar(
-                request.Codigo,
+                codigo,
                 request.Descricao,
                 MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
                 request.ResponsavelPadraoId,
                 request.Ativo,
-                request.EhPadraoRecebimentoFaturaCartao);
+                request.EhPadraoRecebimentoFaturaCartao,
+                request.ContaGerencialContrariaId);
         }
         catch (ArgumentException exception)
         {
@@ -303,122 +331,64 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
 
     public async Task<SeedPlanoInicialResponse> SeedPlanoInicialAsync(CancellationToken cancellationToken)
     {
-        var existentesPorCodigo = await dbContext.ContasGerenciais.AsNoTracking()
-            .Where(x => x.Codigo != null)
-            .ToDictionaryAsync(x => x.Codigo!, x => x.Id, cancellationToken);
-
-        var criadas = 0;
-
-        async Task<Guid> UpsertGrupoAsync(string codigo, string descricao, TipoContaGerencial tipo)
-        {
-            if (existentesPorCodigo.TryGetValue(codigo, out var idExistente))
-                return idExistente;
-
-            var conta = ContaGerencial.Criar(codigo, descricao, tipo, null, null, true, false);
-            dbContext.ContasGerenciais.Add(conta);
-            await dbContext.SaveChangesAsync(cancellationToken);
-            existentesPorCodigo[codigo] = conta.Id;
-            criadas++;
-            return conta.Id;
-        }
-
-        void UpsertFilha(string codigoPai, string codigo, string descricao, TipoContaGerencial tipo)
-        {
-            if (existentesPorCodigo.ContainsKey(codigo))
-                return;
-
-            var paiId = existentesPorCodigo[codigoPai];
-            var conta = ContaGerencial.Criar(codigo, descricao, tipo, paiId, null, true, false);
-            dbContext.ContasGerenciais.Add(conta);
-            existentesPorCodigo[codigo] = conta.Id;
-            criadas++;
-        }
-
-        // ── Grupos raiz ──────────────────────────────────────────────
-        await UpsertGrupoAsync("1",  "Renda do trabalho",           TipoContaGerencial.Receita);
-        await UpsertGrupoAsync("2",  "Renda patrimonial e familiar", TipoContaGerencial.Receita);
-        await UpsertGrupoAsync("3",  "Moradia",                      TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("4",  "Imóvel locado",                TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("5",  "Alimentação",                  TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("6",  "Veículo",                      TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("7",  "Saúde",                        TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("8",  "Pet",                          TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("9",  "Família e proteção",           TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("10", "Pessoal e lazer",              TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("11", "Encargos financeiros",         TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("12", "Negócio",                      TipoContaGerencial.Despesa);
-        await UpsertGrupoAsync("13", "Investimentos e poupança",     TipoContaGerencial.Despesa);
-
-        // ── Contas filhas ─────────────────────────────────────────────
-        // 1 — Renda do trabalho
-        UpsertFilha("1", "1.1", "Salário",                TipoContaGerencial.Receita);
-        UpsertFilha("1", "1.2", "13º salário e férias",   TipoContaGerencial.Receita);
-        UpsertFilha("1", "1.3", "Recebimento de dívidas", TipoContaGerencial.Receita);
-        // 2 — Renda patrimonial e familiar
-        UpsertFilha("2", "2.1", "Aluguel recebido",  TipoContaGerencial.Receita);
-        UpsertFilha("2", "2.2", "Aposentadoria — avô", TipoContaGerencial.Receita);
-        // 3 — Moradia
-        UpsertFilha("3", "3.1", "Aluguel pago",                        TipoContaGerencial.Despesa);
-        UpsertFilha("3", "3.2", "Água",                                TipoContaGerencial.Despesa);
-        UpsertFilha("3", "3.3", "Energia elétrica",                    TipoContaGerencial.Despesa);
-        UpsertFilha("3", "3.4", "Internet",                            TipoContaGerencial.Despesa);
-        UpsertFilha("3", "3.5", "Compras e manutenção do apartamento", TipoContaGerencial.Despesa);
-        UpsertFilha("3", "3.6", "Gás",                                 TipoContaGerencial.Despesa);
-        UpsertFilha("3", "3.7", "Faxineira e limpeza",                 TipoContaGerencial.Despesa);
-        // 4 — Imóvel locado
-        UpsertFilha("4", "4.1", "IPTU do imóvel",              TipoContaGerencial.Despesa);
-        UpsertFilha("4", "4.2", "Condomínio do imóvel",        TipoContaGerencial.Despesa);
-        UpsertFilha("4", "4.3", "Manutenção e reparos do imóvel", TipoContaGerencial.Despesa);
-        // 5 — Alimentação
-        UpsertFilha("5", "5.1", "Mercado e supermercado",    TipoContaGerencial.Despesa);
-        UpsertFilha("5", "5.2", "Padaria",                   TipoContaGerencial.Despesa);
-        UpsertFilha("5", "5.3", "Delivery",                  TipoContaGerencial.Despesa);
-        UpsertFilha("5", "5.4", "Restaurante e refeições fora", TipoContaGerencial.Despesa);
-        // 6 — Veículo
-        UpsertFilha("6", "6.1", "Prestação do carro",       TipoContaGerencial.Despesa);
-        UpsertFilha("6", "6.2", "Seguro do carro",          TipoContaGerencial.Despesa);
-        UpsertFilha("6", "6.3", "Combustível",              TipoContaGerencial.Despesa);
-        UpsertFilha("6", "6.4", "Manutenção e revisão",     TipoContaGerencial.Despesa);
-        UpsertFilha("6", "6.5", "IPVA e licenciamento",     TipoContaGerencial.Despesa);
-        UpsertFilha("6", "6.6", "Estacionamento e pedágio", TipoContaGerencial.Despesa);
-        // 7 — Saúde
-        UpsertFilha("7", "7.1", "Fisioterapia",                   TipoContaGerencial.Despesa);
-        UpsertFilha("7", "7.2", "Farmácia e medicamentos",        TipoContaGerencial.Despesa);
-        UpsertFilha("7", "7.3", "Plano de saúde",                 TipoContaGerencial.Despesa);
-        UpsertFilha("7", "7.4", "Consultas e exames",             TipoContaGerencial.Despesa);
-        UpsertFilha("7", "7.5", "Dentista e plano odontológico",  TipoContaGerencial.Despesa);
-        // 8 — Pet
-        UpsertFilha("8", "8.1", "Ração e suprimentos", TipoContaGerencial.Despesa);
-        UpsertFilha("8", "8.2", "Veterinário",         TipoContaGerencial.Despesa);
-        UpsertFilha("8", "8.3", "Banho e tosa",        TipoContaGerencial.Despesa);
-        // 9 — Família e proteção
-        UpsertFilha("9", "9.1", "Ajuda com parentes",         TipoContaGerencial.Despesa);
-        UpsertFilha("9", "9.2", "Funerária e plano funeral",  TipoContaGerencial.Despesa);
-        UpsertFilha("9", "9.3", "Presentes e datas especiais", TipoContaGerencial.Despesa);
-        // 10 — Pessoal e lazer
-        UpsertFilha("10", "10.1", "Vestuário e calçados",          TipoContaGerencial.Despesa);
-        UpsertFilha("10", "10.2", "Higiene e cuidados pessoais",   TipoContaGerencial.Despesa);
-        UpsertFilha("10", "10.3", "Streaming e assinaturas digitais", TipoContaGerencial.Despesa);
-        UpsertFilha("10", "10.4", "Lazer e entretenimento",        TipoContaGerencial.Despesa);
-        // 11 — Encargos financeiros
-        UpsertFilha("11", "11.1", "Juros e encargos financeiros", TipoContaGerencial.Despesa);
-        UpsertFilha("11", "11.2", "Tarifas bancárias",            TipoContaGerencial.Despesa);
-        // 12 — Negócio
-        UpsertFilha("12", "12.1", "Salário de funcionário",          TipoContaGerencial.Despesa);
-        UpsertFilha("12", "12.2", "FGTS e encargos trabalhistas",    TipoContaGerencial.Despesa);
-        UpsertFilha("12", "12.3", "Contabilidade",                   TipoContaGerencial.Despesa);
-        UpsertFilha("12", "12.4", "Impostos e tributos",             TipoContaGerencial.Despesa);
-        UpsertFilha("12", "12.5", "Material e suprimentos operacionais", TipoContaGerencial.Despesa);
-        // 13 — Investimentos e poupança
-        UpsertFilha("13", "13.1", "Reserva de emergência",          TipoContaGerencial.Despesa);
-        UpsertFilha("13", "13.2", "Poupança e objetivos de curto prazo", TipoContaGerencial.Despesa);
-        UpsertFilha("13", "13.3", "Renda fixa",                     TipoContaGerencial.Despesa);
-        UpsertFilha("13", "13.4", "Previdência privada",            TipoContaGerencial.Despesa);
-        UpsertFilha("13", "13.5", "Renda variável",                 TipoContaGerencial.Despesa);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
+        var familiaId = dbContext.WorkspaceCorrente
+            ?? throw new InvalidOperationException("Workspace nao definido.");
+        var criadas = await padraoSeedService.SeedAsync(familiaId, cancellationToken);
         return new SeedPlanoInicialResponse(criadas);
+    }
+
+    private async Task<string?> ResolverCodigoAsync(
+        string? codigoInformado,
+        Guid? contaPaiId,
+        CancellationToken cancellationToken,
+        Guid? contaIdAtual = null)
+    {
+        if (!string.IsNullOrWhiteSpace(codigoInformado))
+        {
+            return codigoInformado.Trim();
+        }
+
+        if (!contaPaiId.HasValue)
+        {
+            var codigosRaiz = await dbContext.ContasGerenciais.AsNoTracking()
+                .Where(x => x.ContaPaiId == null && x.Codigo != null)
+                .Where(x => !contaIdAtual.HasValue || x.Id != contaIdAtual.Value)
+                .Select(x => x.Codigo!)
+                .ToListAsync(cancellationToken);
+
+            var maiorCodigoRaiz = codigosRaiz
+                .Where(x => !x.Contains('.'))
+                .Select(x => int.TryParse(x, out var numero) ? numero : (int?)null)
+                .Max();
+
+            return ((maiorCodigoRaiz ?? 0) + 1).ToString("00");
+        }
+
+        var codigoPai = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.Id == contaPaiId.Value)
+            .Select(x => x.Codigo)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(codigoPai))
+        {
+            return null;
+        }
+
+        var codigosFilhos = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.ContaPaiId == contaPaiId.Value && x.Codigo != null)
+            .Where(x => !contaIdAtual.HasValue || x.Id != contaIdAtual.Value)
+            .Select(x => x.Codigo!)
+            .ToListAsync(cancellationToken);
+
+        var prefixo = $"{codigoPai}.";
+        var maiorSufixo = codigosFilhos
+            .Where(x => x.StartsWith(prefixo, StringComparison.OrdinalIgnoreCase))
+            .Select(x => x[prefixo.Length..])
+            .Where(x => !x.Contains('.'))
+            .Select(x => int.TryParse(x, out var numero) ? numero : (int?)null)
+            .Max();
+
+        return $"{codigoPai}.{((maiorSufixo ?? 0) + 1).ToString("00")}";
     }
 
     private async Task ValidarHierarquiaAsync(Guid? contaId, Guid? contaPaiId, CancellationToken cancellationToken)
@@ -509,6 +479,45 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
         }
     }
 
+    private async Task ValidarContaContrariaAsync(
+        Guid? contaId,
+        Guid? contaContrariaId,
+        TipoContaGerencial tipoAtual,
+        CancellationToken cancellationToken)
+    {
+        if (!contaContrariaId.HasValue)
+        {
+            return;
+        }
+
+        if (contaId.HasValue && contaContrariaId.Value == contaId.Value)
+        {
+            throw ValidationExceptionFactory.Create("ContaGerencialContrariaId", "Conta contrária não pode ser a própria conta.");
+        }
+
+        var contaContraria = await dbContext.ContasGerenciais.AsNoTracking()
+            .Where(x => x.Id == contaContrariaId.Value)
+            .Select(x => new { x.Tipo })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (contaContraria is null)
+        {
+            throw ValidationExceptionFactory.Create("ContaGerencialContrariaId", "Conta gerencial contrária não encontrada.");
+        }
+
+        var tipoEsperado = tipoAtual == TipoContaGerencial.Despesa
+            ? TipoContaGerencial.Receita
+            : TipoContaGerencial.Despesa;
+
+        if (contaContraria.Tipo != tipoEsperado)
+        {
+            var tipoEsperadoNome = tipoEsperado == TipoContaGerencial.Receita ? "Receita" : "Despesa";
+            throw ValidationExceptionFactory.Create(
+                "ContaGerencialContrariaId",
+                $"A conta contrária deve ser do tipo {tipoEsperadoNome}.");
+        }
+    }
+
     private async Task ValidarResponsavelPadraoAsync(Guid? responsavelPadraoId, CancellationToken cancellationToken)
     {
         if (!responsavelPadraoId.HasValue)
@@ -533,6 +542,7 @@ public sealed class ContaGerencialAppService(IAppDbContext dbContext)
             "contaPaiId" => "ContaPaiId",
             "ehPadraoRecebimentoFaturaCartao" => "EhPadraoRecebimentoFaturaCartao",
             "responsavelPadraoId" => "ResponsavelPadraoId",
+            "contaGerencialContrariaId" => "ContaGerencialContrariaId",
             _ => "Request"
         };
 

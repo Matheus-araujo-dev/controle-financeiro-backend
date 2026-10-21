@@ -34,14 +34,27 @@ public sealed class ContaPagarSharedHelper(
         DateOnly? dataLiquidacao,
         int quantidadeParcelas,
         IReadOnlyCollection<RateioRequest> rateios,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateOnly? dataCompra = null,
+        bool forcarProximaFatura = false,
+        Guid? faturaImportacaoId = null)
     {
-        if (!await dbContext.Pessoas.AnyAsync(x => x.Id == recebedorId, cancellationToken))
-            throw validationFactory.Create("RecebedorId", "Recebedor não encontrado.");
+        var recebedor = await dbContext.Pessoas.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == recebedorId, cancellationToken)
+            ?? throw validationFactory.Create("RecebedorId", "Recebedor não encontrado.");
 
-        if (responsavelCompraId.HasValue &&
-            !await dbContext.Pessoas.AnyAsync(x => x.Id == responsavelCompraId.Value, cancellationToken))
-            throw validationFactory.Create("ResponsavelCompraId", "Responsável não encontrado.");
+        if (!recebedor.EhRecebedor)
+            throw validationFactory.Create("RecebedorId", "A pessoa selecionada não está marcada como recebedor.");
+
+        if (responsavelCompraId.HasValue)
+        {
+            var responsavel = await dbContext.Pessoas.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == responsavelCompraId.Value, cancellationToken)
+                ?? throw validationFactory.Create("ResponsavelCompraId", "Responsável não encontrado.");
+
+            if (!responsavel.EhResponsavel)
+                throw validationFactory.Create("ResponsavelCompraId", "A pessoa selecionada não está marcada como responsável.");
+        }
 
         var formaPagamento = await lookupCache.GetFormaPagamentoByIdAsync(formaPagamentoId, cancellationToken)
             ?? throw validationFactory.Create("FormaPagamentoId", "Forma de pagamento não encontrada.");
@@ -79,29 +92,49 @@ public sealed class ContaPagarSharedHelper(
             if (contaBancariaId.HasValue)
                 throw validationFactory.Create("ContaBancariaId", "Compras em cartão não geram saída bancária real neste momento.");
 
-            if (dataLiquidacao.HasValue)
-                throw validationFactory.Create("DataLiquidacao", "Compras em cartão não devem informar data de liquidação.");
+            var dataCompraCartao = dataCompra ?? dataLiquidacao ?? dataEmissao;
+            var competencia = FaturaCartaoCompetencia.Calcular(dataCompraCartao, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
 
-            var competencia = FaturaCartaoCompetencia.Calcular(dataEmissao, cartao!.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
+            var faturaQuery = dbContext.FaturasCartao.Where(x => x.CartaoId == cartaoId.Value);
+            faturaQuery = faturaImportacaoId.HasValue
+                ? faturaQuery.Where(x => x.Id == faturaImportacaoId.Value)
+                : faturaQuery.Where(x => x.Competencia == competencia.Competencia);
+            var statusFaturaExistente = await faturaQuery.Select(x => (StatusFaturaCartao?)x.Status)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (faturaImportacaoId.HasValue && !statusFaturaExistente.HasValue)
+                throw validationFactory.Create("Fatura", "Fatura de importação não encontrada para este cartão.");
 
-            if (await dbContext.FaturasCartao.AnyAsync(
-                    x => x.CartaoId == cartaoId.Value &&
-                         x.Competencia == competencia.Competencia &&
-                         x.Status == StatusFaturaCartao.Paga, cancellationToken))
-                throw validationFactory.Create("DataEmissao", "Já existe fatura paga para a competência desta compra em cartão.");
+            DateOnly? dataVencimentoEfetivo = competencia.DataVencimento;
+            if (statusFaturaExistente == StatusFaturaCartao.Paga || statusFaturaExistente == StatusFaturaCartao.Fechada)
+            {
+                if (!forcarProximaFatura)
+                    throw new FaturaIndisponivelException(competencia.Competencia, statusFaturaExistente == StatusFaturaCartao.Paga);
+
+                // Usuário confirmou: redirecionar para a competência seguinte
+                var proximaCompetencia = FaturaCartaoCompetencia.Calcular(
+                    competencia.DataFechamento.AddDays(1), cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura);
+                dataVencimentoEfetivo = proximaCompetencia.DataVencimento;
+            }
+
+            return new ContaPagarValidationContext(
+                formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao,
+                formaPagamento.EhCartao,
+                cartao,
+                dataCompraCartao,
+                dataVencimentoEfetivo);
         }
         else if (cartaoId.HasValue)
         {
             throw validationFactory.Create("CartaoId", "Cartão informado para uma forma de pagamento que não é cartão.");
         }
 
-        if (formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao && !contaBancariaId.HasValue)
-            throw validationFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para baixa automática.");
+        var liquidarNaCriacao = !formaPagamento.EhCartao && (formaPagamento.BaixarAutomaticamente || dataLiquidacao.HasValue);
 
-        if (!formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao && dataLiquidacao.HasValue)
-            throw validationFactory.Create("DataLiquidacao", "Data de liquidação só pode ser informada com baixa automática.");
+        if (liquidarNaCriacao && !contaBancariaId.HasValue)
+            throw validationFactory.Create("ContaBancariaId", "Conta bancária é obrigatória para liquidação.");
 
-        return new ContaPagarValidationContext(formaPagamento.BaixarAutomaticamente && !formaPagamento.EhCartao, formaPagamento.EhCartao, cartao);
+        return new ContaPagarValidationContext(liquidarNaCriacao, formaPagamento.EhCartao, cartao,
+            formaPagamento.EhCartao ? (dataCompra ?? dataLiquidacao ?? dataEmissao) : null);
     }
 
     internal async Task<PlanejamentoCompra?> ObterCompraPlanejadaOrigemAsync(Guid? origemCompraPlanejadaId, CancellationToken cancellationToken)
@@ -236,13 +269,20 @@ public sealed class ContaPagarSharedHelper(
     {
         try
         {
+            var statusId = request.CartaoId.HasValue ? StatusConta.EmFaturaId
+                : conta.StatusContaId == StatusConta.FuturoId ? StatusConta.FuturoId : StatusConta.PendenteId;
+
             conta.Atualizar(
                 request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
-                request.Descricao, request.Observacao, StatusConta.PendenteId,
-                ConverterRateios(request.Rateios));
+                request.Descricao, request.Observacao, statusId,
+                ConverterRateios(request.Rateios),
+                request.DataCompra);
+
+            // builder.Ignore(Rateios) impede EF de detectar mudança só em rateios; força Modified.
+            dbContext.ContasPagar.Update(conta);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
@@ -257,9 +297,13 @@ public sealed class ContaPagarSharedHelper(
             DataVencimento = RecorrenciaDateHelper.Shift(request.DataVencimento, monthOffset)
         };
 
-    internal static ContaPagar CriarOcorrenciaRecorrente(ContaPagarRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento)
+    internal static ContaPagar CriarOcorrenciaRecorrente(ContaPagarRecorrenciaTemplate template, Guid regraRecorrenciaId, DateOnly dataVencimento, DateOnly? dataReferencia = null, DateOnly? dataCompraOrigem = null)
     {
         var monthOffset = RecorrenciaDateHelper.CalculateMonthOffset(template.DataVencimento, dataVencimento);
+        var hoje = dataReferencia ?? DateOnly.FromDateTime(DateTime.Today);
+        var statusInicial = template.CartaoId.HasValue ? StatusConta.EmFaturaId
+            : dataVencimento.Year > hoje.Year || (dataVencimento.Year == hoje.Year && dataVencimento.Month > hoje.Month)
+                ? StatusConta.FuturoId : StatusConta.PendenteId;
         return ContaPagar.Criar(
             template.NumeroDocumento,
             RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
@@ -267,8 +311,9 @@ public sealed class ContaPagarSharedHelper(
             template.FormaPagamentoId, template.CartaoId, template.ContaBancariaId,
             template.ValorOriginal, template.ValorDesconto, template.ValorJuros, template.ValorMulta,
             1, 1, null, null, template.Descricao, template.Observacao,
-            StatusConta.PendenteId, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
-            template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray());
+            statusInicial, true, regraRecorrenciaId, OrigemLancamento.Recorrencia,
+            template.Rateios.Select(x => RateioPlano.Create(x.ContaGerencialId, x.Valor)).ToArray(),
+            template.CartaoId.HasValue ? RecorrenciaDateHelper.Shift(dataCompraOrigem ?? template.DataEmissao, monthOffset) : null);
     }
 
     internal static IReadOnlyCollection<MovimentacaoFinanceira> AplicarLiquidacaoAutomatica(
@@ -362,6 +407,23 @@ public sealed class ContaPagarSharedHelper(
         };
         regra.Atualizar(regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal, regra.DataInicio, regra.DataFim,
             regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao, JsonSerializer.Serialize(novoTemplate));
+    }
+
+    internal async Task AtualizarValorFuturasAsync(Guid regraRecorrenciaId, DateOnly aPartirDe, decimal novoValorLiquido, CancellationToken cancellationToken)
+    {
+        var futuras = await dbContext.ContasPagar
+            .Where(x => x.RegraRecorrenciaId == regraRecorrenciaId &&
+                        x.DataVencimento >= aPartirDe &&
+                        x.StatusContaId != StatusConta.LiquidadaId &&
+                        x.StatusContaId != StatusConta.CanceladaId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var futura in futuras)
+        {
+            var novosRateios = await RecalcularRateiosAsync(futura.Id, novoValorLiquido, cancellationToken);
+            futura.AtualizarValorLiquido(novoValorLiquido, novosRateios);
+            await SincronizarRateiosContaAsync(futura, cancellationToken);
+        }
     }
 
     internal ILookupCacheService LookupCache => lookupCache;

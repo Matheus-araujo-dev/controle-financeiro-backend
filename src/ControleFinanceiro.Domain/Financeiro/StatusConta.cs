@@ -10,6 +10,7 @@ public sealed class StatusConta : Entity
     public static readonly Guid CanceladaId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     public static readonly Guid ParcialId = Guid.Parse("55555555-5555-5555-5555-555555555555");
     public static readonly Guid EmFaturaId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    public static readonly Guid FuturoId = Guid.Parse("77777777-7777-7777-7777-777777777777");
 
     private StatusConta()
     {
@@ -33,6 +34,7 @@ public sealed class StatusConta : Entity
         new(VencidaId, "VENCIDA", "Vencida"),
         new(CanceladaId, "CANCELADA", "Cancelada"),
         new(ParcialId, "PARCIAL", "Parcial"),
-        new(EmFaturaId, "EM_FATURA", "Em fatura")
+        new(EmFaturaId, "EM_FATURA", "Em fatura"),
+        new(FuturoId, "FUTURO", "Futuro")
     ];
 }

@@ -19,23 +19,28 @@ public sealed class DashboardFluxoCaixaService(IAppDbContext dbContext, Dashboar
         var usarDataVencimento = query.Visao == DashboardFluxoCaixaVisao.Caixa;
         var projetarPrevisoes = !mesReferenciaEhMesAtual;
 
-        var saldoInicial = await db.CalcularSaldoRealizadoAteAsync(dataInicial.AddDays(-1), cancellationToken);
+        var contaBancariaIds = query.ContaBancariaIds;
+        var saldoInicial = await db.CalcularSaldoRealizadoAteAsync(dataInicial.AddDays(-1), contaBancariaIds, cancellationToken);
         var eventos = new List<FluxoCaixaEvento>();
 
-        var contasPagar = await dbContext.ContasPagar.AsNoTracking()
+        var contasPagar = await db.ContasPagarSemDuplicarFatura()
             .Where(c => c.StatusContaId != StatusConta.LiquidadaId &&
                         c.StatusContaId != StatusConta.CanceladaId &&
                         (usarDataVencimento
                             ? c.DataVencimento >= dataInicial && c.DataVencimento <= dataFinal
                             : c.DataEmissao >= dataInicial && c.DataEmissao <= dataFinal))
-            .Select(c => new { c.DataEmissao, c.DataVencimento, c.ValorLiquido })
+            .Select(c => new { c.DataEmissao, c.DataVencimento, c.ValorLiquido,
+                ValorPago = dbContext.MovimentacoesFinanceiras
+                    .Where(m => m.ContaPagarId == c.Id && m.Natureza == NaturezaMovimentacao.Realizada &&
+                                m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+                    .Sum(m => (decimal?)m.Valor) ?? 0m })
             .ToListAsync(cancellationToken);
 
         foreach (var conta in contasPagar)
         {
             var data = usarDataVencimento ? conta.DataVencimento : conta.DataEmissao;
             if (data >= dataInicial && data <= dataFinal)
-                eventos.Add(new FluxoCaixaEvento(data, TipoMovimentacao.Saida, conta.ValorLiquido));
+                eventos.Add(new FluxoCaixaEvento(data, TipoMovimentacao.Saida, conta.ValorLiquido - conta.ValorPago));
         }
 
         var contasReceber = await dbContext.ContasReceber.AsNoTracking()
@@ -44,20 +49,29 @@ public sealed class DashboardFluxoCaixaService(IAppDbContext dbContext, Dashboar
                         (usarDataVencimento
                             ? c.DataVencimento >= dataInicial && c.DataVencimento <= dataFinal
                             : c.DataEmissao >= dataInicial && c.DataEmissao <= dataFinal))
-            .Select(c => new { c.DataEmissao, c.DataVencimento, c.ValorLiquido })
+            .Select(c => new { c.DataEmissao, c.DataVencimento, c.ValorLiquido,
+                ValorPago = dbContext.MovimentacoesFinanceiras
+                    .Where(m => m.ContaReceberId == c.Id && m.Natureza == NaturezaMovimentacao.Realizada &&
+                                m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
+                    .Sum(m => (decimal?)m.Valor) ?? 0m })
             .ToListAsync(cancellationToken);
 
         foreach (var conta in contasReceber)
         {
             var data = usarDataVencimento ? conta.DataVencimento : conta.DataEmissao;
             if (data >= dataInicial && data <= dataFinal)
-                eventos.Add(new FluxoCaixaEvento(data, TipoMovimentacao.Entrada, conta.ValorLiquido));
+                eventos.Add(new FluxoCaixaEvento(data, TipoMovimentacao.Entrada, conta.ValorLiquido - conta.ValorPago));
         }
 
-        var movimentacoes = await dbContext.MovimentacoesFinanceiras.AsNoTracking()
+        var movQuery = dbContext.MovimentacoesFinanceiras.AsNoTracking()
             .Where(m => m.Natureza == NaturezaMovimentacao.Realizada &&
                         m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId &&
-                        m.DataMovimentacao >= dataInicial && m.DataMovimentacao <= dataFinal)
+                        m.DataMovimentacao >= dataInicial && m.DataMovimentacao <= dataFinal);
+
+        if (contaBancariaIds is { Count: > 0 })
+            movQuery = movQuery.Where(m => m.ContaBancariaId != null && contaBancariaIds.Contains(m.ContaBancariaId.Value));
+
+        var movimentacoes = await movQuery
             .Select(m => new { m.DataMovimentacao, m.Tipo, m.Valor })
             .ToListAsync(cancellationToken);
 
@@ -68,7 +82,7 @@ public sealed class DashboardFluxoCaixaService(IAppDbContext dbContext, Dashboar
         foreach (var compra in comprasImportadas)
         {
             var data = usarDataVencimento ? compra.DataVencimento : compra.DataCompra;
-            if (data >= dataInicial && data <= dataFinal)
+            if (!compra.Materializada && data >= dataInicial && data <= dataFinal)
                 eventos.Add(new FluxoCaixaEvento(data, compra.Tipo, compra.Valor));
         }
 

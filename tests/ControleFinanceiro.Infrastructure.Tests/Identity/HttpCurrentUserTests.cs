@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using ControleFinanceiro.Infrastructure.Identity;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -24,16 +24,29 @@ public sealed class HttpCurrentUserTests
     [Fact]
     public void UsuarioAutenticado_DeveExporClaims()
     {
-        var familiaId = Guid.NewGuid();
+        var workspaceId = Guid.NewGuid();
         var sut = ComUsuario(Autenticado(
             new Claim(ClaimTypes.NameIdentifier, "user-1"),
-            new Claim(JwtTokenService.FamiliaClaim, familiaId.ToString()),
+            new Claim(JwtTokenService.WorkspaceClaim, workspaceId.ToString()),
             new Claim(JwtTokenService.PapelClaim, "Administrador")));
 
         sut.IsAuthenticated.Should().BeTrue();
         sut.UserId.Should().Be("user-1");
-        sut.FamiliaId.Should().Be(familiaId);
+        sut.WorkspaceId.Should().Be(workspaceId);
+        sut.FamiliaId.Should().Be(workspaceId);
         sut.Papel.Should().Be("Administrador");
+    }
+
+    [Fact]
+    public void UsuarioComClaimLegada_DeveExporWorkspaceId()
+    {
+        var familiaId = Guid.NewGuid();
+        var sut = ComUsuario(Autenticado(
+            new Claim(ClaimTypes.NameIdentifier, "user-2"),
+            new Claim(JwtTokenService.FamiliaClaim, familiaId.ToString())));
+
+        sut.WorkspaceId.Should().Be(familiaId);
+        sut.FamiliaId.Should().Be(familiaId);
     }
 
     [Fact]
@@ -43,6 +56,7 @@ public sealed class HttpCurrentUserTests
 
         sut.IsAuthenticated.Should().BeFalse();
         sut.UserId.Should().BeNull();
+        sut.WorkspaceId.Should().BeNull();
         sut.FamiliaId.Should().BeNull();
         sut.Papel.Should().BeNull();
     }
@@ -54,16 +68,18 @@ public sealed class HttpCurrentUserTests
 
         sut.IsAuthenticated.Should().BeFalse();
         sut.UserId.Should().BeNull();
+        sut.WorkspaceId.Should().BeNull();
         sut.FamiliaId.Should().BeNull();
     }
 
     [Fact]
-    public void FamiliaClaimInvalida_DeveRetornarNull()
+    public void WorkspaceClaimInvalida_DeveRetornarNull()
     {
         var sut = ComUsuario(Autenticado(
             new Claim(ClaimTypes.NameIdentifier, "user-1"),
-            new Claim(JwtTokenService.FamiliaClaim, "nao-e-guid")));
+            new Claim(JwtTokenService.WorkspaceClaim, "nao-e-guid")));
 
+        sut.WorkspaceId.Should().BeNull();
         sut.FamiliaId.Should().BeNull();
     }
 

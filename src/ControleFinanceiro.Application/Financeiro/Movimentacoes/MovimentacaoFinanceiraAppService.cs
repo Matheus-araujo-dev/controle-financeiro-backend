@@ -44,8 +44,11 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 movimento.ContaPagarId,
                 movimento.ContaReceberId,
                 movimento.FaturaCartaoId,
+                movimento.TransferenciaId,
                 ContaPagarResponsavelId = contaPagar != null ? contaPagar.ResponsavelCompraId : null,
                 ContaReceberResponsavelId = contaReceber != null ? contaReceber.ResponsavelId : null,
+                ContaPagarRecebedorId = contaPagar != null ? (Guid?)contaPagar.RecebedorId : null,
+                ContaReceberPagadorId = contaReceber != null ? (Guid?)contaReceber.PagadorId : null,
                 ResponsavelNome = responsavelPagar != null ? responsavelPagar.Nome : (responsavelReceber != null ? responsavelReceber.Nome : null),
                 movimento.Observacao,
                 movimento.CreatedAtUtc,
@@ -56,8 +59,8 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Observacao ?? "", termo));
+            var termo = $"%{query.Search.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like((x.Observacao ?? "").ToLower(), termo));
         }
 
         var contaBancariaIds = NormalizarGuidList(query.ContaBancariaIds);
@@ -79,6 +82,15 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
             consulta = consulta.Where(x =>
                 (x.ContaPagarResponsavelId.HasValue && responsavelIds.Contains(x.ContaPagarResponsavelId.Value)) ||
                 (x.ContaReceberResponsavelId.HasValue && responsavelIds.Contains(x.ContaReceberResponsavelId.Value)));
+        }
+
+        var pessoaIds = NormalizarGuidList(query.PessoaIds);
+
+        if (pessoaIds.Length > 0)
+        {
+            consulta = consulta.Where(x =>
+                (x.ContaPagarRecebedorId.HasValue && pessoaIds.Contains(x.ContaPagarRecebedorId.Value)) ||
+                (x.ContaReceberPagadorId.HasValue && pessoaIds.Contains(x.ContaReceberPagadorId.Value)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.StatusCodigo))
@@ -137,10 +149,10 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
             .Select(group => new
             {
                 TotalEntradas = group
-                    .Where(x => x.Tipo == TipoMovimentacao.Entrada)
+                    .Where(x => x.Tipo == TipoMovimentacao.Entrada && x.TransferenciaId == null)
                     .Sum(x => x.Valor),
                 TotalSaidas = group
-                    .Where(x => x.Tipo == TipoMovimentacao.Saida)
+                    .Where(x => x.Tipo == TipoMovimentacao.Saida && x.TransferenciaId == null)
                     .Sum(x => x.Valor)
             })
             .SingleOrDefaultAsync(cancellationToken);

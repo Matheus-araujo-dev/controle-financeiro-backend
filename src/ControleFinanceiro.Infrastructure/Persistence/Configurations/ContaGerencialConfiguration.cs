@@ -29,7 +29,9 @@ public sealed class ContaGerencialConfiguration : IEntityTypeConfiguration<Conta
             .IsRequired();
 
         builder.HasIndex(x => x.ResponsavelPadraoId);
-        builder.HasIndex(x => x.Codigo).IsUnique().HasFilter("[Codigo] IS NOT NULL");
+        builder.HasIndex(nameof(ContaGerencial.FamiliaId), nameof(ContaGerencial.Codigo))
+            .IsUnique()
+            .HasFilter($"\"{nameof(ContaGerencial.Codigo)}\" IS NOT NULL");
         builder.HasIndex("Tipo", "Ativo");
         builder.HasIndex(x => x.ContaPaiId);
 
@@ -37,6 +39,13 @@ public sealed class ContaGerencialConfiguration : IEntityTypeConfiguration<Conta
             .WithMany()
             .HasForeignKey(x => x.ContaPaiId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => x.ContaGerencialContrariaId);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialContrariaId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne<Pessoa>()
             .WithMany()

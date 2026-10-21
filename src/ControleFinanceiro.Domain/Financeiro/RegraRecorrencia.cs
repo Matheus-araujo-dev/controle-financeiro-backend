@@ -22,6 +22,10 @@ public sealed class RegraRecorrencia : TenantEntity
 
     public bool Ativa { get; private set; }
 
+    public bool Encerrada { get; private set; }
+
+    public DateOnly? GerarAPartirDe { get; private set; }
+
     public bool PermiteEdicaoOcorrenciaIndividual { get; private set; }
 
     public string? Observacao { get; private set; }
@@ -79,12 +83,16 @@ public sealed class RegraRecorrencia : TenantEntity
 
     public void Pausar()
     {
+        if (Encerrada) throw new InvalidOperationException("Recorrência encerrada não pode ser pausada.");
         Ativa = false;
     }
 
     public void Retomar()
     {
+        if (Encerrada) throw new InvalidOperationException("Recorrência encerrada não pode ser retomada.");
         if (Ativa) return;
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        GerarAPartirDe = new DateOnly(hoje.Year, hoje.Month, 1);
 
         Ativa = true;
     }
@@ -98,6 +106,7 @@ public sealed class RegraRecorrencia : TenantEntity
 
         DataFim = dataFim;
         Ativa = false;
+        Encerrada = true;
     }
 
     public IReadOnlyCollection<DateOnly> CalcularDatasPendentes(
@@ -116,8 +125,9 @@ public sealed class RegraRecorrencia : TenantEntity
         var datas = new List<DateOnly>();
         var datasExistentesSet = datasExistentes.ToHashSet();
         
-        // Começamos do mês da DataInicio
-        var dataReferencia = new DateOnly(DataInicio.Year, DataInicio.Month, 1);
+        // Após uma retomada, não gerar cobranças retroativas do período pausado.
+        var inicioGeracao = GerarAPartirDe.HasValue && GerarAPartirDe.Value > DataInicio ? GerarAPartirDe.Value : DataInicio;
+        var dataReferencia = new DateOnly(inicioGeracao.Year, inicioGeracao.Month, 1);
         var dataLimiteReferencia = new DateOnly(dataLimite.Year, dataLimite.Month, 1);
 
         while (dataReferencia <= dataLimiteReferencia)

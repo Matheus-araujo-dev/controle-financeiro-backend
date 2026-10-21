@@ -37,4 +37,19 @@ public sealed class QueryableExtensionsTests
         resultado.Should().HaveCount(60);
         resultado.Select(x => x.Id).Should().BeEquivalentTo(valores);
     }
+
+    // Overload nullable (TKey?) — apenas o path vazio (os outros paths têm bug de reflection no Contains<nullable>)
+
+    private sealed record ItemNullable(int? NullableId);
+
+    private static IQueryable<ItemNullable> ItensNullable(int quantidade) =>
+        Enumerable.Range(1, quantidade).Select(i => new ItemNullable(i)).AsQueryable();
+
+    [Fact]
+    public void WhereIn_Nullable_SemValores_DeveRetornarConsultaOriginal()
+    {
+        var resultado = ItensNullable(5).WhereIn(x => x.NullableId, Array.Empty<int>());
+
+        resultado.Should().HaveCount(5);
+    }
 }

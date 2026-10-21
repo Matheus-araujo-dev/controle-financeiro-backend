@@ -16,19 +16,45 @@ public sealed class DashboardDbHelpers(
     ICurrentUser currentUser,
     ILogger<DashboardDbHelpers> logger)
 {
-    internal async Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, CancellationToken cancellationToken)
+    internal IQueryable<ContaPagar> ContasPagarSemDuplicarFatura() =>
+        dbContext.ContasPagar.AsNoTracking()
+            // Antes de consolidar, os itens representam a obrigação. Depois, contamos
+            // somente a conta consolidada, inclusive quando o pagamento é estornado.
+            // Itens manuais não têm FaturaCartaoId: sincronização usa cartão e mês
+            // de vencimento, mesmo quando a competência pertence ao mês anterior.
+            .Where(c => c.StatusContaId != StatusConta.EmFaturaId ||
+                !dbContext.FaturasCartao.Any(f =>
+                    (c.FaturaCartaoId == f.Id ||
+                     (c.CartaoId == f.CartaoId &&
+                      c.DataVencimento.Year == f.DataVencimento.Year &&
+                      c.DataVencimento.Month == f.DataVencimento.Month)) &&
+                    dbContext.ContasPagar.Any(consolidada =>
+                        consolidada.FaturaCartaoId == f.Id &&
+                        consolidada.CartaoId == null &&
+                        consolidada.StatusContaId != StatusConta.CanceladaId)));
+
+    internal Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, CancellationToken cancellationToken)
+        => CalcularSaldoRealizadoAteAsync(dataLimite, null, cancellationToken);
+
+    internal async Task<decimal> CalcularSaldoRealizadoAteAsync(DateOnly dataLimite, IReadOnlyCollection<Guid>? contaBancariaIds, CancellationToken cancellationToken)
     {
-        var saldoInicialContas = await dbContext.ContasBancarias
-            .AsNoTracking()
-            .Where(c => c.Ativo)
+        var contasQuery = dbContext.ContasBancarias.AsNoTracking().Where(c => c.Ativo);
+        if (contaBancariaIds is { Count: > 0 })
+            contasQuery = contasQuery.Where(c => contaBancariaIds.Contains(c.Id));
+
+        var saldoInicialContas = await contasQuery
             .SumAsync(c => (decimal?)c.SaldoInicial, cancellationToken) ?? 0m;
 
-        var movimentos = await dbContext.MovimentacoesFinanceiras
-            .AsNoTracking()
-            .Where(m =>
-                m.Natureza == NaturezaMovimentacao.Realizada &&
-                m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId &&
-                m.DataMovimentacao <= dataLimite)
+        var movQuery =
+            from m in dbContext.MovimentacoesFinanceiras.AsNoTracking()
+            join c in contasQuery on m.ContaBancariaId equals c.Id
+            where m.Natureza == NaturezaMovimentacao.Realizada
+               && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
+               && m.DataMovimentacao <= dataLimite
+               && m.DataMovimentacao >= c.DataSaldoInicial
+            select m;
+
+        var movimentos = await movQuery
             .GroupBy(_ => 1)
             .Select(g => new
             {
@@ -44,6 +70,15 @@ public sealed class DashboardDbHelpers(
 
     internal async Task<IReadOnlyDictionary<Guid, string>> CarregarPessoasAsync(CancellationToken cancellationToken) =>
         await dbContext.Pessoas.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nome, cancellationToken);
+
+    internal async Task<IReadOnlyDictionary<Guid, string>> CarregarPessoasAsync(
+        IReadOnlyCollection<Guid> pessoaIds, CancellationToken cancellationToken)
+    {
+        if (pessoaIds.Count == 0) return new Dictionary<Guid, string>();
+        return await dbContext.Pessoas.AsNoTracking()
+            .Where(p => pessoaIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Nome, cancellationToken);
+    }
 
     internal async Task<IReadOnlyDictionary<Guid, ContaGerencialInfo>> CarregarContasGerenciaisAsync(CancellationToken cancellationToken) =>
         await dbContext.ContasGerenciais
@@ -93,7 +128,7 @@ public sealed class DashboardDbHelpers(
             select new RateioLancamentoInfo(
                 conta.Id, "ContaPagar", conta.Descricao, conta.RecebedorId,
                 conta.DataEmissao, conta.DataVencimento, conta.ValorLiquido,
-                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId))
+                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.ResponsavelCompraId))
             .ToListAsync(cancellationToken);
 
         var rateiosReceber = await (
@@ -105,7 +140,7 @@ public sealed class DashboardDbHelpers(
             select new RateioLancamentoInfo(
                 conta.Id, "ContaReceber", conta.Descricao, conta.PagadorId,
                 conta.DataEmissao, conta.DataVencimento, conta.ValorLiquido,
-                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId))
+                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.ResponsavelId))
             .ToListAsync(cancellationToken);
 
         rateiosPagar.AddRange(rateiosReceber);
@@ -114,15 +149,16 @@ public sealed class DashboardDbHelpers(
 
     internal async Task<List<ImportacaoCompraInfo>> CarregarComprasImportadasAsync(CancellationToken cancellationToken)
     {
-        var familiaId = currentUser.FamiliaId;
+        var familiaId = dbContext.WorkspaceCorrente ?? currentUser.WorkspaceId ?? currentUser.FamiliaId;
 
         var registros = await dbContext.ItensImportadosWhatsapp
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(i =>
                 i.TipoSugestao == TipoSugestaoImportacaoWhatsapp.CompraCartao &&
                 i.Status == StatusItemImportadoWhatsapp.Confirmado &&
-                (familiaId == null || i.FamiliaId == familiaId.Value || i.FamiliaId == Guid.Empty))
+                (familiaId.HasValue && i.FamiliaId == familiaId.Value))
+            .Select(i => new { i.Id, i.PayloadSugeridoJson, i.DescricaoAjustada, i.MarcarComoRecorrente, i.ContaGerencialId, i.ResponsavelId,
+                Materializada = dbContext.ContasPagar.Any(c => c.OrigemImportacaoWhatsappId == i.ImportacaoWhatsappId) })
             .ToListAsync(cancellationToken);
 
         var compras = new List<ImportacaoCompraInfo>(registros.Count);
@@ -162,7 +198,7 @@ public sealed class DashboardDbHelpers(
                 payload.BuildRecurringSeriesKey(),
                 payload.BuildInstallmentSeriesKey(),
                 item.ContaGerencialId,
-                item.ResponsavelId));
+                item.ResponsavelId, item.Materializada));
         }
 
         return compras;

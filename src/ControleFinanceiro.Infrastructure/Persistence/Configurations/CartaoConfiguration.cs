@@ -27,9 +27,25 @@ public sealed class CartaoConfiguration : IEntityTypeConfiguration<Cartao>
         builder.Property(x => x.LimiteCredito)
             .HasColumnType("decimal(18,2)");
 
+        builder.Property(x => x.Icone)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.Cor)
+            .HasMaxLength(20);
+
         builder.HasOne<ControleFinanceiro.Domain.Cadastros.ContasBancarias.ContaBancaria>()
             .WithMany()
             .HasForeignKey(x => x.ContaBancariaPagamentoPadraoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa>()
+            .WithMany()
+            .HasForeignKey(x => x.RecebedorPadraoFaturaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<ControleFinanceiro.Domain.Cadastros.FormasPagamento.FormaPagamento>()
+            .WithMany()
+            .HasForeignKey(x => x.FormaPagamentoPadraoFaturaId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -17,9 +17,12 @@ public static class DependencyInjection
         services.AddSingleton<IBootstrapCatalogService, BootstrapCatalogService>();
         services.AddSingleton<IValidationResultFactory, ValidationResultFactory>();
         services.AddScoped<ILookupCacheService, LookupCacheService>();
+        services.AddScoped<Financeiro.Reembolsos.IReembolsoAppService, Financeiro.Reembolsos.ReembolsoAppService>();
         services.AddScopedApplicationServices(typeof(DependencyInjection).Assembly);
         services.AddScoped<Dashboard.DashboardDbHelpers>();
         services.AddScoped<Financeiro.ContasPagar.ContaPagarSharedHelper>();
+        services.AddScoped<Financeiro.ContasReceber.ContaReceberSharedHelper>();
+        services.AddScoped<ImportacoesWhatsapp.ImportacaoWhatsappSharedHelper>();
         return services;
     }
 

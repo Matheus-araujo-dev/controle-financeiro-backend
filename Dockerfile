@@ -1,0 +1,36 @@
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv python3-pil tesseract-ocr tesseract-ocr-por \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv --system-site-packages /opt/invoice-python && /opt/invoice-python/bin/pip install --no-cache-dir "pypdf[crypto]==6.10.0"
+ENV PATH="/opt/invoice-python/bin:${PATH}"
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG configuration=Release
+WORKDIR /src
+
+COPY ["src/ControleFinanceiro.Api/ControleFinanceiro.Api.csproj", "ControleFinanceiro.Api/"]
+COPY ["src/ControleFinanceiro.Application/ControleFinanceiro.Application.csproj", "ControleFinanceiro.Application/"]
+COPY ["src/ControleFinanceiro.Domain/ControleFinanceiro.Domain.csproj", "ControleFinanceiro.Domain/"]
+COPY ["src/ControleFinanceiro.Infrastructure/ControleFinanceiro.Infrastructure.csproj", "ControleFinanceiro.Infrastructure/"]
+COPY ["src/ControleFinanceiro.SharedKernel/ControleFinanceiro.SharedKernel.csproj", "ControleFinanceiro.SharedKernel/"]
+COPY ["src/ControleFinanceiro.Contracts/ControleFinanceiro.Contracts.csproj", "ControleFinanceiro.Contracts/"]
+
+COPY Directory.Build.props .
+
+RUN dotnet restore "ControleFinanceiro.Api/ControleFinanceiro.Api.csproj"
+
+COPY src/ .
+
+WORKDIR "/src/ControleFinanceiro.Api"
+RUN dotnet publish -c $configuration -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+ENTRYPOINT ["dotnet", "ControleFinanceiro.Api.dll"]

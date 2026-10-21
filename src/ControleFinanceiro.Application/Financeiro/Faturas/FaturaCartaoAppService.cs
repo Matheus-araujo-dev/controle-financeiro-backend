@@ -5,6 +5,7 @@ using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.Common.Validation;
 using ControleFinanceiro.Contracts.Common;
 using ControleFinanceiro.Contracts.Financeiro.Faturas;
+using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
@@ -44,10 +45,10 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.CartaoNome, termo) ||
-                EF.Functions.Like(x.Competencia, termo));
+                EF.Functions.Like(x.CartaoNome.ToLower(), termo) ||
+                EF.Functions.Like(x.Competencia.ToLower(), termo));
         }
 
         var cartaoIds = query.CartaoIds?
@@ -65,7 +66,17 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => cartaoIds.Contains(x.CartaoId));
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Competencia))
+        var competenciasSelecionadas = query.Competencias?
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct()
+            .ToHashSet() ?? [];
+
+        if (competenciasSelecionadas.Count > 0)
+        {
+            consulta = consulta.Where(x => competenciasSelecionadas.Contains(x.Competencia));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.Competencia))
         {
             var competencia = query.Competencia.Trim();
             consulta = consulta.Where(x => x.Competencia == competencia);
@@ -256,7 +267,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             return null;
         }
 
-        var itens = await ListarItensAsync(item.CartaoId, item.Competencia, cancellationToken);
+        var itens = await ListarItensAsync(item.CartaoId, item.Competencia, responsavelId: null, cancellationToken);
         var status = MapearStatus(item.Status);
 
         return new FaturaDetalheResponse(
@@ -371,6 +382,91 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                     fatura.ValorTotal,
                     StatusMovimentacao.EfetivadaId,
                     request.Observacao ?? $"Pagamento da fatura {fatura.Competencia}"));
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await ObterPorIdAsync(id, cancellationToken);
+    }
+
+    public async Task<FaturaDetalheResponse?> FecharAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await SincronizarFaturasAsync(cancellationToken);
+
+        var fatura = await dbContext.FaturasCartao.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (fatura is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            fatura.Fechar();
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw ValidationExceptionFactory.Create("Status", exception.Message);
+        }
+
+        var cartao = await dbContext.Cartoes
+            .AsNoTracking()
+            .SingleAsync(x => x.Id == fatura.CartaoId, cancellationToken);
+
+        if (cartao.RecebedorPadraoFaturaId.HasValue && cartao.FormaPagamentoPadraoFaturaId.HasValue)
+        {
+            var contaPagarExistente = await dbContext.ContasPagar
+                .AnyAsync(x => x.FaturaCartaoId == fatura.Id && !x.CartaoId.HasValue && x.StatusContaId != StatusConta.CanceladaId, cancellationToken);
+
+            if (!contaPagarExistente)
+            {
+                var contaPagar = ContaPagar.CriarParaFatura(
+                    cartao.RecebedorPadraoFaturaId.Value,
+                    fatura.DataVencimento,
+                    cartao.FormaPagamentoPadraoFaturaId.Value,
+                    fatura.ValorTotal,
+                    $"Fatura {cartao.Nome} — {fatura.Competencia}");
+                contaPagar.VincularFaturaCartao(fatura.Id);
+                dbContext.ContasPagar.Add(contaPagar);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await ObterPorIdAsync(id, cancellationToken);
+    }
+
+    public async Task<FaturaDetalheResponse?> ReabrirAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await SincronizarFaturasAsync(cancellationToken);
+
+        var fatura = await dbContext.FaturasCartao.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (fatura is null)
+        {
+            return null;
+        }
+
+        var contaPagarFatura = await dbContext.ContasPagar
+            .SingleOrDefaultAsync(
+                x => x.FaturaCartaoId == fatura.Id && !x.CartaoId.HasValue && x.StatusContaId != StatusConta.CanceladaId,
+                cancellationToken);
+
+        if (contaPagarFatura is not null && contaPagarFatura.StatusContaId == StatusConta.LiquidadaId)
+        {
+            throw ValidationExceptionFactory.Create("Status", "Não é possível reabrir a fatura pois a conta a pagar já foi liquidada. Estorne o pagamento primeiro.");
+        }
+
+        try
+        {
+            fatura.Reabrir();
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw ValidationExceptionFactory.Create("Status", exception.Message);
+        }
+
+        if (contaPagarFatura is not null)
+        {
+            // Movimentações estornadas continuam referenciando a obrigação antiga.
+            // Cancelar preserva esse histórico e permite consolidar novamente ao fechar.
+            contaPagarFatura.Cancelar(StatusConta.CanceladaId);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -529,13 +625,14 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                 continue;
             }
 
-            if (faturaExistente.Value.Status == StatusFaturaCartao.Paga)
+            if (faturaExistente.Value.Status == StatusFaturaCartao.Paga ||
+                faturaExistente.Value.Status == StatusFaturaCartao.Fechada)
             {
                 continue;
             }
 
             // Fatura sem nenhuma compra restante (ex.: importação re-materializada)
-            // é removida mesmo se já fechada — órfã não representa obrigação real.
+            // é removida mesmo se ainda aberta — órfã não representa obrigação real.
             dbContext.FaturasCartao.Remove(faturaExistente.Value);
             houveMudanca = true;
         }
@@ -546,9 +643,67 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         }
     }
 
+    public async Task<FaturaItensResponse?> ListarItensPaginadoAsync(
+        Guid faturaId,
+        FaturaItensQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        await SincronizarFaturasAsync(cancellationToken);
+
+        var fatura = await dbContext.FaturasCartao
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == faturaId, cancellationToken);
+
+        if (fatura is null) return null;
+
+        var todos = await ListarItensAsync(fatura.CartaoId, fatura.Competencia, query.ResponsavelId, cancellationToken);
+
+        var ordenados = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
+        {
+            "descricao" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.Descricao).ToArray()
+                : todos.OrderBy(x => x.Descricao).ToArray(),
+            "recebedornome" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.RecebedorNome).ToArray()
+                : todos.OrderBy(x => x.RecebedorNome).ToArray(),
+            "responsavelnome" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.ResponsavelNome).ToArray()
+                : todos.OrderBy(x => x.ResponsavelNome).ToArray(),
+            "valorliquido" or "valor" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.ValorLiquido).ToArray()
+                : todos.OrderBy(x => x.ValorLiquido).ToArray(),
+            "statuscodigo" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.StatusCodigo).ToArray()
+                : todos.OrderBy(x => x.StatusCodigo).ToArray(),
+            "datacompra" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.DataCompra).ThenByDescending(x => x.NumeroParcela).ToArray()
+                : todos.OrderBy(x => x.DataCompra).ThenBy(x => x.NumeroParcela).ToArray(),
+            _ => todos.OrderBy(x => x.DataCompra).ThenBy(x => x.NumeroParcela).ToArray()
+        };
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var termo = query.Search.Trim().ToLowerInvariant();
+            ordenados = ordenados
+                .Where(x => x.Descricao.Contains(termo, StringComparison.OrdinalIgnoreCase)
+                         || x.RecebedorNome.Contains(termo, StringComparison.OrdinalIgnoreCase)
+                         || (x.ResponsavelNome?.Contains(termo, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToArray();
+        }
+
+        var totalItems = ordenados.Length;
+        var pageSize = query.NormalizedPageSize > 0 ? query.NormalizedPageSize : 50;
+        var page = query.NormalizedPage;
+        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+        var items = ordenados.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
+
+        return new FaturaItensResponse(items, page, pageSize, totalItems, totalPages);
+    }
+
     private async Task<IReadOnlyCollection<FaturaItemResponse>> ListarItensAsync(
         Guid cartaoId,
         string competencia,
+        Guid? responsavelId,
         CancellationToken cancellationToken)
     {
         var cartao = await dbContext.Cartoes
@@ -559,38 +714,70 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            where conta.CartaoId == cartaoId && conta.StatusContaId != StatusConta.CanceladaId
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into respJoin
+            from responsavel in respJoin.DefaultIfEmpty()
+            where conta.CartaoId == cartaoId
             select new
             {
                 conta.Id,
                 conta.Descricao,
                 RecebedorNome = recebedor.Nome,
+                ResponsavelNome = (string?)responsavel.Nome,
+                conta.ResponsavelCompraId,
                 conta.DataEmissao,
+                conta.DataCompra,
                 conta.DataVencimento,
                 conta.ValorLiquido,
                 StatusCodigo = status.Codigo,
                 conta.NumeroParcela,
-                conta.QuantidadeParcelas
+                conta.QuantidadeParcelas,
+                EhCancelada = conta.StatusContaId == StatusConta.CanceladaId
             })
             .ToArrayAsync(cancellationToken);
 
-        return contas
+        var filtrados = contas
             .Where(conta => FaturaCartaoCompetencia.CalcularPorDataVencimento(
                     conta.DataVencimento,
                     cartao.DiaFechamentoFatura,
                     cartao.DiaVencimentoFatura).Competencia == competencia)
+            .Where(conta => !responsavelId.HasValue || conta.ResponsavelCompraId == responsavelId)
             .OrderBy(conta => conta.DataEmissao)
             .ThenBy(conta => conta.NumeroParcela)
-            .Select(conta => new FaturaItemResponse(
-                conta.Id,
-                conta.Descricao,
-                conta.RecebedorNome,
-                conta.DataEmissao,
-                conta.ValorLiquido,
-                conta.StatusCodigo,
-                conta.NumeroParcela,
-                conta.QuantidadeParcelas))
             .ToArray();
+
+        var resultado = new List<FaturaItemResponse>(filtrados.Length);
+        foreach (var conta in filtrados)
+        {
+            if (!conta.EhCancelada)
+            {
+                resultado.Add(new FaturaItemResponse(
+                    conta.Id,
+                    conta.Descricao,
+                    conta.RecebedorNome,
+                    conta.ResponsavelNome,
+                    conta.DataCompra ?? conta.DataEmissao,
+                    conta.ValorLiquido,
+                    conta.StatusCodigo,
+                    conta.NumeroParcela,
+                    conta.QuantidadeParcelas));
+            }
+            else
+            {
+                resultado.Add(new FaturaItemResponse(
+                    conta.Id,
+                    $"Estorno: {conta.Descricao}",
+                    conta.RecebedorNome,
+                    conta.ResponsavelNome,
+                    conta.DataCompra ?? conta.DataEmissao,
+                    -conta.ValorLiquido,
+                    "ESTORNO",
+                    conta.NumeroParcela,
+                    conta.QuantidadeParcelas,
+                    EhEstorno: true));
+            }
+        }
+
+        return resultado;
     }
 
     private async Task<Dictionary<FaturaLookupKey, int>> CarregarQuantidadeItensAsync(
@@ -638,6 +825,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         {
             "ABERTA" => StatusFaturaCartao.Aberta,
             "PAGA" => StatusFaturaCartao.Paga,
+            "FECHADA" => StatusFaturaCartao.Fechada,
             _ => throw ValidationExceptionFactory.Create("StatusCodigo", "Status de fatura inválido.")
         };
     }
@@ -648,6 +836,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
         {
             StatusFaturaCartao.Aberta => ("ABERTA", "Aberta"),
             StatusFaturaCartao.Paga => ("PAGA", "Paga"),
+            StatusFaturaCartao.Fechada => ("FECHADA", "Fechada"),
             _ => throw new ArgumentOutOfRangeException(nameof(status))
         };
     }

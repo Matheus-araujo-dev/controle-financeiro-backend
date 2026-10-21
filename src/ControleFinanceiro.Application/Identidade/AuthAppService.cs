@@ -13,7 +13,8 @@ public sealed class AuthAppService(
     IGoogleTokenValidator googleTokenValidator,
     ITokenService tokenService,
     IClock clock,
-    IOptions<IdentidadeOptions> identidadeOptions)
+    IOptions<IdentidadeOptions> identidadeOptions,
+    Cadastros.ContasGerenciais.ContasGerenciaisPadraoSeedService contasPadraoSeedService)
 {
     public async Task<AuthTokenResponse> LoginComGoogleAsync(string idToken, CancellationToken cancellationToken)
     {
@@ -31,16 +32,24 @@ public sealed class AuthAppService(
         {
             if (!usuario.Ativo)
             {
-                throw new AuthenticationFailedException("Usuário desativado.");
+                throw new AuthenticationFailedException("UsuÃ¡rio desativado.");
             }
 
             usuario.AtualizarPerfil(googleUser.Email, googleUser.Nome, googleUser.AvatarUrl);
         }
 
-        var (membro, familia) = await GarantirMembroFamiliaAsync(usuario, cancellationToken);
+        var (membro, familia, familiaRecemCriada) = await GarantirMembroFamiliaAsync(usuario, cancellationToken);
         usuario.DefinirFamiliaAtiva(membro.FamiliaId);
 
-        return await EmitirTokensAsync(usuario, familia, membro.Papel, cancellationToken);
+        var tokenResponse = await EmitirTokensAsync(usuario, familia, membro.Papel, cancellationToken);
+
+        if (familiaRecemCriada)
+        {
+            dbContext.DefinirWorkspaceCorrente(familia.Id);
+            await contasPadraoSeedService.SeedAsync(familia.Id, cancellationToken);
+        }
+
+        return tokenResponse;
     }
 
     public async Task<AuthTokenResponse> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
@@ -53,22 +62,30 @@ public sealed class AuthAppService(
 
         if (tokenAtual is null || !tokenAtual.EstaAtivo(utcNow))
         {
-            throw new AuthenticationFailedException("Sessão expirada. Faça login novamente.");
+            throw new AuthenticationFailedException("SessÃ£o expirada. FaÃ§a login novamente.");
         }
 
         var usuario = await dbContext.Usuarios
             .SingleOrDefaultAsync(u => u.Id == tokenAtual.UsuarioId && u.Ativo, cancellationToken)
-            ?? throw new AuthenticationFailedException("Usuário desativado.");
+            ?? throw new AuthenticationFailedException("UsuÃ¡rio desativado.");
 
         var membro = await ObterMembroAtivoAsync(usuario, cancellationToken)
-            ?? throw new AuthenticationFailedException("Usuário sem família associada.");
+            ?? throw new AuthenticationFailedException("UsuÃ¡rio sem famÃ­lia associada.");
 
         var familia = await dbContext.Familias
             .SingleAsync(f => f.Id == membro.FamiliaId, cancellationToken);
 
         var response = await EmitirTokensAsync(usuario, familia, membro.Papel, cancellationToken, persistir: false);
         tokenAtual.Revogar(utcNow, tokenService.HashToken(response.RefreshToken));
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            dbContext.LimparChangeTracker();
+            throw new AuthenticationFailedException("Sessão expirada. Faça login novamente.");
+        }
 
         return response;
     }
@@ -91,7 +108,7 @@ public sealed class AuthAppService(
         }
     }
 
-    private async Task<(MembroFamilia Membro, Familia Familia)> GarantirMembroFamiliaAsync(
+    private async Task<(MembroFamilia Membro, Familia Familia, bool FamiliaRecemCriada)> GarantirMembroFamiliaAsync(
         Usuario usuario,
         CancellationToken cancellationToken)
     {
@@ -100,7 +117,25 @@ public sealed class AuthAppService(
         {
             var familiaExistente = await dbContext.Familias
                 .SingleAsync(f => f.Id == membroExistente.FamiliaId, cancellationToken);
-            return (membroExistente, familiaExistente);
+            return (membroExistente, familiaExistente, false);
+        }
+
+        // If the user has a pending invite, accept it automatically instead of creating a new workspace.
+        var convitePendente = await dbContext.ConvitesFamilia
+            .Where(c => c.EmailConvidado == usuario.Email
+                     && c.Status == StatusConviteFamilia.Pendente
+                     && c.ExpiraEmUtc > clock.UtcNow)
+            .OrderBy(c => c.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (convitePendente is not null)
+        {
+            convitePendente.Aceitar(usuario.Id, clock.UtcNow);
+            var novoMembro = MembroFamilia.Criar(convitePendente.FamiliaId, usuario.Id, convitePendente.Papel);
+            dbContext.MembrosFamilia.Add(novoMembro);
+            var familiaConvite = await dbContext.Familias
+                .SingleAsync(f => f.Id == convitePendente.FamiliaId, cancellationToken);
+            return (novoMembro, familiaConvite, false);
         }
 
         var familiaPadraoId = identidadeOptions.Value.FamiliaPadraoId;
@@ -114,13 +149,13 @@ public sealed class AuthAppService(
             // demais usuários entram apenas por convite.
             if (familiaPadrao is not null && familiaPadrao.Membros.Count == 0)
             {
-                return (familiaPadrao.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), familiaPadrao);
+                return (familiaPadrao.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), familiaPadrao, false);
             }
         }
 
-        var novaFamilia = Familia.Criar($"Família de {usuario.Nome}");
+        var novaFamilia = Familia.Criar($"Espaco de {usuario.Nome}");
         dbContext.Familias.Add(novaFamilia);
-        return (novaFamilia.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), novaFamilia);
+        return (novaFamilia.AdicionarMembro(usuario.Id, PapelFamilia.Administrador), novaFamilia, true);
     }
 
     private async Task<MembroFamilia?> ObterMembroAtivoAsync(Usuario usuario, CancellationToken cancellationToken)
@@ -173,6 +208,11 @@ public sealed class AuthAppService(
                 usuario.Email,
                 usuario.Nome,
                 usuario.AvatarUrl,
+                new WorkspaceResumoResponse(familia.Id, familia.Nome, papel.ToString()),
                 new FamiliaResumoResponse(familia.Id, familia.Nome, papel.ToString())));
     }
 }
+
+
+
+

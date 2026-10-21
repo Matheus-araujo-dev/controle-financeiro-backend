@@ -17,11 +17,11 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Nome, termo) ||
-                (x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj, termo)) ||
-                (x.Email != null && EF.Functions.Like(x.Email, termo)));
+                EF.Functions.Like(x.Nome.ToLower(), termo) ||
+                (x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj.ToLower(), termo)) ||
+                (x.Email != null && EF.Functions.Like(x.Email.ToLower(), termo)));
         }
 
         var tipos = MapearTiposFiltro(query);
@@ -35,22 +35,37 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.Ativo == query.Ativo.Value);
         }
 
+        if (query.EhPagador.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhPagador == query.EhPagador.Value);
+        }
+
+        if (query.EhRecebedor.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhRecebedor == query.EhRecebedor.Value);
+        }
+
+        if (query.EhResponsavel.HasValue)
+        {
+            consulta = consulta.Where(x => x.EhResponsavel == query.EhResponsavel.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Documento))
         {
-            var termoDoc = $"%{query.Documento.Trim()}%";
-            consulta = consulta.Where(x => x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj, termoDoc));
+            var termoDoc = $"%{query.Documento.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.CpfCnpj != null && EF.Functions.Like(x.CpfCnpj.ToLower(), termoDoc));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Email))
         {
-            var termoEmail = $"%{query.Email.Trim()}%";
-            consulta = consulta.Where(x => x.Email != null && EF.Functions.Like(x.Email, termoEmail));
+            var termoEmail = $"%{query.Email.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Email != null && EF.Functions.Like(x.Email.ToLower(), termoEmail));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Telefone))
         {
-            var termoTelefone = $"%{query.Telefone.Trim()}%";
-            consulta = consulta.Where(x => x.Telefone != null && EF.Functions.Like(x.Telefone, termoTelefone));
+            var termoTelefone = $"%{query.Telefone.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Telefone != null && EF.Functions.Like(x.Telefone.ToLower(), termoTelefone));
         }
 
         // Totalizadores sobre o conjunto FILTRADO (antes da paginação).
@@ -108,7 +123,12 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.CpfCnpj,
                 x.Email,
                 x.Telefone,
-                x.Ativo))
+                x.Ativo,
+                x.EhPagador,
+                x.EhRecebedor,
+                x.EhResponsavel,
+                x.ContaGerencialDespesaId,
+                x.ContaGerencialReceitaId))
             .ToArray();
 
         var paged = PagedResult<PessoaResumoResponse>.Create(items, query.Page, query.PageSize, totalItems);
@@ -201,7 +221,12 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 request.Email,
                 request.Telefone,
                 request.Observacao,
-                pessoa.Ativo);
+                pessoa.Ativo,
+                request.EhPagador,
+                request.EhRecebedor,
+                request.EhResponsavel,
+                request.ContaGerencialDespesaId,
+                request.ContaGerencialReceitaId);
 
             if (pessoa.ChavesPix.Count > 0)
             {
@@ -261,7 +286,12 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 request.Telefone,
                 request.Observacao,
                 MapearChavesPix(request.ChavesPix),
-                true);
+                true,
+                request.EhPagador,
+                request.EhRecebedor,
+                request.EhResponsavel,
+                request.ContaGerencialDespesaId,
+                request.ContaGerencialReceitaId);
         }
         catch (ArgumentException exception)
         {
@@ -330,7 +360,12 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 .ToArray(),
             pessoa.Ativo,
             pessoa.CreatedAtUtc,
-            pessoa.UpdatedAtUtc);
+            pessoa.UpdatedAtUtc,
+            pessoa.EhPagador,
+            pessoa.EhRecebedor,
+            pessoa.EhResponsavel,
+            pessoa.ContaGerencialDespesaId,
+            pessoa.ContaGerencialReceitaId);
     }
 
     private static IReadOnlyCollection<ChavePixPlano> MapearChavesPix(IReadOnlyCollection<PessoaChavePixRequest>? chavesPix)

@@ -17,6 +17,7 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.ToTable("contas_pagar");
 
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.UpdatedAtUtc).IsConcurrencyToken();
 
         builder.Property(x => x.NumeroDocumento)
             .HasMaxLength(80);
@@ -52,9 +53,12 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
 
         builder.HasIndex("StatusContaId", "DataVencimento");
         builder.HasIndex("RecebedorId", "StatusContaId");
+        // Sincronização/liquidação de fatura filtra por CartaoId + StatusContaId.
+        builder.HasIndex(x => new { x.CartaoId, x.StatusContaId })
+            .HasFilter("\"CartaoId\" IS NOT NULL");
         builder.HasIndex(x => x.OrigemImportacaoWhatsappId);
         builder.HasIndex(x => new { x.CartaoId, x.ChaveSerieImportacaoCartao, x.NumeroParcela, x.QuantidadeParcelas })
-            .HasFilter("[CartaoId] IS NOT NULL AND [ChaveSerieImportacaoCartao] IS NOT NULL");
+            .HasFilter("\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");
         builder.HasIndex(x => x.Descricao);
         builder.HasIndex(x => x.NumeroDocumento);
 
@@ -107,5 +111,13 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
             .WithMany()
             .HasForeignKey(x => x.FaturaCartaoId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.TipoContaVinculada)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.HasIndex(x => x.ContaVinculadaId);
+        builder.HasIndex(x => x.GrupoReembolsoId).HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
+        builder.HasIndex(x => x.GrupoResponsaveisId).HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
     }
 }

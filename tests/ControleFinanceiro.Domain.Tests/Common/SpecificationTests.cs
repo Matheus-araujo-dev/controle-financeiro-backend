@@ -115,4 +115,49 @@ public sealed class SpecificationTests
         var resultado = new ContaPagarPorValorMinimoSpec(100m).Apply(contas).ToList();
         Assert.Equal(2, resultado.Count);
     }
+
+    [Fact]
+    public void ContaPagarPorVencimentoDeSpec_DataPosteriorOuIgual_Satisfaz()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var conta = Build(vencimento: hoje);
+        Assert.True(new ContaPagarPorVencimentoDeSpec(hoje).IsSatisfiedBy(conta));
+    }
+
+    [Fact]
+    public void ContaPagarPorVencimentoDeSpec_DataAnterior_NaoSatisfaz()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var conta = Build(vencimento: hoje.AddDays(-1));
+        Assert.False(new ContaPagarPorVencimentoDeSpec(hoje).IsSatisfiedBy(conta));
+    }
+
+    [Fact]
+    public void ContaPagarPorRecebedorSpec_MesmoRecebedor_Satisfaz()
+    {
+        var recebedorId = Guid.NewGuid();
+        var conta = new ContaPagarBuilder().ComRecebedorId(recebedorId).Build();
+        Assert.True(new ContaPagarPorRecebedorSpec(recebedorId).IsSatisfiedBy(conta));
+    }
+
+    [Fact]
+    public void ContaPagarPorRecebedorSpec_RecebedorDiferente_NaoSatisfaz()
+    {
+        var conta = Build();
+        Assert.False(new ContaPagarPorRecebedorSpec(Guid.NewGuid()).IsSatisfiedBy(conta));
+    }
+
+    [Fact]
+    public void ContaPagarPorValorMaximoSpec_ValorAbaixoDoLimite_Satisfaz()
+    {
+        var conta = Build(valor: 50m);
+        Assert.True(new ContaPagarPorValorMaximoSpec(100m).IsSatisfiedBy(conta));
+    }
+
+    [Fact]
+    public void ContaPagarPorValorMaximoSpec_ValorAcimaDoLimite_NaoSatisfaz()
+    {
+        var conta = Build(valor: 200m);
+        Assert.False(new ContaPagarPorValorMaximoSpec(100m).IsSatisfiedBy(conta));
+    }
 }

@@ -1,4 +1,4 @@
-using ControleFinanceiro.Api.Configuration;
+﻿using ControleFinanceiro.Api.Configuration;
 using ControleFinanceiro.Api.Tests.Financeiro;
 using ControleFinanceiro.Api.Tests.Infrastructure;
 using ControleFinanceiro.Application.Common.Persistence;
@@ -21,7 +21,9 @@ public sealed class FinanceInsightsServiceTests(CustomWebApplicationFactory fact
     {
         public bool IsAuthenticated => familiaId is not null;
         public string? UserId => Guid.NewGuid().ToString();
-        public Guid? FamiliaId => familiaId;
+        public string? UserEmail => null;
+        public Guid? WorkspaceId => familiaId;
+        public Guid? FamiliaId => WorkspaceId;
         public string? Papel => "Administrador";
     }
 
@@ -70,14 +72,16 @@ public sealed class FinanceInsightsServiceTests(CustomWebApplicationFactory fact
     }
 
     [Fact]
-    public async Task GerarInsightsAsync_SemFamilia_DeveLancar()
+    public async Task GerarInsightsAsync_SemFamilia_DeveRetornarVazio()
     {
         using var scope = _factory.Services.CreateScope();
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var servico = Criar(scope, familiaId: null, cache);
 
-        var acao = async () => await servico.GerarInsightsAsync("2026-04", CancellationToken.None);
+        var resultado = await servico.GerarInsightsAsync("2026-04", CancellationToken.None);
 
-        await acao.Should().ThrowAsync<InvalidOperationException>();
+        resultado.Insights.Should().BeEmpty();
     }
 }
+
+

@@ -14,4 +14,6 @@ public interface IIdentidadeDbContext
     DbSet<ConviteFamilia> ConvitesFamilia { get; }
 
     DbSet<RefreshToken> RefreshTokens { get; }
+
+    DbSet<ApiKey> ApiKeys { get; }
 }

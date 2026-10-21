@@ -53,7 +53,8 @@ internal sealed record ImportacaoCompraInfo(
     string? SerieRecorrenteKey,
     string? SerieParcelamentoKey,
     Guid? ContaGerencialId,
-    Guid? ResponsavelId);
+    Guid? ResponsavelId,
+    bool Materializada);
 
 internal sealed record RateioLancamentoInfo(
     Guid LancamentoId,
@@ -65,7 +66,8 @@ internal sealed record RateioLancamentoInfo(
     decimal ValorLancamento,
     decimal ValorRateio,
     Guid StatusContaId,
-    Guid ContaGerencialId);
+    Guid ContaGerencialId,
+    Guid? ResponsavelId);
 
 internal sealed record PrevisaoItem(
     string TipoReferencia,

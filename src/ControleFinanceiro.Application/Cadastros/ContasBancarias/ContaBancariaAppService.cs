@@ -20,35 +20,35 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Nome, termo) ||
-                EF.Functions.Like(x.Banco, termo) ||
-                (x.NumeroConta != null && EF.Functions.Like(x.NumeroConta, termo)));
+                EF.Functions.Like(x.Nome.ToLower(), termo) ||
+                EF.Functions.Like(x.Banco.ToLower(), termo) ||
+                (x.NumeroConta != null && EF.Functions.Like(x.NumeroConta.ToLower(), termo)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Banco))
         {
-            var banco = $"%{query.Banco.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Banco, banco));
+            var banco = $"%{query.Banco.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Banco.ToLower(), banco));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Agencia))
         {
-            var agencia = $"%{query.Agencia.Trim()}%";
-            consulta = consulta.Where(x => x.Agencia != null && EF.Functions.Like(x.Agencia, agencia));
+            var agencia = $"%{query.Agencia.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Agencia != null && EF.Functions.Like(x.Agencia.ToLower(), agencia));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NumeroConta))
         {
-            var numeroConta = $"%{query.NumeroConta.Trim()}%";
-            consulta = consulta.Where(x => x.NumeroConta != null && EF.Functions.Like(x.NumeroConta, numeroConta));
+            var numeroConta = $"%{query.NumeroConta.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.NumeroConta != null && EF.Functions.Like(x.NumeroConta.ToLower(), numeroConta));
         }
 
         if (!string.IsNullOrWhiteSpace(query.TipoConta))
         {
-            var tipoConta = $"%{query.TipoConta.Trim()}%";
-            consulta = consulta.Where(x => x.TipoConta != null && EF.Functions.Like(x.TipoConta, tipoConta));
+            var tipoConta = $"%{query.TipoConta.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.TipoConta != null && EF.Functions.Like(x.TipoConta.ToLower(), tipoConta));
         }
 
         if (query.Ativo.HasValue)
@@ -118,6 +118,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 x.DataSaldoInicial,
                 x.LimiteCartoesCompartilhado,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .ToListAsync(cancellationToken);
@@ -139,7 +141,9 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                     x.LimiteCartoesCompartilhado,
                     valorComprometido,
                     CalcularDisponivel(x.LimiteCartoesCompartilhado, valorComprometido),
-                    x.Ativo);
+                    x.Ativo,
+                    x.Icone,
+                    x.Cor);
             })
             .ToList();
 
@@ -169,6 +173,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 x.DataSaldoInicial,
                 x.LimiteCartoesCompartilhado,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .SingleOrDefaultAsync(cancellationToken);
@@ -196,6 +202,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
             valorComprometido,
             CalcularDisponivel(conta.LimiteCartoesCompartilhado, valorComprometido),
             conta.Ativo,
+            conta.Icone,
+            conta.Cor,
             conta.CreatedAtUtc,
             conta.UpdatedAtUtc);
     }
@@ -204,6 +212,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
         CriarContaBancariaRequest request,
         CancellationToken cancellationToken)
     {
+        await ValidarNomeDuplicadoAsync(null, request.Nome, cancellationToken);
+
         ContaBancaria conta;
 
         try
@@ -217,7 +227,9 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 request.SaldoInicial,
                 request.DataSaldoInicial,
                 request.LimiteCartoesCompartilhado,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -243,6 +255,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
             return null;
         }
 
+        await ValidarNomeDuplicadoAsync(id, request.Nome, cancellationToken);
+
         try
         {
             conta.Atualizar(
@@ -254,7 +268,9 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
                 request.SaldoInicial,
                 request.DataSaldoInicial,
                 request.LimiteCartoesCompartilhado,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -331,6 +347,17 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
             : null;
     }
 
+    private async Task ValidarNomeDuplicadoAsync(Guid? excluirId, string nome, CancellationToken cancellationToken)
+    {
+        var nomeLower = nome.Trim().ToLower();
+        var existe = await dbContext.ContasBancarias.AnyAsync(
+            x => x.Nome.ToLower() == nomeLower && (!excluirId.HasValue || x.Id != excluirId.Value),
+            cancellationToken);
+
+        if (existe)
+            throw ValidationExceptionFactory.Create("Nome", "Já existe uma conta bancária com este nome.");
+    }
+
     private static Exception ConverterParaValidacao(Exception exception)
     {
         var campo = exception switch
@@ -354,6 +381,8 @@ public sealed class ContaBancariaAppService(IAppDbContext dbContext)
         DateOnly DataSaldoInicial,
         decimal? LimiteCartoesCompartilhado,
         bool Ativo,
+        string? Icone,
+        string? Cor,
         DateTime CreatedAtUtc,
         DateTime UpdatedAtUtc);
 }

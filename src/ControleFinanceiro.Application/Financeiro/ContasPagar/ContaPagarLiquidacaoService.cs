@@ -9,13 +9,15 @@ public interface IContaPagarLiquidacaoService
 {
     Task<ContaPagarDetalheResponse?> LiquidarAsync(Guid id, LiquidarContaPagarRequest request, CancellationToken cancellationToken);
     Task<ContaPagarDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken);
-    Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancellationToken cancellationToken);
+    Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken);
+    Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public sealed class ContaPagarLiquidacaoService(
     IAppDbContext dbContext,
     IContaPagarQueryService queryService,
-    ContaPagarSharedHelper helper) : IContaPagarLiquidacaoService
+    ContaPagarSharedHelper helper,
+    IContaPagarRecorrenciaService recorrenciaService) : IContaPagarLiquidacaoService
 {
     public async Task<ContaPagarDetalheResponse?> LiquidarAsync(Guid id, LiquidarContaPagarRequest request, CancellationToken cancellationToken)
     {
@@ -56,12 +58,41 @@ public sealed class ContaPagarLiquidacaoService(
                 conta.AtualizarValorLiquido(request.ValorLiquidacao, novosRateios);
                 valorReferenciaConta = request.ValorLiquidacao;
 
-                if (conta.RegraRecorrenciaId.HasValue)
+                if (conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
+                {
                     await helper.AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
+                    var proxima = conta.DataVencimento.AddDays(1);
+                    await helper.AtualizarValorFuturasAsync(conta.RegraRecorrenciaId.Value, proxima, request.ValorLiquidacao, cancellationToken);
+                }
             }
 
             var saldoFinal = saldoJaLiquidado + request.ValorLiquidacao;
-            statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+
+            if (request.CancelarValorRestante && saldoFinal < valorReferenciaConta)
+            {
+                var novosRateios = await helper.RecalcularRateiosAsync(conta.Id, saldoFinal, cancellationToken);
+                conta.AtualizarValorLiquido(saldoFinal, novosRateios);
+                if (conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
+                {
+                    await helper.AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, saldoFinal, novosRateios, cancellationToken);
+                    var proxima = conta.DataVencimento.AddDays(1);
+                    await helper.AtualizarValorFuturasAsync(conta.RegraRecorrenciaId.Value, proxima, saldoFinal, cancellationToken);
+                }
+                statusFinal = StatusConta.LiquidadaId;
+            }
+            else
+            {
+                statusFinal = saldoFinal < valorReferenciaConta ? StatusConta.ParcialId : StatusConta.LiquidadaId;
+
+                if (!deveAtualizarValor && conta.RegraRecorrenciaId.HasValue && request.AtualizarRecorrencia)
+                {
+                    var novosRateios = await helper.RecalcularRateiosAsync(conta.Id, request.ValorLiquidacao, cancellationToken);
+                    await helper.AtualizarTemplateRecorrenciaAsync(conta.RegraRecorrenciaId.Value, request.ValorLiquidacao, novosRateios, cancellationToken);
+                    var proxima = conta.DataVencimento.AddDays(1);
+                    await helper.AtualizarValorFuturasAsync(conta.RegraRecorrenciaId.Value, proxima, request.ValorLiquidacao, cancellationToken);
+                }
+            }
+
             valorMovimentacao = request.ValorLiquidacao;
         }
 
@@ -100,6 +131,8 @@ public sealed class ContaPagarLiquidacaoService(
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
 
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
         try { conta.Estornar(StatusConta.PendenteId); }
         catch (InvalidOperationException ex) { throw helper.ConverterParaValidacao(ex); }
 
@@ -133,10 +166,23 @@ public sealed class ContaPagarLiquidacaoService(
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
     }
 
-    public async Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken)
     {
         var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (conta is null) return null;
+
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
+        if (conta.StatusContaId == StatusConta.ParcialId)
+        {
+            // Cancela apenas o restante: ajusta valor ao que já foi pago e liquida a conta
+            var saldoPago = await helper.CalcularSaldoLiquidadoAsync(conta.Id, cancellationToken);
+            var novosRateios = await helper.RecalcularRateiosAsync(conta.Id, saldoPago, cancellationToken);
+            conta.AtualizarValorLiquido(saldoPago, novosRateios);
+            conta.Liquidar(conta.DataLiquidacao!.Value, conta.ContaBancariaId!.Value, StatusConta.LiquidadaId);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
+        }
 
         try { conta.Cancelar(StatusConta.CanceladaId); }
         catch (InvalidOperationException ex) { throw helper.ConverterParaValidacao(ex); }
@@ -145,7 +191,151 @@ public sealed class ContaPagarLiquidacaoService(
             .SingleOrDefaultAsync(x => x.ContaPagarId == conta.Id && x.Natureza == NaturezaMovimentacao.Economica, cancellationToken);
         movimentoEconomico?.Cancelar(StatusMovimentacao.CanceladaId);
 
+        if (conta.OrigemCompraPlanejadaId.HasValue)
+        {
+            var compraPlanejada = await dbContext.ComprasPlanejadas
+                .SingleOrDefaultAsync(x => x.Id == conta.OrigemCompraPlanejadaId.Value, cancellationToken);
+
+            if (compraPlanejada is not null)
+            {
+                if (request?.CancelarPlanejamentoRelacionado == true)
+                {
+                    compraPlanejada.CancelarPlanejamento();
+                }
+                else
+                {
+                    compraPlanejada.ReverterParaPlanejada();
+                }
+            }
+        }
+
+        if (conta.RegraRecorrenciaId.HasValue && request?.PausarRecorrenciaRelacionada == true)
+        {
+            var regra = await dbContext.RegrasRecorrencia
+                .SingleOrDefaultAsync(x => x.Id == conta.RegraRecorrenciaId.Value, cancellationToken);
+            if (regra is not null && regra.Ativa)
+            {
+                regra.Pausar();
+                await recorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken);
+            }
+        }
+
+        // Cancelamento em cascata de parcelas do mesmo grupo.
+        // Escolha explícita do usuário prevalece; sem escolha, só a parcela 1 cascateia (compatibilidade).
+        if (conta.GrupoParcelamentoId.HasValue)
+        {
+            var cancelarFuturas = request?.CancelarParcelasFuturas ?? conta.NumeroParcela == 1;
+            if (cancelarFuturas)
+            {
+                var parcelas = await dbContext.ContasPagar
+                    .Where(x => x.GrupoParcelamentoId == conta.GrupoParcelamentoId.Value
+                             && x.Id != conta.Id
+                             && x.DataVencimento >= conta.DataVencimento
+                             && x.StatusContaId != StatusConta.CanceladaId
+                             && x.StatusContaId != StatusConta.LiquidadaId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var parcela in parcelas)
+                {
+                    try { parcela.Cancelar(StatusConta.CanceladaId); }
+                    catch (InvalidOperationException) { /* ignorar parcelas que não podem ser canceladas */ }
+                }
+            }
+        }
+
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await queryService.ObterPorIdAsync(conta.Id, cancellationToken);
+    }
+
+    public async Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var conta = await dbContext.ContasPagar.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (conta is null) return false;
+
+        if (!conta.CartaoId.HasValue || (conta.StatusContaId != StatusConta.EmFaturaId && conta.StatusContaId != StatusConta.CanceladaId))
+            throw helper.ConverterParaValidacao(new InvalidOperationException("Este lançamento não está em uma fatura aberta."));
+
+        // Validação 1: fatura da parcela atual não pode estar fechada ou paga
+        await BloquearSeFaturaFechadaOuPagaAsync(conta, cancellationToken);
+
+        // Parcelas futuras do mesmo grupo de parcelamento
+        var parcelasFuturas = conta.GrupoParcelamentoId.HasValue
+            ? await dbContext.ContasPagar
+                .Where(x => x.GrupoParcelamentoId == conta.GrupoParcelamentoId && x.NumeroParcela > conta.NumeroParcela)
+                .ToListAsync(cancellationToken)
+            : [];
+
+        // Validação 2: faturas das parcelas futuras também não podem estar fechadas ou pagas
+        foreach (var parcela in parcelasFuturas)
+            await BloquearSeFaturaFechadaOuPagaAsync(parcela, cancellationToken);
+
+        // Todas as ContasPagar a excluir (atual + futuras)
+        var todasContasPagar = new List<ContaPagar>(parcelasFuturas.Count + 1) { conta };
+        todasContasPagar.AddRange(parcelasFuturas);
+
+        // Validação 3: reembolsos gerados por qualquer parcela não podem estar recebidos
+        var grupoReembolsoIds = todasContasPagar
+            .Where(x => x.GrupoReembolsoId.HasValue)
+            .Select(x => x.GrupoReembolsoId!.Value)
+            .Distinct()
+            .ToList();
+
+        List<ContaReceber> contasReceberParaExcluir = [];
+        if (grupoReembolsoIds.Count > 0)
+        {
+            contasReceberParaExcluir = await dbContext.ContasReceber
+                .Where(x => x.GrupoReembolsoId.HasValue && grupoReembolsoIds.Contains(x.GrupoReembolsoId!.Value))
+                .ToListAsync(cancellationToken);
+
+            if (contasReceberParaExcluir.Any(x => x.StatusContaId == StatusConta.LiquidadaId))
+                throw helper.ConverterParaValidacao(new InvalidOperationException(
+                    "Não é possível remover este lançamento pois o reembolso gerado já foi recebido."));
+        }
+
+        // Excluir movimentos das ContasReceber de reembolso
+        if (contasReceberParaExcluir.Count > 0)
+        {
+            var idsContasReceber = contasReceberParaExcluir.Select(x => x.Id).ToList();
+            var movimentosCr = await dbContext.MovimentacoesFinanceiras
+                .Where(x => x.ContaReceberId.HasValue && idsContasReceber.Contains(x.ContaReceberId.Value))
+                .ToListAsync(cancellationToken);
+            dbContext.MovimentacoesFinanceiras.RemoveRange(movimentosCr);
+            dbContext.ContasReceber.RemoveRange(contasReceberParaExcluir);
+        }
+
+        // Excluir movimentos de todas as ContasPagar
+        var idsContasPagar = todasContasPagar.Select(x => x.Id).ToList();
+        var movimentosCp = await dbContext.MovimentacoesFinanceiras
+            .Where(x => x.ContaPagarId.HasValue && idsContasPagar.Contains(x.ContaPagarId.Value))
+            .ToListAsync(cancellationToken);
+        dbContext.MovimentacoesFinanceiras.RemoveRange(movimentosCp);
+
+        dbContext.ContasPagar.RemoveRange(todasContasPagar);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private async Task BloquearSeFaturaFechadaOuPagaAsync(ContaPagar conta, CancellationToken cancellationToken)
+    {
+        if (!conta.CartaoId.HasValue) return;
+
+        var cartao = await dbContext.Cartoes.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == conta.CartaoId.Value, cancellationToken);
+        if (cartao is null) return;
+
+        var competencia = FaturaCartaoCompetencia.CalcularPorDataVencimento(
+            conta.DataVencimento, cartao.DiaFechamentoFatura, cartao.DiaVencimentoFatura).Competencia;
+
+        var fatura = await dbContext.FaturasCartao.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CartaoId == conta.CartaoId.Value && x.Competencia == competencia, cancellationToken);
+
+        if (fatura is null) return;
+
+        if (fatura.Status == StatusFaturaCartao.Fechada || fatura.Status == StatusFaturaCartao.Paga)
+        {
+            throw helper.ConverterParaValidacao(
+                new InvalidOperationException("Não é permitido editar ou cancelar lançamentos de faturas fechadas ou liquidadas."));
+        }
     }
 }

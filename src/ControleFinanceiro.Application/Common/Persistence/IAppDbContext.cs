@@ -3,6 +3,8 @@ using ControleFinanceiro.Domain.Cadastros.ContasBancarias;
 using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
+using ControleFinanceiro.Domain.Anexos;
+using ControleFinanceiro.Domain.Conciliacao;
 using ControleFinanceiro.Domain.Financeiro;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using ControleFinanceiro.Domain.PlanejamentoCompras;
@@ -18,12 +20,17 @@ public interface IAppDbContext :
     IStatusDbContext,
     IIdentidadeDbContext,
     IFinanceAiDbContext,
+    IAnexosDbContext,
+    IConciliacaoDbContext,
     IWhatsappDbContext,
+    IAuditDbContext,
     IUnitOfWork
 {
-    /// <summary>
-    /// Define a família (tenant) corrente fora de um request autenticado
-    /// (workers em background e webhooks anônimos).
-    /// </summary>
+    Guid? WorkspaceCorrente { get; }
+
+    void DefinirWorkspaceCorrente(Guid workspaceId);
+
     void DefinirFamiliaCorrente(Guid familiaId);
+
+    void LimparChangeTracker();
 }

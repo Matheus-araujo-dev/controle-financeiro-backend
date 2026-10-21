@@ -39,5 +39,11 @@ public sealed class ContaBancariaConfiguration : IEntityTypeConfiguration<ContaB
 
         builder.Property(x => x.LimiteCartoesCompartilhado)
             .HasColumnType("decimal(18,2)");
+
+        builder.Property(x => x.Icone)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.Cor)
+            .HasMaxLength(20);
     }
 }

@@ -12,13 +12,31 @@ public sealed class LookupCacheServiceTests(CustomWebApplicationFactory factory)
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
+    public async Task Lookups_AoTrocarWorkspaceNoMesmoScope_NaoDevemReutilizarDadosAnteriores()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        await FinancialFixtureSeed.CreateAsync(client);
+        using var scope = _factory.Services.CreateWorkspaceScope();
+        var db = scope.ServiceProvider.GetRequiredService<ControleFinanceiro.Application.Common.Persistence.IAppDbContext>();
+        var workspaceOriginal = db.WorkspaceCorrente!.Value;
+        var cache = scope.ServiceProvider.GetRequiredService<ILookupCacheService>();
+        var originais = await cache.GetAllFormaPagamentoAsync(CancellationToken.None);
+        originais.Should().NotBeEmpty();
+        db.DefinirWorkspaceCorrente(Guid.NewGuid());
+        (await cache.GetAllFormaPagamentoAsync(CancellationToken.None)).Should().BeEmpty();
+        (await cache.GetAllContaGerencialAsync(CancellationToken.None)).Should().BeEmpty();
+        db.DefinirWorkspaceCorrente(workspaceOriginal);
+        (await cache.GetAllFormaPagamentoAsync(CancellationToken.None)).Select(f => f.Id).Should().BeEquivalentTo(originais.Select(f => f.Id));
+    }
+    [Fact]
     public async Task Lookups_DeveCarregarPorTipoEPorId()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var cache = scope.ServiceProvider.GetRequiredService<ILookupCacheService>();
         var ct = CancellationToken.None;
 
@@ -46,7 +64,7 @@ public sealed class LookupCacheServiceTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var cache = scope.ServiceProvider.GetRequiredService<ILookupCacheService>();
         var ct = CancellationToken.None;
 
@@ -63,7 +81,7 @@ public sealed class LookupCacheServiceTests(CustomWebApplicationFactory factory)
         using var client = _factory.CreateClient();
         await FinancialFixtureSeed.CreateAsync(client);
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = _factory.Services.CreateWorkspaceScope();
         var cache = scope.ServiceProvider.GetRequiredService<ILookupCacheService>();
         var ct = CancellationToken.None;
 

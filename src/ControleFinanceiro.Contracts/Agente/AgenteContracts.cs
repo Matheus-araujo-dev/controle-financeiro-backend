@@ -1,21 +1,33 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ControleFinanceiro.Contracts.Agente;
 
 public sealed record AgentePerguntarRequest(
-    string Mensagem,
+    // Limita a entrada enviada ao LLM: evita abuso e custo de tokens descontrolado.
+    [Required, StringLength(2000, MinimumLength = 1)] string Mensagem,
     Guid? ConversaId = null);
+
+public sealed record AgentFileOutputDto(
+    string Nome,
+    string MimeType,
+    string Url,
+    long TamanhoBytes);
 
 public sealed record AgentePerguntarResponse(
     string Resposta,
     Guid ConversaId,
-    int TokensUsados);
+    int TokensUsados,
+    IReadOnlyList<AgentFileOutputDto>? Arquivos = null);
 
-public sealed record AgenteInsightsRequest(string MesReferencia);
+public sealed record AgenteInsightsRequest(
+    [Required, RegularExpression(@"^\d{4}-\d{2}$")] string MesReferencia);
 
 public sealed record AgenteInsight(string Tipo, string Mensagem, string? Valor = null);
 
 public sealed record AgenteInsightsResponse(IReadOnlyList<AgenteInsight> Insights, int TokensUsados);
 
-public sealed record AgenteCategorizarRequest(IReadOnlyList<string> Descricoes);
+public sealed record AgenteCategorizarRequest(
+    [Required, MaxLength(100)] IReadOnlyList<string> Descricoes);
 
 public sealed record AgenteCategorizacaoItem(
     string Descricao,
@@ -24,3 +36,26 @@ public sealed record AgenteCategorizacaoItem(
     double Confianca);
 
 public sealed record AgenteCategorizarResponse(IReadOnlyList<AgenteCategorizacaoItem> Itens);
+
+public sealed record AgenteStreamEventDto(
+    string Tipo,
+    string? Dados = null,
+    AgentFileOutputDto? Arquivo = null);
+
+public sealed record ConversaResumoResponse(
+    Guid Id,
+    DateTime CriadaEmUtc,
+    DateTime? UltimaMensagemUtc,
+    string? UltimaMensagemResumo,
+    int TotalMensagens);
+
+public sealed record ConversaMensagemResponse(
+    Guid Id,
+    string Papel,
+    string Conteudo,
+    DateTime CriadaEmUtc);
+
+public sealed record ConversaDetalheResponse(
+    Guid Id,
+    DateTime CriadaEmUtc,
+    IReadOnlyList<ConversaMensagemResponse> Mensagens);

@@ -1,3 +1,4 @@
+using ControleFinanceiro.Domain.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -33,12 +34,31 @@ public sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
         builder.Property(x => x.Observacao)
             .HasMaxLength(1000);
 
+        builder.Property(x => x.EhPagador).IsRequired().HasDefaultValue(true);
+        builder.Property(x => x.EhRecebedor).IsRequired().HasDefaultValue(true);
+        builder.Property(x => x.EhResponsavel).IsRequired().HasDefaultValue(true);
+
         builder.HasIndex(x => x.CpfCnpj)
             .IsUnique()
-            .HasFilter("[CpfCnpj] IS NOT NULL");
+            .HasFilter("\"CpfCnpj\" IS NOT NULL");
 
         builder.HasIndex(x => x.Nome);
         builder.HasIndex("Ativo", "Nome");
+
+        builder.Property(x => x.ContaGerencialDespesaId);
+        builder.Property(x => x.ContaGerencialReceitaId);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialDespesaId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
+        builder.HasOne<ContaGerencial>()
+            .WithMany()
+            .HasForeignKey(x => x.ContaGerencialReceitaId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasMany(x => x.ChavesPix)
             .WithOne()

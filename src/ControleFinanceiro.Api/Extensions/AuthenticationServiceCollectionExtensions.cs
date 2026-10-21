@@ -13,11 +13,12 @@ public static class AuthenticationServiceCollectionExtensions
 {
     public static IServiceCollection AddApiFoundation(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         services.ConfigureApiBehavior();
         services.AddApiCors(configuration);
-        services.AddApiAuthentication(configuration);
+        services.AddApiAuthentication(configuration, environment);
         return services;
     }
 
@@ -42,8 +43,9 @@ public static class AuthenticationServiceCollectionExtensions
             options.AddPolicy(CorsOptions.PolicyName, policy =>
             {
                 policy.WithOrigins(allowedOrigins)
-                    .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin", "X-Debug-User")
-                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+                    .WithHeaders("Authorization", "Content-Type", "X-Correlation-ID", "Accept", "Origin", "X-Api-Key")
+                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                    .AllowCredentials();
             });
         });
 
@@ -52,19 +54,45 @@ public static class AuthenticationServiceCollectionExtensions
 
     private static IServiceCollection AddApiAuthentication(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         var authOptions = configuration.GetSection(AuthOptions.SectionName).Get<AuthOptions>() ?? new AuthOptions();
         var useJwtBearer = string.Equals(authOptions.Mode, AuthOptions.JwtBearerMode, StringComparison.OrdinalIgnoreCase);
         var useSelfJwt = string.Equals(authOptions.Mode, AuthOptions.SelfJwtMode, StringComparison.OrdinalIgnoreCase);
-        var defaultScheme = useJwtBearer || useSelfJwt
+        var useDevelopment = string.Equals(authOptions.Mode, AuthOptions.DevelopmentMode, StringComparison.OrdinalIgnoreCase);
+
+        if (!useJwtBearer && !useSelfJwt && !useDevelopment)
+        {
+            throw new InvalidOperationException(
+                $"Auth:Mode invalido: '{authOptions.Mode}'. Valores permitidos: " +
+                $"'{AuthOptions.JwtBearerMode}', '{AuthOptions.SelfJwtMode}', '{AuthOptions.DevelopmentMode}'.");
+        }
+
+        if (useDevelopment && !environment.IsDevelopment() && !environment.IsEnvironment("Testing"))
+        {
+            throw new InvalidOperationException(
+                $"Auth:Mode='{AuthOptions.DevelopmentMode}' e proibido no ambiente '{environment.EnvironmentName}'. " +
+                "Use 'SelfJwt' ou 'JwtBearer' em producao.");
+        }
+
+        var primaryScheme = useJwtBearer || useSelfJwt
             ? JwtBearerDefaults.AuthenticationScheme
             : DevelopmentAuthenticationHandler.SchemeName;
 
         var authenticationBuilder = services.AddAuthentication(options =>
         {
-            options.DefaultAuthenticateScheme = defaultScheme;
-            options.DefaultChallengeScheme = defaultScheme;
+            options.DefaultScheme = "AutoSelect";
+            options.DefaultChallengeScheme = primaryScheme;
+        })
+        .AddPolicyScheme("AutoSelect", "Auto-select API Key or JWT", options =>
+        {
+            options.ForwardDefaultSelector = context =>
+            {
+                if (context.Request.Headers.ContainsKey(ApiKeyAuthenticationHandler.HeaderName))
+                    return ApiKeyAuthenticationHandler.SchemeName;
+                return primaryScheme;
+            };
         });
 
         if (useSelfJwt)
@@ -73,7 +101,7 @@ public static class AuthenticationServiceCollectionExtensions
                 || authOptions.JwtSigningKey.Contains("${", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
-                    "Auth:JwtSigningKey deve estar configurada quando o modo de autenticação é SelfJwt.");
+                    "Auth:JwtSigningKey deve estar configurada quando o modo de autenticacao e SelfJwt.");
             }
 
             if (Encoding.UTF8.GetByteCount(authOptions.JwtSigningKey) < 32)
@@ -112,6 +140,10 @@ public static class AuthenticationServiceCollectionExtensions
                 DevelopmentAuthenticationHandler.SchemeName,
                 _ => { });
         }
+
+        authenticationBuilder.AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+            ApiKeyAuthenticationHandler.SchemeName,
+            _ => { });
 
         return services;
     }

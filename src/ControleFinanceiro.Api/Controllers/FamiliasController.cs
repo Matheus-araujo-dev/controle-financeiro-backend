@@ -1,7 +1,9 @@
 using ControleFinanceiro.Application.Identidade;
+using ControleFinanceiro.Contracts.Auth;
 using ControleFinanceiro.Contracts.Errors;
 using ControleFinanceiro.Contracts.Familias;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -11,15 +13,37 @@ namespace ControleFinanceiro.Api.Controllers;
 [Authorize]
 [EnableRateLimiting("Standard")]
 [Route("api/v1/familias")]
-public sealed class FamiliasController(FamiliaAppService familiaAppService) : ApiControllerBase
+public sealed class FamiliasController(FamiliaAppService familiaAppService, IWebHostEnvironment env) : ApiControllerBase
 {
+    private const string RefreshTokenCookieName = "refreshToken";
+
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<ParticipacaoFamiliaResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ParticipacaoFamiliaResponse>>> ListarMinhasFamilias(CancellationToken cancellationToken)
+    {
+        var response = await familiaAppService.ListarMinhasFamiliasAsync(cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost]
+    [ProducesResponseType(typeof(SelecionarFamiliaResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SelecionarFamiliaResponse>> CriarWorkspace(
+        [FromBody] CriarWorkspaceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await familiaAppService.CriarWorkspaceAsync(request.Nome, cancellationToken);
+        SetRefreshTokenCookie(response.RefreshToken);
+        return StatusCode(StatusCodes.Status201Created, new SelecionarFamiliaResponse(response with { RefreshToken = string.Empty }));
+    }
+
     [HttpGet("minha")]
     [ProducesResponseType(typeof(FamiliaDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<FamiliaDetalheResponse>> ObterMinhaFamilia(CancellationToken cancellationToken)
     {
         var response = await familiaAppService.ObterMinhaFamiliaAsync(cancellationToken);
-        return response is null ? NotFoundResponse("Família não encontrada.") : Ok(response);
+        return response is null ? NotFoundResponse("Fam�lia n�o encontrada.") : Ok(response);
     }
 
     [HttpPut("minha")]
@@ -30,7 +54,22 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService) : Ap
         CancellationToken cancellationToken)
     {
         var response = await familiaAppService.RenomearAsync(request.Nome, cancellationToken);
-        return response is null ? NotFoundResponse("Família não encontrada.") : Ok(response);
+        return response is null ? NotFoundResponse("Fam�lia n�o encontrada.") : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/selecionar")]
+    [ProducesResponseType(typeof(SelecionarFamiliaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SelecionarFamiliaResponse>> SelecionarFamiliaAtiva(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await familiaAppService.SelecionarFamiliaAtivaAsync(id, cancellationToken);
+        if (response is null)
+        {
+            return NotFoundResponse("Participa��o n�o encontrada.");
+        }
+
+        SetRefreshTokenCookie(response.RefreshToken);
+        return Ok(new SelecionarFamiliaResponse(response with { RefreshToken = string.Empty }));
     }
 
     [HttpPost("convites")]
@@ -50,9 +89,10 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService) : Ap
     public async Task<IActionResult> RevogarConvite(Guid id, CancellationToken cancellationToken)
     {
         var revogado = await familiaAppService.RevogarConviteAsync(id, cancellationToken);
-        return revogado ? NoContent() : NotFoundResponse("Convite não encontrado.");
+        return revogado ? NoContent() : NotFoundResponse("Convite n�o encontrado.");
     }
 
+    [AllowAnonymous]
     [HttpGet("convites/{token}")]
     [ProducesResponseType(typeof(ConviteDetalhePublicoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -61,7 +101,7 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService) : Ap
         CancellationToken cancellationToken)
     {
         var response = await familiaAppService.ObterConvitePorTokenAsync(token, cancellationToken);
-        return response is null ? NotFoundResponse("Convite não encontrado.") : Ok(response);
+        return response is null ? NotFoundResponse("Convite n�o encontrado.") : Ok(response);
     }
 
     [HttpPost("convites/{token}/aceitar")]
@@ -73,8 +113,17 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService) : Ap
     {
         var response = await familiaAppService.AceitarConviteAsync(token, cancellationToken);
         return response is null
-            ? NotFoundResponse("Convite inválido ou expirado.")
+            ? NotFoundResponse("Convite inv�lido ou expirado.")
             : Ok(response);
+    }
+
+    [HttpPost("minha/seed-contas-gerenciais")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SeedContasGerenciaisPadrao(CancellationToken cancellationToken)
+    {
+        var criadas = await familiaAppService.SeedContasGerenciaisPadraoAsync(cancellationToken);
+        return Ok(new { criadas, mensagem = criadas > 0 ? $"{criadas} contas gerenciais criadas." : "Contas gerenciais ja existem para esta familia." });
     }
 
     [HttpPut("membros/{id:guid}/papel")]
@@ -86,7 +135,7 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService) : Ap
         CancellationToken cancellationToken)
     {
         var alterado = await familiaAppService.AlterarPapelMembroAsync(id, request.Papel, cancellationToken);
-        return alterado ? NoContent() : NotFoundResponse("Membro não encontrado.");
+        return alterado ? NoContent() : NotFoundResponse("Membro n�o encontrado.");
     }
 
     [HttpDelete("membros/{id:guid}")]
@@ -95,6 +144,18 @@ public sealed class FamiliasController(FamiliaAppService familiaAppService) : Ap
     public async Task<IActionResult> RemoverMembro(Guid id, CancellationToken cancellationToken)
     {
         var removido = await familiaAppService.RemoverMembroAsync(id, cancellationToken);
-        return removido ? NoContent() : NotFoundResponse("Membro não encontrado.");
+        return removido ? NoContent() : NotFoundResponse("Membro n�o encontrado.");
+    }
+
+    private void SetRefreshTokenCookie(string token)
+    {
+        Response.Cookies.Append(RefreshTokenCookieName, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = env.IsProduction(),
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTimeOffset.UtcNow.AddDays(30),
+            Path = "/api/v1/auth"
+        });
     }
 }

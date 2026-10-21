@@ -27,9 +27,11 @@ public sealed record OrcamentoCompetenciaResponse(
 public sealed record OrcamentoItemResponse(
     Guid? MetaId,
     Guid ContaGerencialId,
+    Guid? ContaPaiId,
     string? ContaGerencialCodigo,
     string ContaGerencialDescricao,
     decimal? ValorMeta,
     decimal ValorRealizado,
     decimal? PercentualConsumido,
-    bool Estourado);
+    bool Estourado,
+    bool AceitaLancamentos);

@@ -112,3 +112,80 @@
 ## Pendencias nao criticas
 - configurar secrets reais de SonarQube/SonarCloud no CI para ativar o quality gate remoto.
 - ampliar a cobertura combinada das camadas com testes adicionais focados em Application e Infrastructure conforme os modulos financeiros avancarem.
+- A fase 1 do modelo de workspaces foi iniciada sem quebra de compatibilidade: o tenant continua tecnicamente como Familia, mas o backend agora lista participacoes, permite trocar o workspace ativo e aplica limite global de 3 participacoes por usuario.
+
+
+## 11/09/2026 — Correção de itens cancelados na fatura
+
+- `RemoverDaFaturaAsync` aceita contas de cartão `EM_FATURA` ou `CANCELADA`. A segunda representa o crédito sintético de estorno exibido na fatura.
+- A remoção reutiliza as regras existentes: exclui a conta e parcelas futuras do grupo, além dos reembolsos associados ainda não recebidos; rejeita faturas fechadas/pagas e reembolsos recebidos.
+- Não altera cálculos de cancelamento, entidades, migrations, DTOs, rotas ou payloads. O cancelamento comum continua gerando a representação de estorno; a nova ação explícita permite corrigir um crédito indevido.
+- Testes de integração cobrem remoção de estorno em fatura aberta, bloqueio em fatura fechada e transferência de compra para outro cartão com a mesma data de vencimento. A troca de cartão já funciona pelo endpoint de edição existente.
+- TDD: o cenário de remoção retornou 400 antes da alteração e 204 depois; a suíte de fluxo de contas a pagar permaneceu verde.
+- Validação final: 792 testes aprovados e 3 ignorados por dependência de PostgreSQL no ambiente SQLite; cobertura consolidada de linhas 80,6% (gate 80%). Build Release sem erros/avisos. Auditoria sem vulnerabilidades nos projetos de produção; alerta preexistente High de SQLitePCLRaw.lib.e_sqlite3 2.1.10 nos projetos de testes (GHSA-2m69-gcr7-jv3q), registrado sem ampliar o escopo para atualização de dependências. Não publicado.
+
+
+
+## 2026-09-12 — Ciclo de recorrência revisado
+
+- Cartão permanece EM_FATURA em todos os meses; outras formas usam FUTURO e passam a PENDENTE na virada. Geração mensal de cartão deduplica por regra e mês do vencimento e completa a janela de seis meses, limitada pela data fim.
+- Pausa cancela FUTURO; retomada restaura somente as canceladas pela pausa do mês atual em diante, preservando IDs. Pausas longas não geram retroativos. Encerramento manual exige pausa; data fim encerra automaticamente.
+- Migration aditiva e reversível, contrato OpenAPI atualizado e modelo sem mudanças pendentes. SQL PostgreSQL gerado e revisado sem execução em banco real.
+- Validação: 803 testes aprovados, 3 ignorados; cobertura 80,7%; build Release aprovado. Auditoria da API sem vulnerabilidades. Detalhes e reversão em RECORRENCIA_CICLO_20260912.md. Não publicado; duplicatas históricas não foram removidas.
+
+## 2026-09-13 — Importação de PDF Bradesco
+
+- Leitura determinística do PDF mensal com texto embutido, sem IA, e suporte ao layout anterior do aplicativo.
+- Vencimento da fatura, número/total de parcelas e estornos preservados na confirmação. Só a parcela do documento é criada.
+- Pagamentos e saldo anterior entram apenas na conferência; divergência no total bloqueia a prévia do layout mensal.
+- Compras iguais recebem chaves independentes e estáveis na reimportação.
+- Amostra real conferida integralmente; arquivo pessoal não versionado.
+- Testes sintéticos cobrem linhas partidas, sinal negativo separado, câmbio, compras iguais e total divergente; API cobre confirmação/reimportação e Swagger; frontend cobre envio dos metadados sem agente.
+- Validação .NET 10: 843 testes aprovados, 3 testes PostgreSQL ignorados no fallback local SQLite; cobertura consolidada de linhas 81,4%; build Release sem erros/avisos; contratos OpenAPI sincronizados. CI PostgreSQL exigida antes da promoção.
+- Promoção: primeiro develop, depois main somente com CI verde.
+
+
+## 2026-09-14 — Conciliação de fatura (em implementação, não publicada)
+
+Base: PROD-12 do Claude, commit 4827d50. Worktree isolado em `.local-runtime/conciliacao-backend`, branch `codex/conciliacao-fatura-20260914`.
+
+- A conciliação bancária OFX/CSV continua vinculada a movimentações. A extensão PDF reutiliza o agregado de sessão/itens e vincula contas a pagar da fatura.
+- Implementados: sessão PDF com hash e chaves por ocorrência, reabertura idempotente, sugestões por descrição/data/parcela/sinal e tolerância proposta de R$0,05, proteção de ambiguidade, vínculo único por conta na sessão.
+- Vínculo reaproveita a conta e seus metadados. Diferença exige aceite explícito; guarda valor anterior e ajusta somente a parcela, com rateios exatos. Conta liquidada/cancelada e fatura fechada não aceitam ajuste. Repetição não sobrescreve auditoria.
+- Migrations aditivas: AddConciliacaoFatura e metadados de concorrência. Ainda não aplicadas em DEV/produção.
+- TDD: 295 testes de domínio e 103 de aplicação passaram com cobertura gerada. Dois testes HTTP de conciliação passaram (PDF/reabertura e ajuste/repetição). Suíte geral API/cobertura em verificação; não constitui gate concluído.
+- Próximos: criação de itens ausentes, rascunhos tipados, memória por família/campo, reembolso em lote usando o serviço existente, recorrência existente, tratamento de reimportação entre PDFs diferentes, testes de isolamento/concorrência e atualização OpenAPI.
+- Pendência identificada na base: contrato do frontend bancário não corresponde aos DTOs retornados (lista/paginação, datas e sugestão); alinhar antes da integração visual final.
+- Sem commits/push/promoção nesta fase. Publicação exige gates completos em DEV e main e verificação Railway. O branch-base inclui outras entregas do Claude; verificar promoção dessas mudanças antes de abrir PR.
+
+
+## 2026-09-15 — Memória, criação e reembolsos da conciliação (em andamento)
+
+- Itens ausentes criam somente a parcela do PDF. Conta, vínculo, reembolso e memória usam transação serializável; falhas revertem o conjunto.
+- Recorrência reutiliza o serviço existente e respeita data fim, sem duplicar o mês atual. Validação de parcela importada considera a fatura selecionada, mesmo quando a compra original pertence a mês fechado.
+- Memória por família/cartão/estabelecimento e campo confirmado, com opção de não aprender. Rascunhos persistem sem criar contas e verificam versão para impedir sobrescrita concorrente.
+- Prévia de reembolso usa ParcelamentoHelper, informa pagadores, parcelas, valores e vencimentos sem gravações. Swagger exportado e tipos frontend regenerados.
+- Corrigido defeito reproduzido no serviço compartilhado de reembolso: múltiplos pagadores e categorias dividiam o rateio pelo subtotal de um pagador, gerando valor negativo/erro 500. Base proporcional corrigida para o total original; teste HTTP verifica 60/40 por conta.
+- Testes dirigidos: 12 casos de reembolso/conciliação passaram após a correção; 8 casos de prévia/reembolso passaram; teste de Swagger passou. Suíte completa e cobertura de 15/09 em execução, ainda sem gate final.
+- Permanecem pendentes: revisão de segurança/concorrência/reimportação entre PDFs, compatibilidade do frontend bancário, validação visual e gates DEV/main/Railway. Sem publicação.
+
+- Checkpoint 15/09: backend 884 testes completos + 2 testes HTTP OFX/CSV aprovados, 3 ignorados no SQLite; cobertura consolidada 80,5% de linhas. Frontend 1.373 testes completos aprovados, 87,69% linhas e 80,13% branches; mais 2 testes do adaptador bancário aprovados. Tipos e lint sem erros.
+- Incompatibilidade bancária corrigida no frontend: lista real, datas, status EmRevisao, sugestão plana e contagens por item; limite de 50 sessões explicitado.
+- Remotos atualizados: frontend develop avançou 30 commits; necessária integração da base e repetição dos gates antes de publicar. Checkpoint local não representa entrega final.
+
+- Validação integrada concluída: backend 886 aprovados, 3 ignorados, cobertura 80,5%, Release e modelo EF aprovados. Frontend 1.375 aprovados, linhas 87,64%, branches 80,12%, lint/build aprovados. Procedimento de promoção e reversão em CONCILIACAO_FATURA_20260915.md. Publicação ainda pendente.
+- Revisão do SQL em DEV identificou mapeamento de memória não registrado no contexto. Corrigido por ApplyMemoriaEstabelecimentoConstraints, preservando dados e acrescentando unicidade, FK e concorrência; migration anterior não foi reescrita. Teste de modelo reproduziu a falha antes da correção. Após ajuste: 3 testes de modelo e 6 testes HTTP de conciliação aprovados. Promoção de main aguarda CI/DEV desta correção.
+
+
+## 2026-09-25 — Extrato aberto Bradesco por OCR
+
+- Suporte a PDF em imagens, limite de 128 MB e erros de upload em português.
+- Amostra real reconhecida localmente: 80 itens, R$ 16.358,45; pagamentos/saldo excluídos das compras.
+- Detalhes, dependências, testes e rollback em BRADESCO_OCR_IMAGEM_20260925.md. Gates e publicação em andamento.
+
+
+## 2026-09-25 - Faturas multibanco
+
+Parsers Nubank, Mercado Pago e BMG, senha transitoria e metadados de leitura. Evidencias e rollback em FATURAS_MULTIBANCO_20260925.md. Validacao e publicacao em andamento.
+
+- Conciliação passou a localizar conta manual por cartão/vencimento e a materializar apenas a parcela atual e futuras (ex.: 6/10 a 10/10), com faturas mensais, status EmFatura e idempotência testados.

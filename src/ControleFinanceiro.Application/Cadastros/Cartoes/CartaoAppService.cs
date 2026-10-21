@@ -20,23 +20,23 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Nome, termo) ||
-                EF.Functions.Like(x.Bandeira, termo) ||
-                EF.Functions.Like(x.NumeroFinal, termo));
+                EF.Functions.Like(x.Nome.ToLower(), termo) ||
+                EF.Functions.Like(x.Bandeira.ToLower(), termo) ||
+                EF.Functions.Like(x.NumeroFinal.ToLower(), termo));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Bandeira))
         {
-            var bandeira = $"%{query.Bandeira.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.Bandeira, bandeira));
+            var bandeira = $"%{query.Bandeira.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.Bandeira.ToLower(), bandeira));
         }
 
         if (!string.IsNullOrWhiteSpace(query.NumeroFinal))
         {
-            var numeroFinal = $"%{query.NumeroFinal.Trim()}%";
-            consulta = consulta.Where(x => EF.Functions.Like(x.NumeroFinal, numeroFinal));
+            var numeroFinal = $"%{query.NumeroFinal.Trim().ToLower()}%";
+            consulta = consulta.Where(x => EF.Functions.Like(x.NumeroFinal.ToLower(), numeroFinal));
         }
 
         if (query.DiaFechamentoFatura.HasValue)
@@ -93,8 +93,12 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 x.ContaBancariaPagamentoPadraoId,
                 x.LimiteCredito,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc))
+                x.UpdatedAtUtc,
+                x.RecebedorPadraoFaturaId,
+                x.FormaPagamentoPadraoFaturaId))
             .ToListAsync(cancellationToken);
         var calculos = await CalcularLimitesAsync(selecionados, cancellationToken);
 
@@ -115,7 +119,11 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                     calculo.LimiteEfetivo,
                     calculo.LimiteComprometido,
                     calculo.LimiteDisponivel,
-                    x.Ativo);
+                    x.Ativo,
+                    x.Icone,
+                    x.Cor,
+                    x.RecebedorPadraoFaturaId,
+                    x.FormaPagamentoPadraoFaturaId);
             })
             .ToList();
 
@@ -136,8 +144,12 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 x.ContaBancariaPagamentoPadraoId,
                 x.LimiteCredito,
                 x.Ativo,
+                x.Icone,
+                x.Cor,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc))
+                x.UpdatedAtUtc,
+                x.RecebedorPadraoFaturaId,
+                x.FormaPagamentoPadraoFaturaId))
             .SingleOrDefaultAsync(cancellationToken);
 
         if (cartao is null)
@@ -161,13 +173,20 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
             calculo.LimiteComprometido,
             calculo.LimiteDisponivel,
             cartao.Ativo,
+            cartao.Icone,
+            cartao.Cor,
             cartao.CreatedAtUtc,
-            cartao.UpdatedAtUtc);
+            cartao.UpdatedAtUtc,
+            cartao.RecebedorPadraoFaturaId,
+            cartao.FormaPagamentoPadraoFaturaId);
     }
 
     public async Task<CartaoDetalheResponse> CriarAsync(CriarCartaoRequest request, CancellationToken cancellationToken)
     {
+        await ValidarNomeDuplicadoAsync(null, request.Nome, cancellationToken);
         await ValidarContaBancariaPadraoAsync(request.ContaBancariaPagamentoPadraoId, cancellationToken);
+        await ValidarRecebedorPadraoFaturaAsync(request.RecebedorPadraoFaturaId, cancellationToken);
+        await ValidarFormaPagamentoPadraoFaturaAsync(request.FormaPagamentoPadraoFaturaId, cancellationToken);
 
         Cartao cartao;
 
@@ -181,7 +200,11 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 request.DiaVencimentoFatura,
                 request.ContaBancariaPagamentoPadraoId,
                 request.LimiteCredito,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor,
+                request.RecebedorPadraoFaturaId,
+                request.FormaPagamentoPadraoFaturaId);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -207,7 +230,10 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
             return null;
         }
 
+        await ValidarNomeDuplicadoAsync(id, request.Nome, cancellationToken);
         await ValidarContaBancariaPadraoAsync(request.ContaBancariaPagamentoPadraoId, cancellationToken);
+        await ValidarRecebedorPadraoFaturaAsync(request.RecebedorPadraoFaturaId, cancellationToken);
+        await ValidarFormaPagamentoPadraoFaturaAsync(request.FormaPagamentoPadraoFaturaId, cancellationToken);
 
         try
         {
@@ -219,7 +245,11 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
                 request.DiaVencimentoFatura,
                 request.ContaBancariaPagamentoPadraoId,
                 request.LimiteCredito,
-                request.Ativo);
+                request.Ativo,
+                request.Icone,
+                request.Cor,
+                request.RecebedorPadraoFaturaId,
+                request.FormaPagamentoPadraoFaturaId);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -229,6 +259,17 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await ObterPorIdAsync(id, cancellationToken);
+    }
+
+    private async Task ValidarNomeDuplicadoAsync(Guid? excluirId, string nome, CancellationToken cancellationToken)
+    {
+        var nomeLower = nome.Trim().ToLower();
+        var existe = await dbContext.Cartoes.AnyAsync(
+            x => x.Nome.ToLower() == nomeLower && (!excluirId.HasValue || x.Id != excluirId.Value),
+            cancellationToken);
+
+        if (existe)
+            throw ValidationExceptionFactory.Create("Nome", "Já existe um cartão com este nome.");
     }
 
     private async Task ValidarContaBancariaPadraoAsync(Guid? contaBancariaId, CancellationToken cancellationToken)
@@ -243,6 +284,36 @@ public sealed class CartaoAppService(IAppDbContext dbContext)
         if (!existe)
         {
             throw ValidationExceptionFactory.Create("ContaBancariaPagamentoPadraoId", "Conta bancária não encontrada.");
+        }
+    }
+
+    private async Task ValidarRecebedorPadraoFaturaAsync(Guid? recebedorId, CancellationToken cancellationToken)
+    {
+        if (!recebedorId.HasValue)
+        {
+            return;
+        }
+
+        var existe = await dbContext.Pessoas.AnyAsync(x => x.Id == recebedorId.Value, cancellationToken);
+
+        if (!existe)
+        {
+            throw ValidationExceptionFactory.Create("RecebedorPadraoFaturaId", "Recebedor não encontrado.");
+        }
+    }
+
+    private async Task ValidarFormaPagamentoPadraoFaturaAsync(Guid? formaPagamentoId, CancellationToken cancellationToken)
+    {
+        if (!formaPagamentoId.HasValue)
+        {
+            return;
+        }
+
+        var existe = await dbContext.FormasPagamento.AnyAsync(x => x.Id == formaPagamentoId.Value, cancellationToken);
+
+        if (!existe)
+        {
+            throw ValidationExceptionFactory.Create("FormaPagamentoPadraoFaturaId", "Forma de pagamento não encontrada.");
         }
     }
 
@@ -361,8 +432,12 @@ var contaInfo = contaIds.Length == 0
         Guid? ContaBancariaPagamentoPadraoId,
         decimal? LimiteCredito,
         bool Ativo,
+        string? Icone,
+        string? Cor,
         DateTime CreatedAtUtc,
-        DateTime UpdatedAtUtc);
+        DateTime UpdatedAtUtc,
+        Guid? RecebedorPadraoFaturaId = null,
+        Guid? FormaPagamentoPadraoFaturaId = null);
 
     private sealed record ContaLimiteInfo(Guid Id, decimal? LimiteCartoesCompartilhado);
 

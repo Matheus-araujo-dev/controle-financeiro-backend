@@ -20,52 +20,74 @@ public sealed class FinanceInsightsService(
     public async Task<AgenteInsightsResponse> GerarInsightsAsync(
         string mesReferencia, CancellationToken cancellationToken)
     {
-        var familiaId = currentUser.FamiliaId
-            ?? throw new InvalidOperationException("Família não identificada.");
-
-        var cacheKey = $"insights:{familiaId}:{mesReferencia}";
-        if (cache.TryGetValue(cacheKey, out AgenteInsightsResponse? cached) && cached is not null)
-            return cached;
-
-        var contexto = await MontarContextoAsync(familiaId, mesReferencia, cancellationToken);
-
-        var systemPrompt = """
-            Você é um analista financeiro pessoal. Analise os dados financeiros fornecidos e gere
-            exatamente 4 insights curtos, objetivos e acionáveis em português brasileiro.
-
-            Retorne SOMENTE um JSON (sem markdown, sem explicações):
-            {"insights":[{"tipo":"ALERTA|POSITIVO|DICA|INFO","mensagem":"texto até 120 chars","valor":"R$ XX (opcional)"}]}
-
-            Tipos:
-            - ALERTA: algo preocupante que requer ação (saldo baixo, contas vencidas, gastos altos)
-            - POSITIVO: conquista ou tendência boa (meta cumprida, saldo positivo, receitas crescendo)
-            - DICA: sugestão prática baseada nos dados
-            - INFO: fato relevante sem conotação positiva/negativa
-
-            Seja específico com valores e categorias. Não invente dados que não foram fornecidos.
-            """;
-
-        var userMessage = $"Dados financeiros de {mesReferencia}:\n\n{contexto}";
-        var messages = new List<LlmMessage> { new(LlmRole.User, userMessage) };
-
+        // Versão dos dados: muda a cada escrita nas contas da família, invalidando o cache
+        // automaticamente (sem acoplar a camada de escrita). Evita servir insights obsoletos.
+        Guid? familiaId = null;
         try
         {
+            familiaId = currentUser.FamiliaId
+                ?? throw new InvalidOperationException("Família não identificada.");
+            var versaoDados = await ObterVersaoDadosAsync(familiaId.Value, cancellationToken);
+            var cacheKey = $"insights:{familiaId}:{mesReferencia}:{versaoDados}";
+            if (cache.TryGetValue(cacheKey, out AgenteInsightsResponse? cached) && cached is not null)
+                return cached;
+
+            var contexto = await MontarContextoAsync(familiaId.Value, mesReferencia, cancellationToken);
+
+            var systemPrompt = """
+                Você é um analista financeiro pessoal. Analise os dados financeiros fornecidos e gere
+                exatamente 4 insights curtos, objetivos e acionáveis em português brasileiro.
+
+                Retorne SOMENTE um JSON (sem markdown, sem explicações):
+                {"insights":[{"tipo":"ALERTA|POSITIVO|DICA|INFO","mensagem":"texto até 120 chars","valor":"R$ XX (opcional)"}]}
+
+                Tipos:
+                - ALERTA: algo preocupante que requer ação (saldo baixo, contas vencidas, gastos altos)
+                - POSITIVO: conquista ou tendência boa (meta cumprida, saldo positivo, receitas crescendo)
+                - DICA: sugestão prática baseada nos dados
+                - INFO: fato relevante sem conotação positiva/negativa
+
+                Seja específico com valores e categorias. Não invente dados que não foram fornecidos.
+                """;
+
+            var userMessage = $"Dados financeiros de {mesReferencia}:\n\n{contexto}";
+            var messages = new List<LlmMessage> { new(LlmRole.User, userMessage) };
+
             var request = new LlmRequest(LlmModelTier.Reasoning, systemPrompt, messages);
             var completion = await llmClient.CompleteAsync(request, cancellationToken);
             var insights = ParseInsights(completion.Text);
 
             var response = new AgenteInsightsResponse(insights, completion.Usage.InputTokens + completion.Usage.OutputTokens);
 
-            cache.Set(cacheKey, response, TimeSpan.FromHours(1));
+            cache.Set(cacheKey, response, TimeSpan.FromMinutes(30));
             logger.LogInformation("Insights gerados para família {FamiliaId} mês {Mes}: {Count} insights", familiaId, mesReferencia, insights.Count);
 
             return response;
+        }
+        catch (OperationCanceledException)
+        {
+            return new AgenteInsightsResponse([], 0);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Falha ao gerar insights para {FamiliaId}", familiaId);
             return new AgenteInsightsResponse([], 0);
         }
+    }
+
+    // Assinatura barata das últimas alterações financeiras da família (max UpdatedAtUtc).
+    // Uma query MAX indexável é irrisória perto de uma chamada ao LLM.
+    private async Task<long> ObterVersaoDadosAsync(Guid familiaId, CancellationToken ct)
+    {
+        var maxPagar = await db.ContasPagar.AsNoTracking()
+            .Where(c => c.FamiliaId == familiaId)
+            .MaxAsync(c => (DateTime?)c.UpdatedAtUtc, ct);
+        var maxReceber = await db.ContasReceber.AsNoTracking()
+            .Where(c => c.FamiliaId == familiaId)
+            .MaxAsync(c => (DateTime?)c.UpdatedAtUtc, ct);
+
+        var mais = maxPagar >= maxReceber ? maxPagar : maxReceber;
+        return mais?.Ticks ?? 0;
     }
 
     private async Task<string> MontarContextoAsync(Guid familiaId, string mesReferencia, CancellationToken ct)
@@ -77,13 +99,17 @@ public sealed class FinanceInsightsService(
 
         var contasPagarMes = await db.ContasPagar
             .AsNoTracking()
-            .Where(c => c.FamiliaId == familiaId && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes)
+            .Where(c => c.FamiliaId == familiaId
+                     && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes
+                     && c.StatusContaId != StatusConta.CanceladaId)
             .Select(c => new { c.ValorLiquido, c.DataVencimento, StatusId = c.StatusContaId })
             .ToListAsync(ct);
 
         var contasReceberMes = await db.ContasReceber
             .AsNoTracking()
-            .Where(c => c.FamiliaId == familiaId && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes)
+            .Where(c => c.FamiliaId == familiaId
+                     && c.DataVencimento >= inicioMes && c.DataVencimento <= fimMes
+                     && c.StatusContaId != StatusConta.CanceladaId)
             .Select(c => new { c.ValorLiquido, StatusId = c.StatusContaId })
             .ToListAsync(ct);
 

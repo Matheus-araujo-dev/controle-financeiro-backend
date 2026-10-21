@@ -26,6 +26,10 @@ public sealed class ContaBancaria : TenantEntity
 
     public bool Ativo { get; private set; }
 
+    public string? Icone { get; private set; }
+
+    public string? Cor { get; private set; }
+
     public static ContaBancaria Criar(
         string nome,
         string banco,
@@ -35,10 +39,12 @@ public sealed class ContaBancaria : TenantEntity
         decimal saldoInicial,
         DateOnly dataSaldoInicial,
         decimal? limiteCartoesCompartilhado,
-        bool ativo)
+        bool ativo,
+        string? icone = null,
+        string? cor = null)
     {
         var conta = new ContaBancaria();
-        conta.Atualizar(nome, banco, agencia, numeroConta, tipoConta, saldoInicial, dataSaldoInicial, limiteCartoesCompartilhado, ativo);
+        conta.Atualizar(nome, banco, agencia, numeroConta, tipoConta, saldoInicial, dataSaldoInicial, limiteCartoesCompartilhado, ativo, icone, cor);
         return conta;
     }
 
@@ -51,7 +57,9 @@ public sealed class ContaBancaria : TenantEntity
         decimal saldoInicial,
         DateOnly dataSaldoInicial,
         decimal? limiteCartoesCompartilhado,
-        bool ativo)
+        bool ativo,
+        string? icone = null,
+        string? cor = null)
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
@@ -79,6 +87,8 @@ public sealed class ContaBancaria : TenantEntity
             ? decimal.Round(limiteCartoesCompartilhado.Value, 2, MidpointRounding.AwayFromZero)
             : null;
         Ativo = ativo;
+        Icone = string.IsNullOrWhiteSpace(icone) ? null : icone.Trim();
+        Cor = string.IsNullOrWhiteSpace(cor) ? null : cor.Trim();
     }
 
     private static string? NormalizarOpcional(string? valor)

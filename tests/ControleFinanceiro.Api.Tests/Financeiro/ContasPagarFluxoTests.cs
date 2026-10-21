@@ -91,4 +91,468 @@ public sealed class ContasPagarFluxoTests(CustomWebApplicationFactory factory)
 
         resposta.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task LiquidarParcial_DeveSetarStatusParcialEExporValorPago()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture, valor: 100m);
+
+        var liquidar = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 60m,
+            atualizarValorConta = false,
+            cancelarValorRestante = false
+        });
+
+        liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detalhe = await liquidar.Content.ReadFromJsonAsync<ContaDetalhe>();
+        detalhe!.StatusCodigo.Should().Be("PARCIAL");
+        detalhe.ValorPago.Should().Be(60m);
+        detalhe.ValorLiquido.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task LiquidarParcial_CancelarRestante_DeveSetarLiquidada()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture, valor: 100m);
+
+        var liquidar = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 60m,
+            atualizarValorConta = false,
+            cancelarValorRestante = true
+        });
+
+        liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detalhe = await liquidar.Content.ReadFromJsonAsync<ContaDetalhe>();
+        detalhe!.StatusCodigo.Should().Be("LIQUIDADA");
+        detalhe.ValorLiquido.Should().Be(60m);
+    }
+
+    [Fact]
+    public async Task LiquidarParcial_EstornarDevolver_DeveVoltarParaPendente()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture, valor: 100m);
+
+        await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 60m,
+            atualizarValorConta = false,
+            cancelarValorRestante = false
+        });
+
+        var estornar = await client.PostAsync($"/api/v1/contas-pagar/{id}/estornar", content: null);
+
+        estornar.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await estornar.Content.ReadFromJsonAsync<ContaResumo>())!.StatusCodigo.Should().Be("PENDENTE");
+    }
+
+    [Fact]
+    public async Task CancelarParcial_DeveTrimValueELiquidar()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture, valor: 100m);
+
+        await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/liquidar", new
+        {
+            dataLiquidacao = "2026-04-08",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 60m,
+            atualizarValorConta = false,
+            cancelarValorRestante = false
+        });
+
+        var cancelar = await client.PostAsync($"/api/v1/contas-pagar/{id}/cancelar", content: null);
+
+        cancelar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detalhe = await cancelar.Content.ReadFromJsonAsync<ContaDetalhe>();
+        detalhe!.StatusCodigo.Should().Be("LIQUIDADA");
+        detalhe.ValorLiquido.Should().Be(60m);
+    }
+
+    private sealed record ContaDetalhe(Guid Id, string StatusCodigo, decimal ValorLiquido, decimal? ValorPago);
+
+    // ── helpers para testes de fatura ────────────────────────────────────────
+
+    private static async Task<Guid> CriarCompraCartaoAsync(HttpClient client, FinancialFixtureSeed.FixtureIds fixture, decimal valor = 200m)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-05",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoCartaoId,
+            cartaoId = fixture.CartaoId,
+            valorOriginal = valor,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 1,
+            descricao = "Compra no cartao",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor } }
+        });
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync<ContaResumo>();
+        return created!.Id;
+    }
+
+    // ── RemoverDaFatura ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RemoverDaFatura_ComContaEmFatura_DeveRetornar204EExcluirConta()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+
+        var detalhe = await client.GetFromJsonAsync<ContaResumo>($"/api/v1/contas-pagar/{id}");
+        detalhe!.StatusCodigo.Should().Be("EM_FATURA");
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var aposRemocao = await client.GetAsync($"/api/v1/contas-pagar/{id}");
+        aposRemocao.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_ContaInexistente_DeveRetornar404()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{Guid.NewGuid()}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_ContaPendente_DeveRetornar400()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarContaPagarAsync(client, fixture);
+
+        var detalhe = await client.GetFromJsonAsync<ContaResumo>($"/api/v1/contas-pagar/{id}");
+        detalhe!.StatusCodigo.Should().Be("PENDENTE");
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_FaturaFechada_DeveRetornar400()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+
+        // Fechar a fatura
+        var faturaId = await ObterFaturaIdAsync(client, "2026-04");
+        var fechar = await client.PostAsync($"/api/v1/faturas/{faturaId}/fechar", null);
+        fechar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_ComReembolsoPendente_DeveExcluirContaEReembolso()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+
+        // Criar reembolso
+        var reembolsoResp = await client.PostAsJsonAsync("/api/v1/reembolsos/contas-pagar", new
+        {
+            contaOrigemId = id,
+            parcelarIgual = false,
+            valorTotal = 200m,
+            pagadoresIds = new[] { fixture.PagadorId },
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            dataVencimento = "2026-05-01",
+            descricao = "Reembolso compra cartao",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 200m } }
+        });
+        reembolsoResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var reembolso = await reembolsoResp.Content.ReadFromJsonAsync<ReembolsoResponse>();
+        var crId = reembolso!.ContasReceber[0].Id;
+
+        // Remover da fatura deve funcionar e excluir o reembolso pendente também
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var contaRemovida = await client.GetAsync($"/api/v1/contas-pagar/{id}");
+        contaRemovida.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var reembolsoRemovido = await client.GetAsync($"/api/v1/contas-receber/{crId}");
+        reembolsoRemovido.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_ComReembolsoJaRecebido_DeveRetornar400()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+
+        // Criar reembolso
+        var reembolsoResp = await client.PostAsJsonAsync("/api/v1/reembolsos/contas-pagar", new
+        {
+            contaOrigemId = id,
+            parcelarIgual = false,
+            valorTotal = 200m,
+            pagadoresIds = new[] { fixture.PagadorId },
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            dataVencimento = "2026-05-01",
+            descricao = "Reembolso compra cartao",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialReceitaId, valor = 200m } }
+        });
+        var reembolso = await reembolsoResp.Content.ReadFromJsonAsync<ReembolsoResponse>();
+        var crId = reembolso!.ContasReceber[0].Id;
+
+        // Liquidar o reembolso (usar valorLiquidacao igual ao valor da conta)
+        var liquidar = await client.PostAsJsonAsync($"/api/v1/contas-receber/{crId}/liquidar", new
+        {
+            dataLiquidacao = "2026-05-01",
+            contaBancariaId = fixture.ContaBancariaId,
+            valorLiquidacao = 200m,
+            atualizarValorConta = true
+        });
+        liquidar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Tentar remover da fatura deve falhar
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task RemoverDaFatura_Parcelada_DeveRemoverParcelasFuturas()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+
+        // Criar compra parcelada em 3x no cartão (parcelas em abril, maio, junho)
+        var criarResp = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-05",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-20",
+            formaPagamentoId = fixture.FormaPagamentoCartaoId,
+            cartaoId = fixture.CartaoId,
+            valorOriginal = 300m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 3,
+            descricao = "Notebook parcelado",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 300m } }
+        });
+        criarResp.EnsureSuccessStatusCode();
+        var parcela1 = await criarResp.Content.ReadFromJsonAsync<ContaResumo>();
+        parcela1!.StatusCodigo.Should().Be("EM_FATURA");
+
+        // Verificar que cada mês tem 1 item na fatura antes da remoção
+        var abrilId = await ObterFaturaIdAsync(client, "2026-04");
+        var maioId = await ObterFaturaIdAsync(client, "2026-05");
+        var junhoId = await ObterFaturaIdAsync(client, "2026-06");
+
+        (await ObterTotalItensFaturaAsync(client, abrilId)).Should().Be(1);
+        (await ObterTotalItensFaturaAsync(client, maioId)).Should().Be(1);
+        (await ObterTotalItensFaturaAsync(client, junhoId)).Should().Be(1);
+
+        // Obter IDs das parcelas futuras via fatura
+        var parcelaMaioId = await ObterContaPagarIdDaFaturaAsync(client, maioId);
+        var parcelaJunhoId = await ObterContaPagarIdDaFaturaAsync(client, junhoId);
+
+        // Remover parcela 1 → deve remover também parcelas de maio e junho
+        var remover = await client.DeleteAsync($"/api/v1/contas-pagar/{parcela1.Id}/remover-da-fatura");
+        remover.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Todas as parcelas devem ter sido excluídas
+        (await client.GetAsync($"/api/v1/contas-pagar/{parcela1.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await client.GetAsync($"/api/v1/contas-pagar/{parcelaMaioId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await client.GetAsync($"/api/v1/contas-pagar/{parcelaJunhoId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RemoverDaFatura_Estorno_RespeitaBloqueioDaFatura(bool fecharFatura)
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+        await CriarCompraCartaoAsync(client, fixture, 500m);
+        var faturaId = await ObterFaturaIdAsync(client, "2026-04");
+        (await client.PostAsJsonAsync($"/api/v1/contas-pagar/{id}/cancelar", new { })).EnsureSuccessStatusCode();
+        (await ObterTotalItensFaturaAsync(client, faturaId)).Should().Be(2);
+        if (fecharFatura)
+            (await client.PostAsync($"/api/v1/faturas/{faturaId}/fechar", null)).EnsureSuccessStatusCode();
+
+        var response = await client.DeleteAsync($"/api/v1/contas-pagar/{id}/remover-da-fatura");
+        response.StatusCode.Should().Be(fecharFatura ? HttpStatusCode.BadRequest : HttpStatusCode.NoContent);
+        (await ObterTotalItensFaturaAsync(client, faturaId)).Should().Be(fecharFatura ? 2 : 1);
+        (await client.GetAsync($"/api/v1/contas-pagar/{id}")).StatusCode
+            .Should().Be(fecharFatura ? HttpStatusCode.OK : HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AtualizarCartao_CompraEmFaturaAberta_MoveItemParaNovoCartao()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var id = await CriarCompraCartaoAsync(client, fixture);
+        await CriarCompraCartaoAsync(client, fixture, 500m);
+        var faturaOrigemId = await ObterFaturaIdAsync(client, "2026-04");
+        var novoCartao = await client.PostAsJsonAsync("/api/v1/cartoes", new {
+            nome = "Cartão correto", bandeira = "Visa", numeroFinal = "1234",
+            diaFechamentoFatura = 10, diaVencimentoFatura = 20,
+            contaBancariaPagamentoPadraoId = fixture.ContaBancariaId, limiteCredito = 5000m, ativo = true
+        });
+        novoCartao.EnsureSuccessStatusCode();
+        var cartao = await novoCartao.Content.ReadFromJsonAsync<ContaResumo>();
+        var atualizar = await client.PutAsJsonAsync($"/api/v1/contas-pagar/{id}", new {
+            dataEmissao = "2026-04-05", dataCompra = "2026-04-05", dataVencimento = "2026-04-20",
+            recebedorId = fixture.RecebedorId, formaPagamentoId = fixture.FormaPagamentoCartaoId,
+            cartaoId = cartao!.Id, valorOriginal = 200m, quantidadeParcelas = 1, descricao = "Tênis",
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 200m } }
+        });
+        atualizar.EnsureSuccessStatusCode();
+        var faturas = await client.GetFromJsonAsync<FaturaListResponse>("/api/v1/faturas");
+        var destino = faturas!.Items.Single(x => x.Id != faturaOrigemId);
+        (await ObterTotalItensFaturaAsync(client, faturaOrigemId)).Should().Be(1);
+        (await ObterContaPagarIdDaFaturaAsync(client, destino.Id)).Should().Be(id);
+    }
+
+    // ── helpers adicionais ───────────────────────────────────────────────────
+
+    private static async Task<Guid> ObterFaturaIdAsync(HttpClient client, string competencia)
+    {
+        var faturas = await client.GetFromJsonAsync<FaturaListResponse>("/api/v1/faturas");
+        return faturas!.Items.Single(x => x.Competencia == competencia).Id;
+    }
+
+    private static async Task<int> ObterTotalItensFaturaAsync(HttpClient client, Guid faturaId)
+    {
+        var resp = await client.GetFromJsonAsync<FaturaItensResponse>($"/api/v1/faturas/{faturaId}/itens?pageSize=10");
+        return resp!.TotalItems;
+    }
+
+    private static async Task<Guid> ObterContaPagarIdDaFaturaAsync(HttpClient client, Guid faturaId)
+    {
+        var resp = await client.GetFromJsonAsync<FaturaItensResponse>($"/api/v1/faturas/{faturaId}/itens?pageSize=10");
+        return resp!.Items.Single().ContaPagarId;
+    }
+
+    private sealed record FaturaListResponse(List<FaturaItem> Items, int TotalItems);
+    private sealed record FaturaItem(Guid Id, string Competencia);
+    private sealed record FaturaItensResponse(List<FaturaItemMin> Items, int TotalItems);
+    private sealed record FaturaItemMin(Guid ContaPagarId);
+    private sealed record ReembolsoResponse(List<ContaReceberResumo> ContasReceber);
+    private sealed record ContaReceberResumo(Guid Id, decimal ValorLiquido);
+
+    private sealed record ParcelaResumo(Guid Id, int NumeroParcela, string StatusCodigo);
+    private sealed record ParcelaListResponse(IReadOnlyCollection<ParcelaResumo> Items);
+
+    private static async Task<List<ParcelaResumo>> CriarParceladaAsync(HttpClient client, FinancialFixtureSeed.FixtureIds fixture, string descricao)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
+        {
+            dataEmissao = "2026-04-04",
+            recebedorId = fixture.RecebedorId,
+            dataVencimento = "2026-04-25",
+            formaPagamentoId = fixture.FormaPagamentoManualId,
+            valorOriginal = 500m,
+            valorDesconto = 0m,
+            valorJuros = 0m,
+            valorMulta = 0m,
+            quantidadeParcelas = 5,
+            descricao,
+            rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 500m } }
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return await ListarParcelasAsync(client, descricao);
+    }
+
+    private static async Task<List<ParcelaResumo>> ListarParcelasAsync(HttpClient client, string descricao)
+    {
+        var lista = await client.GetFromJsonAsync<ParcelaListResponse>($"/api/v1/contas-pagar?descricao={Uri.EscapeDataString(descricao)}&pageSize=50");
+        return lista!.Items.OrderBy(x => x.NumeroParcela).ToList();
+    }
+
+    [Theory]
+    [InlineData("true", new[] { "CANCELADA", "CANCELADA", "CANCELADA", "CANCELADA", "CANCELADA" })]
+    [InlineData("null", new[] { "CANCELADA", "CANCELADA", "CANCELADA", "CANCELADA", "CANCELADA" })]
+    [InlineData("false", new[] { "CANCELADA", "VENCIDA", "VENCIDA", "VENCIDA", "VENCIDA" })]
+    public async Task CancelarPrimeiraParcela_DeveRespeitarEscolhaDeCascata(string cancelarFuturas, string[] statusEsperados)
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var parcelas = await CriarParceladaAsync(client, fixture, "Parcelado cascata");
+        parcelas.Should().HaveCount(5);
+
+        var body = JsonContent.Create(new { cancelarParcelasFuturas = cancelarFuturas == "null" ? (bool?)null : bool.Parse(cancelarFuturas) });
+        var cancelar = await client.PostAsync($"/api/v1/contas-pagar/{parcelas[0].Id}/cancelar", body);
+        cancelar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var depois = await ListarParcelasAsync(client, "Parcelado cascata");
+        depois.Select(x => x.StatusCodigo).Should().Equal(statusEsperados);
+    }
+
+    [Fact]
+    public async Task CancelarParcelaIntermediaria_ComCascata_DeveCancelarApenasAsSeguintes()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var parcelas = await CriarParceladaAsync(client, fixture, "Parcelado meio");
+
+        var cancelar = await client.PostAsJsonAsync($"/api/v1/contas-pagar/{parcelas[2].Id}/cancelar", new { cancelarParcelasFuturas = true });
+        cancelar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var depois = await ListarParcelasAsync(client, "Parcelado meio");
+        depois.Select(x => x.StatusCodigo).Should().Equal("VENCIDA", "VENCIDA", "CANCELADA", "CANCELADA", "CANCELADA");
+    }
+
+    [Fact]
+    public async Task CancelarParcelaIntermediaria_SemCascata_DeveCancelarApenasEla()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+        var fixture = await FinancialFixtureSeed.CreateAsync(client);
+        var parcelas = await CriarParceladaAsync(client, fixture, "Parcelado unico");
+
+        var cancelar = await client.PostAsync($"/api/v1/contas-pagar/{parcelas[2].Id}/cancelar", content: null);
+        cancelar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var depois = await ListarParcelasAsync(client, "Parcelado unico");
+        depois.Select(x => x.StatusCodigo).Should().Equal("VENCIDA", "VENCIDA", "CANCELADA", "VENCIDA", "VENCIDA");
+    }
 }

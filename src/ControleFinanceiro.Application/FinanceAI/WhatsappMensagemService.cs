@@ -9,6 +9,7 @@ namespace ControleFinanceiro.Application.FinanceAI;
 public sealed class WhatsappMensagemService(
     IAppDbContext db,
     IFinanceAgentService agentService,
+    IAgentFileService fileService,
     ITranscricaoAudioService transcricaoService,
     IExtracaoImagemFinanceiroService extracaoImagemService,
     ILogger<WhatsappMensagemService> logger) : IWhatsappMensagemService
@@ -18,7 +19,9 @@ public sealed class WhatsappMensagemService(
     {
         var telefone = WhatsappUsuario.NormalizarTelefone(request.Telefone);
 
+        // Webhook autenticado: lookup pontual do remetente, antes do escopo financeiro.
         var wup = await db.WhatsappUsuarios
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(w => w.Telefone == telefone && w.Ativo, cancellationToken);
 
@@ -27,6 +30,8 @@ public sealed class WhatsappMensagemService(
             logger.LogDebug("Telefone {Telefone} não cadastrado ou inativo — mensagem ignorada.", telefone);
             return null;
         }
+
+        db.DefinirWorkspaceCorrente(wup.FamiliaId);
 
         var jaProcessado = await db.AiMensagens
             .AsNoTracking()
@@ -78,10 +83,33 @@ public sealed class WhatsappMensagemService(
 
         var agentResponse = await agentService.ProcessarAsync(agentRequest, cancellationToken);
 
-        return new WhatsappMensagemResponse(
-        [
-            new WhatsappResposta("texto", agentResponse.Resposta)
-        ]);
+        var respostas = new List<WhatsappResposta>
+        {
+            new("texto", agentResponse.Resposta)
+        };
+
+        if (agentResponse.Arquivos is { Count: > 0 })
+        {
+            foreach (var arquivo in agentResponse.Arquivos)
+            {
+                try
+                {
+                    var bytes = await fileService.LerAsync(arquivo.Url, cancellationToken);
+                    var base64 = Convert.ToBase64String(bytes);
+                    respostas.Add(new WhatsappResposta(
+                        "midia", arquivo.Nome,
+                        MidiaBase64: base64,
+                        MimeType: arquivo.MimeType,
+                        NomeArquivo: arquivo.Nome));
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Falha ao ler arquivo {Url} para envio WhatsApp", arquivo.Url);
+                }
+            }
+        }
+
+        return new WhatsappMensagemResponse(respostas);
     }
 
     private async Task<string?> ProcessarAudioAsync(WhatsappMensagemRequest request, CancellationToken ct)

@@ -10,6 +10,8 @@ public sealed record FaturaListQueryRequest : ListQueryRequest
 
     public string? Competencia { get; init; }
 
+    public IReadOnlyCollection<string>? Competencias { get; init; }
+
     public string? StatusCodigo { get; init; }
 
     public IReadOnlyCollection<string>? StatusCodigos { get; init; }
@@ -61,15 +63,29 @@ public sealed record FaturaListResponse(
     int TotalPages,
     FaturaListSummaryResponse Summary);
 
+public sealed record FaturaItensQueryRequest : ListQueryRequest
+{
+    public Guid? ResponsavelId { get; init; }
+}
+
 public sealed record FaturaItemResponse(
     Guid ContaPagarId,
     string Descricao,
     string RecebedorNome,
+    string? ResponsavelNome,
     DateOnly DataCompra,
     decimal ValorLiquido,
     string StatusCodigo,
     int NumeroParcela,
-    int QuantidadeParcelas);
+    int QuantidadeParcelas,
+    bool EhEstorno = false);
+
+public sealed record FaturaItensResponse(
+    IReadOnlyCollection<FaturaItemResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages);
 
 public sealed record FaturaDetalheResponse(
     Guid Id,

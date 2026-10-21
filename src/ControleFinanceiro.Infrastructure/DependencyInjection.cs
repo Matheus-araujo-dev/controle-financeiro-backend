@@ -1,5 +1,6 @@
-﻿using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
+using ControleFinanceiro.Application.Cadastros.ContasGerenciais;
 using ControleFinanceiro.Application.Cadastros.Pessoas;
+using ControleFinanceiro.Application.Common.Alertas;
 using ControleFinanceiro.Application.Dashboard;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
@@ -8,8 +9,11 @@ using ControleFinanceiro.Application.Financeiro.ContasReceber;
 using ControleFinanceiro.Application.Identidade;
 using ControleFinanceiro.Application.ImportacoesWhatsapp;
 using ControleFinanceiro.Application.Common.Persistence;
+using ControleFinanceiro.Application.Anexos;
+using ControleFinanceiro.Application.Conciliacao;
 using ControleFinanceiro.Domain.Events;
 using ControleFinanceiro.Domain.Financeiro.Events;
+using ControleFinanceiro.Infrastructure.Alertas;
 using ControleFinanceiro.Infrastructure.Events;
 using ControleFinanceiro.Infrastructure.Events.Handlers;
 using ControleFinanceiro.Infrastructure.FinanceAI;
@@ -31,8 +35,9 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("SqlServer")
-            ?? throw new InvalidOperationException("Connection string 'SqlServer' was not configured.");
+        var connectionString = ResolveConnectionString(
+            configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' was not configured."));
 
         var redisConnectionString = configuration.GetConnectionString("Redis");
         if (!string.IsNullOrWhiteSpace(redisConnectionString))
@@ -57,18 +62,19 @@ public static class DependencyInjection
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(
+            options.UseNpgsql(
                 connectionString,
-                sqlOptions =>
+                npgsqlOptions =>
                 {
-                    sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    sqlOptions.EnableRetryOnFailure(
+                    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    npgsqlOptions.EnableRetryOnFailure(
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(30),
-                        errorNumbersToAdd: null);
-                    sqlOptions.CommandTimeout(30);
+                        errorCodesToAdd: null);
+                    npgsqlOptions.CommandTimeout(30);
                 }));
         services.AddScoped<IAppDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IAtomicOperation, AtomicOperation>();
         services.AddScoped<IContaPagarRepository, ContaPagarRepository>();
         services.AddScoped<IContaReceberRepository, ContaReceberRepository>();
         services.AddScoped<IPessoaRepository, PessoaRepository>();
@@ -76,7 +82,16 @@ public static class DependencyInjection
         services.AddScoped<IStatusDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<ICadastrosDbContext>(serviceProvider => serviceProvider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFileStorage, LocalImportFileStorage>();
+        services.AddScoped<IAnexoFileStorage, Anexos.LocalAnexoFileStorage>();
+        services.AddScoped<AnexoAppService>();
+    services.AddScoped<ControleFinanceiro.Application.Identidade.ApiKeyAppService>();
+        services.AddScoped<ConciliacaoAppService>();
+        services.AddScoped<ControleFinanceiro.Application.Cadastros.Pessoas.PessoaResumoFinanceiroService>();
         services.AddScoped<IDocumentExtractor, DefaultDocumentExtractor>();
+        services.AddScoped<ControleFinanceiro.Application.Financeiro.Importacao.IPdfFaturaReader, BradescoPdfFaturaReader>();
+        services.Configure<InvoiceOcrOptions>(configuration.GetSection("InvoiceOcr"));
+        services.AddScoped<IInvoiceImageOcr, TesseractImageOcr>();
+        services.AddScoped<IInvoicePdfTextReader, PythonPdfTextReader>();
         services.AddScoped<IImportSuggestionService, HeuristicImportSuggestionService>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddScoped<IDomainEventHandler<ContaPagarCriadaEvent>, ContaPagarCriadaEventHandler>();
@@ -91,7 +106,63 @@ public static class DependencyInjection
         services.AddScoped<IFinanceTool, BuscarGastosPorResponsavelTool>();
         services.AddScoped<IFinanceTool, ListarPessoasTool>();
         services.AddScoped<IFinanceTool, ListarMeiosPagamentoTool>();
+        services.AddScoped<IFinanceTool, BuscarContasAPagarTool>();
+        services.AddScoped<IFinanceTool, BuscarContasAReceberTool>();
+        services.AddScoped<IFinanceTool, BuscarFaturasCartaoTool>();
+        services.AddScoped<IFinanceTool, BuscarMovimentacoesTool>();
         services.AddScoped<IFinanceTool, CriarLancamentoTool>();
+        services.AddScoped<IFinanceTool, CriarRecebimentoTool>();
+        services.AddScoped<IFinanceTool, AlterarLancamentoTool>();
+        services.AddScoped<IFinanceTool, CancelarLancamentoTool>();
+        services.AddScoped<IFinanceTool, ListarRecorrenciasTool>();
+        services.AddScoped<IFinanceTool, CompararMesesTool>();
+        services.AddScoped<IFinanceTool, GerarRelatorioTool>();
+        services.AddScoped<IFinanceTool, BuscarTransferenciasTool>();
+        services.AddScoped<IFinanceTool, BuscarInvestimentosTool>();
+        services.AddScoped<IFinanceTool, BuscarPlanosTool>();
+        services.AddScoped<IFinanceTool, BuscarMetasOrcamentoTool>();
+        services.AddScoped<IFinanceTool, BuscarFechamentosMensaisTool>();
+        services.AddScoped<IFinanceTool, ProjetarFluxoCaixaTool>();
+        services.AddScoped<IFinanceTool, LiquidarLancamentoTool>();
+        services.AddScoped<IFinanceTool, CriarTransferenciaTool>();
+        services.AddScoped<IFinanceTool, GerenciarRecorrenciaTool>();
+        services.AddScoped<IFinanceTool, GerenciarInvestimentoTool>();
+        services.AddScoped<IFinanceTool, GerenciarPlanoTool>();
+        services.AddScoped<IFinanceTool, GerenciarMetaOrcamentoTool>();
+        services.AddScoped<IFinanceTool, ImportarFaturaCartaoTool>();
+        services.AddScoped<IFinanceTool, ConfirmarImportacaoFaturaCartaoTool>();
+        services.AddScoped<IFinanceTool, ListarCartoesTool>();
+        services.AddScoped<IFinanceTool, ListarContasBancariasTool>();
+        services.AddScoped<IFinanceTool, GerenciarCartaoTool>();
+        services.AddScoped<IFinanceTool, GerenciarContaBancariaTool>();
+        services.AddScoped<IFinanceTool, GerenciarPessoaTool>();
+        services.AddScoped<IFinanceTool, GerenciarCategoriaTool>();
+        services.AddScoped<IFinanceTool, GerenciarFormaPagamentoTool>();
+        services.AddScoped<IFinanceTool, GerenciarFaturaTool>();
+        services.AddScoped<IFinanceTool, GerenciarFechamentoTool>();
+        services.AddScoped<IFinanceTool, GerenciarCompraPlaneiadaTool>();
+        services.AddScoped<IFinanceTool, BuscarDashboardTool>();
+        services.AddScoped<IFinanceTool, IniciarConciliacaoFaturaTool>();
+        services.AddScoped<IFinanceTool, ListarItensPendentesConciliacaoTool>();
+        services.AddScoped<IFinanceTool, VincularItemConciliacaoTool>();
+        services.AddScoped<IFinanceTool, CriarItemConciliacaoTool>();
+        services.AddScoped<IFinanceTool, IgnorarItemConciliacaoTool>();
+        services.AddScoped<IFinanceTool, CriarReembolsoTool>();
+        services.AddScoped<IFinanceTool, IniciarConciliacaoBancariaTool>();
+        services.AddScoped<IFinanceTool, BuscarConciliacoesBancariasTool>();
+        services.AddScoped<IFinanceTool, GerenciarItemConciliacaoBancariaTool>();
+        services.AddScoped<IFinanceTool, BuscarImportacoesWhatsappTool>();
+        services.AddScoped<IFinanceTool, GerenciarImportacaoWhatsappTool>();
+        services.AddScoped<IFinanceTool, GerenciarItemImportacaoWhatsappTool>();
+        services.AddScoped<IFinanceTool, BuscarAnexosTool>();
+        services.AddScoped<IFinanceTool, GerarGraficoTool>();
+        services.AddScoped<IFinanceTool, GerarExcelTool>();
+        services.AddScoped<IFinanceTool, GerarPdfTool>();
+        services.AddScoped<IFinanceTool, GerarApresentacaoTool>();
+        services.AddScoped<IFinanceTool, LerDocumentoAnexoTool>();
+        services.AddScoped<IAgentFileService, LocalAgentFileService>();
+        services.AddScoped<IContentGenerator, ContentGenerationService>();
+        services.AddScoped<IDocumentReaderService, DocumentReaderService>();
         services.AddScoped<IFinanceAgentService, FinanceAgentService>();
         services.AddScoped<FinanceInsightsService>();
         services.AddScoped<FinanceCategorizacaoService>();
@@ -101,6 +172,24 @@ public static class DependencyInjection
 
         services.Configure<WhatsappBridgeOptions>(configuration.GetSection(WhatsappBridgeOptions.SectionName));
         services.Configure<AlertasWhatsappOptions>(configuration.GetSection(AlertasWhatsappOptions.SectionName));
+
+        // Alertas email/push
+        services.Configure<ResendOptions>(configuration.GetSection(ResendOptions.SectionName));
+        services.Configure<VapidOptions>(configuration.GetSection(VapidOptions.SectionName));
+        services.AddScoped<AlertasEmailPushService>();
+
+        var resendOpts = configuration.GetSection(ResendOptions.SectionName).Get<ResendOptions>() ?? new ResendOptions();
+        services.AddHttpClient<ResendEmailService>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.resend.com/");
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {resendOpts.ApiKey}");
+        });
+        services.AddScoped<IEmailAlertaService, ResendEmailService>();
+
+        services.AddHttpClient<WebPushService>();
+        services.AddScoped<IPushAlertaService, WebPushService>();
+
+        services.AddHostedService<AlertasEmailPushHostedService>();
         services.Configure<LlmOptions>(configuration.GetSection(LlmOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
 
@@ -116,20 +205,49 @@ public static class DependencyInjection
             }
         });
 
+
         var llmOptions = configuration.GetSection(LlmOptions.SectionName).Get<LlmOptions>() ?? new LlmOptions();
+        {
+            var setupLogger = services.BuildServiceProvider().GetRequiredService<ILoggerFactory>().CreateLogger("LlmSetup");
+            setupLogger.LogInformation(
+                "FinanceAI config — Enabled={Enabled} Provider={Provider} HasKey={HasKey} FastModel={FastModel} BaseUrl={BaseUrl}",
+                llmOptions.Enabled, llmOptions.Provider,
+                !string.IsNullOrWhiteSpace(llmOptions.ApiKey),
+                llmOptions.FastModel, llmOptions.BaseUrl);
+        }
         if (llmOptions.Enabled && !string.IsNullOrWhiteSpace(llmOptions.ApiKey))
         {
-            services.AddHttpClient<AnthropicLlmClient>(client =>
+            if (llmOptions.IsOpenAiCompatible)
             {
-                client.BaseAddress = new Uri("https://api.anthropic.com/v1/");
-                client.DefaultRequestHeaders.Add("x-api-key", llmOptions.ApiKey);
-                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-                client.Timeout = TimeSpan.FromSeconds(60);
-            })
-                .AddPolicyHandlerFromRegistry("Anthropic.retry")
-                .AddPolicyHandlerFromRegistry("Anthropic.cb");
-            services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
-            services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
+                var baseUrl = string.IsNullOrWhiteSpace(llmOptions.BaseUrl)
+                    ? "https://api.minimax.io/v1/"
+                    : llmOptions.BaseUrl.TrimEnd('/') + "/";
+
+                services.AddHttpClient<OpenAiCompatibleLlmClient>(client =>
+                {
+                    client.BaseAddress = new Uri(baseUrl);
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {llmOptions.ApiKey}");
+                    client.Timeout = TimeSpan.FromSeconds(60);
+                })
+                    .AddPolicyHandlerFromRegistry("Anthropic.retry")
+                    .AddPolicyHandlerFromRegistry("Anthropic.cb");
+                services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<OpenAiCompatibleLlmClient>());
+                services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<OpenAiCompatibleLlmClient>());
+            }
+            else
+            {
+                services.AddHttpClient<AnthropicLlmClient>(client =>
+                {
+                    client.BaseAddress = new Uri("https://api.anthropic.com/v1/");
+                    client.DefaultRequestHeaders.Add("x-api-key", llmOptions.ApiKey);
+                    client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                    client.Timeout = TimeSpan.FromSeconds(60);
+                })
+                    .AddPolicyHandlerFromRegistry("Anthropic.retry")
+                    .AddPolicyHandlerFromRegistry("Anthropic.cb");
+                services.AddScoped<ILlmClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
+                services.AddScoped<ILlmVisionClient>(sp => sp.GetRequiredService<AnthropicLlmClient>());
+            }
         }
         else
         {
@@ -167,9 +285,22 @@ public static class DependencyInjection
         })
             .AddPolicyHandlerFromRegistry("WhatsappBridge.retry")
             .AddPolicyHandlerFromRegistry("WhatsappBridge.cb");
-        services.AddScoped<IWhatsappOutboundService, WhatsappOutboundService>();
+        services.AddScoped<IWhatsappOutboundService>(sp => sp.GetRequiredService<WhatsappOutboundService>());
         services.AddHostedService<AlertasWhatsappHostedService>();
 
         return services;
+    }
+
+    // Railway injects DATABASE_URL as a postgres:// URI; Npgsql expects key=value format.
+    internal static string ResolveConnectionString(string cs)
+    {
+        if (!cs.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
+            !cs.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+            return cs;
+
+        var uri = new Uri(cs);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var db = uri.AbsolutePath.TrimStart('/');
+        return $"Host={uri.Host};Port={uri.Port};Database={db};Username={userInfo[0]};Password={Uri.UnescapeDataString(userInfo[1])};SSL Mode=Require;Trust Server Certificate=true";
     }
 }

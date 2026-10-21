@@ -28,6 +28,8 @@ public sealed class ContaGerencial : TenantEntity
 
     public bool EhPadraoRecebimentoFaturaCartao { get; private set; }
 
+    public Guid? ContaGerencialContrariaId { get; private set; }
+
     public static ContaGerencial Criar(
         string? codigo,
         string descricao,
@@ -35,10 +37,11 @@ public sealed class ContaGerencial : TenantEntity
         Guid? contaPaiId,
         Guid? responsavelPadraoId,
         bool ativo,
-        bool ehPadraoRecebimentoFaturaCartao)
+        bool ehPadraoRecebimentoFaturaCartao,
+        Guid? contaGerencialContrariaId = null)
     {
         var conta = new ContaGerencial();
-        conta.Atualizar(codigo, descricao, tipo, contaPaiId, responsavelPadraoId, ativo, ehPadraoRecebimentoFaturaCartao);
+        conta.Atualizar(codigo, descricao, tipo, contaPaiId, responsavelPadraoId, ativo, ehPadraoRecebimentoFaturaCartao, contaGerencialContrariaId);
         return conta;
     }
 
@@ -49,7 +52,8 @@ public sealed class ContaGerencial : TenantEntity
         Guid? contaPaiId,
         Guid? responsavelPadraoId,
         bool ativo,
-        bool ehPadraoRecebimentoFaturaCartao)
+        bool ehPadraoRecebimentoFaturaCartao,
+        Guid? contaGerencialContrariaId = null)
     {
         if (string.IsNullOrWhiteSpace(descricao))
         {
@@ -68,6 +72,17 @@ public sealed class ContaGerencial : TenantEntity
         ResponsavelPadraoId = responsavelPadraoId;
         Ativo = ativo;
         EhPadraoRecebimentoFaturaCartao = ehPadraoRecebimentoFaturaCartao;
+        AtualizarContaContraria(contaGerencialContrariaId);
+    }
+
+    public void AtualizarContaContraria(Guid? contaGerencialContrariaId)
+    {
+        if (contaGerencialContrariaId.HasValue && contaGerencialContrariaId.Value == Id)
+        {
+            throw new ArgumentException("Conta contrária não pode ser a própria conta.", nameof(contaGerencialContrariaId));
+        }
+
+        ContaGerencialContrariaId = contaGerencialContrariaId;
     }
 
     public void AtualizarContaPai(Guid? contaPaiId)

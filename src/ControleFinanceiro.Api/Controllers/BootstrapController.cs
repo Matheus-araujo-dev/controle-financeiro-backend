@@ -5,8 +5,6 @@ using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using ControleFinanceiro.Api.Configuration;
 
 namespace ControleFinanceiro.Api.Controllers;
 
@@ -15,17 +13,16 @@ namespace ControleFinanceiro.Api.Controllers;
 [Route("api/v1/bootstrap")]
 public sealed class BootstrapController(
     IBootstrapCatalogService bootstrapCatalogService,
-    IClock clock,
-    IOptions<AuthOptions> authOptions) : ControllerBase
+    IClock clock) : ControllerBase
 {
     [HttpGet("status")]
     [ProducesResponseType(typeof(BootstrapStatusResponse), StatusCodes.Status200OK)]
     public ActionResult<BootstrapStatusResponse> GetStatus()
     {
+        // Não expõe o modo de autenticação: endpoint público não deve facilitar reconhecimento.
         return Ok(new BootstrapStatusResponse(
             "Controle Financeiro API",
             "v1",
-            authOptions.Value.Mode,
             HttpContext.TraceIdentifier,
             clock.UtcNow));
     }

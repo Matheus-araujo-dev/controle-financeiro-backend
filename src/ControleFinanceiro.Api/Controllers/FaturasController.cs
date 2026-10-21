@@ -37,6 +37,18 @@ public sealed class FaturasController(
         return response is null ? NotFoundResponse() : Ok(response);
     }
 
+    [HttpGet("{id:guid}/itens")]
+    [ProducesResponseType(typeof(FaturaItensResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FaturaItensResponse>> ListarItens(
+        Guid id,
+        [FromQuery] FaturaItensQueryRequest query,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.ListarItensPaginadoAsync(id, query, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
     [HttpPost("{id:guid}/pagar")]
     [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -50,6 +62,16 @@ public sealed class FaturasController(
         return response is null ? NotFoundResponse() : Ok(response);
     }
 
+    [HttpPost("{id:guid}/fechar")]
+    [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<FaturaDetalheResponse>> Fechar(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.FecharAsync(id, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
     [HttpPost("{id:guid}/estornar")]
     [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -57,6 +79,16 @@ public sealed class FaturasController(
     public async Task<ActionResult<FaturaDetalheResponse>> Estornar(Guid id, CancellationToken cancellationToken)
     {
         var response = await service.EstornarAsync(id, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+
+    [HttpPost("{id:guid}/reabrir")]
+    [ProducesResponseType(typeof(FaturaDetalheResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<FaturaDetalheResponse>> Reabrir(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await service.ReabrirAsync(id, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 

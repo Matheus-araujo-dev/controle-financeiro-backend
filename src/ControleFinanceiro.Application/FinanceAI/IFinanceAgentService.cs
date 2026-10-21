@@ -5,6 +5,7 @@ namespace ControleFinanceiro.Application.FinanceAI;
 public interface IFinanceAgentService
 {
     Task<AgentResponse> ProcessarAsync(AgentRequest request, CancellationToken cancellationToken);
+    Task<AgentResponse> ProcessarStreamAsync(AgentRequest request, Func<AgentStreamEvent, Task> onEvent, CancellationToken cancellationToken);
 }
 
 public sealed record AgentRequest(string Mensagem, Guid? ConversaId = null)
@@ -23,9 +24,22 @@ public sealed record AgentRequest(string Mensagem, Guid? ConversaId = null)
 
     /// <summary>Contato externo (número de telefone para canal WhatsApp).</summary>
     public string? ContatoExterno { get; init; }
+
+    /// <summary>Caminho temporário do arquivo anexado (PDF de fatura, por exemplo).</summary>
+    public string? ArquivoAnexoPath { get; init; }
+
+    /// <summary>Nome original do arquivo anexado.</summary>
+    public string? ArquivoAnexoNome { get; init; }
 }
+
+public sealed record AgentFileOutput(
+    string Nome,
+    string MimeType,
+    string Url,
+    long TamanhoBytes);
 
 public sealed record AgentResponse(
     string Resposta,
     Guid ConversaId,
-    int TokensUsados);
+    int TokensUsados,
+    IReadOnlyList<AgentFileOutput>? Arquivos = null);

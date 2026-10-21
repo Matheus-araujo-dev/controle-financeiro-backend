@@ -10,7 +10,7 @@ namespace ControleFinanceiro.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/pessoas")]
-public sealed class PessoasController(PessoaAppService service) : ApiControllerBase
+public sealed class PessoasController(PessoaAppService service, PessoaResumoFinanceiroService resumoFinanceiroService) : ApiControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(PessoaListResponse), StatusCodes.Status200OK)]
@@ -69,6 +69,14 @@ public sealed class PessoasController(PessoaAppService service) : ApiControllerB
     public async Task<ActionResult<PessoaDetalheResponse>> Inativar(Guid id, CancellationToken cancellationToken)
     {
         var response = await service.DefinirAtivacaoAsync(id, false, cancellationToken);
+        return response is null ? NotFoundResponse() : Ok(response);
+    }
+    [HttpGet("{id:guid}/resumo-financeiro")]
+    [ProducesResponseType(typeof(PessoaResumoFinanceiroResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PessoaResumoFinanceiroResponse>> ObterResumoFinanceiro(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await resumoFinanceiroService.ObterResumoAsync(id, cancellationToken);
         return response is null ? NotFoundResponse() : Ok(response);
     }
 }

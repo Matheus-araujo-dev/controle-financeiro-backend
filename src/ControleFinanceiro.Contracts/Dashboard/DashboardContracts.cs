@@ -31,6 +31,8 @@ public sealed record DashboardResumoQueryRequest
     public DateOnly? DataReferencia { get; init; }
 
     public int DiasProjetados { get; init; } = 15;
+
+    public IReadOnlyCollection<Guid>? ContaBancariaIds { get; init; }
 }
 
 public sealed record DashboardFluxoCaixaQueryRequest
@@ -42,6 +44,8 @@ public sealed record DashboardFluxoCaixaQueryRequest
     public int Dias { get; init; } = 15;
 
     public DashboardFluxoCaixaVisao Visao { get; init; } = DashboardFluxoCaixaVisao.Caixa;
+
+    public IReadOnlyCollection<Guid>? ContaBancariaIds { get; init; }
 }
 
 public sealed record DashboardContaGerencialResumoQueryRequest
@@ -53,6 +57,8 @@ public sealed record DashboardContaGerencialResumoQueryRequest
     public int Dias { get; init; } = 30;
 
     public string? Tipo { get; init; }
+
+    public Guid? ResponsavelId { get; init; }
 }
 
 public sealed record DashboardContaGerencialSerieQueryRequest
@@ -266,3 +272,20 @@ public sealed record DashboardResponsavelResumoResponse(
     decimal TotalDespesas,
     decimal TotalReceitas,
     IReadOnlyList<DashboardResponsavelItemResponse> Itens);
+
+public sealed record DashboardComparativoMensalQueryRequest
+{
+    public int Meses { get; init; } = 6;
+}
+
+public sealed record DashboardComparativoMensalItemResponse(
+    string Competencia,
+    string CompetenciaLabel,
+    decimal Receitas,
+    decimal Despesas,
+    decimal Saldo,
+    decimal? VariacaoReceitas,
+    decimal? VariacaoDespesas);
+
+public sealed record DashboardComparativoMensalResponse(
+    IReadOnlyList<DashboardComparativoMensalItemResponse> Itens);

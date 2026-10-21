@@ -1,6 +1,7 @@
 using ControleFinanceiro.Contracts.Filters;
 using ControleFinanceiro.Contracts.Financeiro.Common;
 using ControleFinanceiro.Contracts.Financeiro.ContasPagar;
+using ControleFinanceiro.Contracts.Financeiro.Reembolsos;
 
 namespace ControleFinanceiro.Contracts.Financeiro.ContasReceber;
 
@@ -17,6 +18,8 @@ public sealed record ContaReceberListQueryRequest : ListQueryRequest
     public Guid? FormaPagamentoId { get; init; }
 
     public IReadOnlyCollection<Guid>? FormaPagamentoIds { get; init; }
+
+    public IReadOnlyCollection<Guid>? ResponsavelIds { get; init; }
 
     public string? StatusCodigo { get; init; }
 
@@ -55,7 +58,11 @@ public sealed record CriarContaReceberRequest(
     string Descricao,
     string? Observacao,
     IReadOnlyCollection<RateioRequest> Rateios,
-    RecorrenciaConfigRequest? Recorrencia);
+    RecorrenciaConfigRequest? Recorrencia,
+    Guid? ContaVinculadaOrigemId = null,
+    /// <summary>Quando informado com 2+ ids, cria uma conta por pagador. Se ValoresPorPagador tiver o mesmo comprimento, usa valores customizados; caso contrário divide igualmente.</summary>
+    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null,
+    IReadOnlyList<decimal>? ValoresPorPagador = null);
 
 public sealed record AtualizarContaReceberRequest(
     Guid Id,
@@ -78,12 +85,18 @@ public sealed record AtualizarContaReceberRequest(
     IReadOnlyCollection<RateioRequest> Rateios,
     RecorrenciaConfigRequest? Recorrencia);
 
+public sealed record CancelarContaReceberRequest(
+    bool? PausarRecorrenciaRelacionada = null,
+    bool? CancelarParcelasFuturas = null);
+
 public sealed record LiquidarContaReceberRequest(
     decimal ValorLiquidacao,
     DateOnly DataLiquidacao,
     Guid ContaBancariaId,
     Guid? FormaPagamentoId = null,
-    bool AtualizarValorConta = false);
+    bool AtualizarValorConta = false,
+    bool AtualizarRecorrencia = false,
+    bool CancelarValorRestante = false);
 
 public sealed record ContaReceberResumoResponse(
     Guid Id,
@@ -98,6 +111,7 @@ public sealed record ContaReceberResumoResponse(
     Guid FormaPagamentoId,
     string FormaPagamentoNome,
     decimal ValorLiquido,
+    decimal? ValorPago,
     string StatusCodigo,
     string StatusNome,
     int QuantidadeParcelas,
@@ -144,6 +158,7 @@ public sealed record ContaReceberDetalheResponse(
     decimal ValorJuros,
     decimal ValorMulta,
     decimal ValorLiquido,
+    decimal? ValorPago,
     int QuantidadeParcelas,
     int NumeroParcela,
     Guid? GrupoParcelamentoId,
@@ -156,4 +171,9 @@ public sealed record ContaReceberDetalheResponse(
     RecorrenciaResponse? Recorrencia,
     IReadOnlyCollection<RateioResponse> Rateios,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    ContaVinculadaResumo? ContaVinculada = null,
+    Guid? GrupoReembolsoId = null,
+    Guid? GrupoResponsaveisId = null,
+    GrupoReembolsoInfo? GrupoReembolso = null,
+    GrupoResponsaveisInfo? GrupoResponsaveis = null);

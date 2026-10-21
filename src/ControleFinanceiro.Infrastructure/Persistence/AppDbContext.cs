@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Domain.Cadastros.Cartoes;
 using ControleFinanceiro.Domain.Events;
@@ -9,6 +9,8 @@ using ControleFinanceiro.Domain.Cadastros.FormasPagamento;
 using ControleFinanceiro.Domain.Cadastros.Pessoas;
 using ControleFinanceiro.Domain.FinanceAI;
 using ControleFinanceiro.Domain.Financeiro;
+using ControleFinanceiro.Domain.Anexos;
+using ControleFinanceiro.Domain.Conciliacao;
 using ControleFinanceiro.Domain.Identidade;
 using ControleFinanceiro.Domain.ImportacoesWhatsapp;
 using ControleFinanceiro.Domain.PlanejamentoCompras;
@@ -27,25 +29,42 @@ public sealed class AppDbContext(
 {
     private readonly IClock _clock = clock ?? new DefaultClock();
     private readonly ICurrentUser _currentUser = currentUser ?? new AnonymousCurrentUser();
-    private Guid? _familiaCorrente = currentUser?.FamiliaId;
+    private Guid? _workspaceCorrente = currentUser?.WorkspaceId ?? currentUser?.FamiliaId;
 
-    /// <summary>
-    /// Tenant efetivo da instância. Quando nulo (workers, webhook anônimo, testes de infra),
-    /// os filtros de consulta por família ficam desativados e nada é estampado na inserção.
-    /// </summary>
-    public Guid? FamiliaCorrente => _familiaCorrente;
+    public Guid? WorkspaceCorrente => _workspaceCorrente;
 
-    public void DefinirFamiliaCorrente(Guid familiaId)
+    public Guid? FamiliaCorrente => WorkspaceCorrente;
+
+    public void DefinirWorkspaceCorrente(Guid workspaceId)
     {
-        if (familiaId == Guid.Empty)
+        if (workspaceId == Guid.Empty)
         {
-            throw new ArgumentException("Família é obrigatória.", nameof(familiaId));
+            throw new ArgumentException("Workspace e obrigatorio.", nameof(workspaceId));
         }
 
-        _familiaCorrente = familiaId;
+        _workspaceCorrente = workspaceId;
     }
 
+    public void DefinirFamiliaCorrente(Guid familiaId) => DefinirWorkspaceCorrente(familiaId);
+
+    public void LimparChangeTracker() => ChangeTracker.Clear();
+
+    public DbSet<MemoriaEstabelecimento> MemoriasEstabelecimento => Set<MemoriaEstabelecimento>();
+
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
+
+    public async Task<IReadOnlyList<AuditEntryDto>> GetAuditEntriesAsync(
+        string entityName,
+        Guid entityId,
+        CancellationToken cancellationToken)
+    {
+        return await AuditTrailEntries
+            .AsNoTracking()
+            .Where(e => e.EntityName == entityName && e.EntityId == entityId)
+            .OrderBy(e => e.OccurredAtUtc)
+            .Select(e => new AuditEntryDto(e.Id, e.EntityName, e.EntityId, e.Action, e.ExecutedBy, e.OccurredAtUtc, e.BeforeJson, e.AfterJson))
+            .ToListAsync(cancellationToken);
+    }
 
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
 
@@ -77,6 +96,14 @@ public sealed class AppDbContext(
 
     public DbSet<RegraRecorrencia> RegrasRecorrencia => Set<RegraRecorrencia>();
 
+    public DbSet<Transferencia> Transferencias => Set<Transferencia>();
+
+    public DbSet<Plano> Planos => Set<Plano>();
+
+    public DbSet<Investimento> Investimentos => Set<Investimento>();
+
+    public DbSet<FechamentoMensal> FechamentosMensais => Set<FechamentoMensal>();
+
     public DbSet<ImportacaoWhatsapp> ImportacoesWhatsapp => Set<ImportacaoWhatsapp>();
 
     public DbSet<ItemImportadoWhatsapp> ItensImportadosWhatsapp => Set<ItemImportadoWhatsapp>();
@@ -95,6 +122,20 @@ public sealed class AppDbContext(
 
     public DbSet<AlertaWhatsappEnviado> AlertasWhatsappEnviados => Set<AlertaWhatsappEnviado>();
 
+    public DbSet<ConfiguracaoNotificacao> ConfiguracoesNotificacao => Set<ConfiguracaoNotificacao>();
+
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+
+    public DbSet<AlertaDigitalEnviado> AlertasDigitaisEnviados => Set<AlertaDigitalEnviado>();
+
+    public DbSet<Anexo> Anexos => Set<Anexo>();
+
+    public DbSet<AnexoVinculo> AnexoVinculos => Set<AnexoVinculo>();
+
+    public DbSet<Domain.Conciliacao.Conciliacao> Conciliacoes => Set<Domain.Conciliacao.Conciliacao>();
+
+    public DbSet<ItemConciliacao> ItensConciliacao => Set<ItemConciliacao>();
+
     public DbSet<Usuario> Usuarios => Set<Usuario>();
 
     public DbSet<Familia> Familias => Set<Familia>();
@@ -105,17 +146,20 @@ public sealed class AppDbContext(
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     public override int SaveChanges()
     {
         PrepareAuditableEntities();
+        RenovarConcurrencyStamps();
         return base.SaveChanges();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         PrepareAuditableEntities();
+        RenovarConcurrencyStamps();
 
-        // Collect domain events before saving so no new state is added after.
         var events = ChangeTracker.Entries<Entity>()
             .SelectMany(e => e.Entity.DomainEvents)
             .ToList();
@@ -152,6 +196,7 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MetaOrcamentoConfiguration());
         modelBuilder.ApplyConfiguration(new MovimentacaoFinanceiraConfiguration());
         modelBuilder.ApplyConfiguration(new FaturaCartaoConfiguration());
+        modelBuilder.ApplyConfiguration(new FechamentoMensalConfiguration());
         modelBuilder.ApplyConfiguration(new RegraRecorrenciaConfiguration());
         modelBuilder.ApplyConfiguration(new ImportacaoWhatsappConfiguration());
         modelBuilder.ApplyConfiguration(new ItemImportadoWhatsappConfiguration());
@@ -161,13 +206,50 @@ public sealed class AppDbContext(
         modelBuilder.ApplyConfiguration(new MembroFamiliaConfiguration());
         modelBuilder.ApplyConfiguration(new ConviteFamiliaConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
         modelBuilder.ApplyConfiguration(new AiConversaConfiguration());
         modelBuilder.ApplyConfiguration(new AiMensagemConfiguration());
         modelBuilder.ApplyConfiguration(new AiToolCallConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappUsuarioConfiguration());
         modelBuilder.ApplyConfiguration(new WhatsappConfigAlertaConfiguration());
+        modelBuilder.ApplyConfiguration(new TransferenciaConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanoConfiguration());
+        modelBuilder.ApplyConfiguration(new InvestimentoConfiguration());
+        modelBuilder.ApplyConfiguration(new ConciliacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new ItemConciliacaoConfiguration());
+        modelBuilder.ApplyConfiguration(new MemoriaEstabelecimentoConfiguration());
         AplicarConvencoesDeTenant(modelBuilder);
+        AplicarConcorrenciaOtimista(modelBuilder);
         base.OnModelCreating(modelBuilder);
+    }
+
+    /// <summary>Nome da propriedade-sombra usada como token de optimistic concurrency.</summary>
+    internal const string ConcurrencyStampProperty = "ConcurrencyStamp";
+
+    /// <summary>Entidades financeiras protegidas por optimistic concurrency.</summary>
+    private static readonly Type[] TiposComConcorrencia =
+    [
+        typeof(ContaPagar),
+        typeof(ContaReceber),
+        typeof(FaturaCartao),
+        typeof(MovimentacaoFinanceira)
+    ];
+
+    /// <summary>
+    /// Ativa optimistic concurrency nas entidades financeiras via uma propriedade-sombra
+    /// <c>ConcurrencyStamp</c> (Guid) que é renovada a cada gravação. Assim, duas
+    /// liquidações/estornos concorrentes sobre a mesma conta fazem o segundo SaveChanges
+    /// falhar com <see cref="DbUpdateConcurrencyException"/>, prevenindo pagamentos e
+    /// movimentações duplicados. Agnóstico de provedor (funciona em PostgreSQL e SQLite).
+    /// </summary>
+    private static void AplicarConcorrenciaOtimista(ModelBuilder modelBuilder)
+    {
+        foreach (var tipo in TiposComConcorrencia)
+        {
+            modelBuilder.Entity(tipo)
+                .Property<Guid>(ConcurrencyStampProperty)
+                .IsConcurrencyToken();
+        }
     }
 
     private void AplicarConvencoesDeTenant(ModelBuilder modelBuilder)
@@ -194,20 +276,47 @@ public sealed class AppDbContext(
         where TEntity : class, ITenantEntity
     {
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => _familiaCorrente == null || (Guid?)entity.FamiliaId == _familiaCorrente);
+            .HasQueryFilter(entity => _workspaceCorrente != null && _workspaceCorrente != Guid.Empty && (Guid?)entity.FamiliaId == _workspaceCorrente);
+    }
+
+    /// <summary>
+    /// Gera um novo valor de <c>ConcurrencyStamp</c> para cada entidade financeira inserida ou
+    /// alterada. Como o token é marcado como concorrência, o EF usa o valor ORIGINAL na cláusula
+    /// WHERE do UPDATE; se outra transação já o alterou, 0 linhas são afetadas e o EF lança
+    /// <see cref="DbUpdateConcurrencyException"/>.
+    /// </summary>
+    private void RenovarConcurrencyStamps()
+    {
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified))
+            {
+                continue;
+            }
+
+            if (Array.IndexOf(TiposComConcorrencia, entry.Entity.GetType()) < 0)
+            {
+                continue;
+            }
+
+            entry.Property(ConcurrencyStampProperty).CurrentValue = Guid.NewGuid();
+        }
     }
 
     private void PrepareAuditableEntities()
     {
         var utcNow = _clock.UtcNow;
-        var userId = _currentUser.UserId;
+        var userId = _currentUser.UserEmail ?? _currentUser.UserId;
 
         var auditableEntries = ChangeTracker
             .Entries<AuditableEntity>()
-            .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
-        if (auditableEntries.Count == 0) return;
+        if (auditableEntries.Count == 0)
+        {
+            return;
+        }
 
         foreach (var entry in auditableEntries)
         {
@@ -217,9 +326,9 @@ public sealed class AppDbContext(
 
                 if (entry.Entity is ITenantEntity tenantEntity
                     && tenantEntity.FamiliaId == Guid.Empty
-                    && _familiaCorrente.HasValue)
+                    && _workspaceCorrente.HasValue)
                 {
-                    tenantEntity.AtribuirFamilia(_familiaCorrente.Value);
+                    tenantEntity.AtribuirFamilia(_workspaceCorrente.Value);
                 }
             }
 
@@ -233,6 +342,11 @@ public sealed class AppDbContext(
                 entry.Entity.StampUpdate(utcNow, userId);
                 AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
             }
+
+            if (entry.State == EntityState.Deleted)
+            {
+                AuditTrailEntries.Add(CriarAuditTrail(entry, utcNow, userId));
+            }
         }
     }
 
@@ -242,17 +356,27 @@ public sealed class AppDbContext(
         string? userId)
     {
         var entityName = entry.Entity.GetType().Name;
-        var beforeJson = entry.State == EntityState.Modified
+
+        // Estado anterior: existe para Modified e Deleted (valores originais no banco).
+        var beforeJson = entry.State is EntityState.Modified or EntityState.Deleted
             ? JsonSerializer.Serialize(entry.OriginalValues.Properties.ToDictionary(
                 property => property.Name,
                 property => entry.OriginalValues[property]))
             : null;
 
-        var afterJson = JsonSerializer.Serialize(entry.CurrentValues.Properties.ToDictionary(
-            property => property.Name,
-            property => entry.CurrentValues[property]));
+        // Estado posterior: existe para Added e Modified; nulo para Deleted (registro removido).
+        var afterJson = entry.State is EntityState.Added or EntityState.Modified
+            ? JsonSerializer.Serialize(entry.CurrentValues.Properties.ToDictionary(
+                property => property.Name,
+                property => entry.CurrentValues[property]))
+            : null;
 
-        var action = entry.State == EntityState.Added ? "Created" : "Updated";
+        var action = entry.State switch
+        {
+            EntityState.Added => "Created",
+            EntityState.Deleted => "Deleted",
+            _ => "Updated"
+        };
 
         return AuditTrailEntry.Create(
             entityName,
@@ -274,6 +398,10 @@ public sealed class AppDbContext(
         public bool IsAuthenticated => false;
 
         public string? UserId => null;
+
+        public string? UserEmail => null;
+
+        public Guid? WorkspaceId => null;
 
         public Guid? FamiliaId => null;
 

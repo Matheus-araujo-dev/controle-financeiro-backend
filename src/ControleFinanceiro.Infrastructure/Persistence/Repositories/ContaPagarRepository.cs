@@ -7,11 +7,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Repositories;
 public sealed class ContaPagarRepository(AppDbContext dbContext)
     : GenericRepository<ContaPagar>(dbContext), IContaPagarRepository
 {
-    public async Task<ContaPagar?> GetByIdWithRateiosAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await DbContext.ContasPagar
-            .Include(c => c.Rateios)
-            .SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
-
     public async Task<IReadOnlyList<ContaPagar>> ListByStatusAsync(Guid statusId, CancellationToken cancellationToken = default) =>
         await DbContext.ContasPagar.AsNoTracking()
             .Where(c => c.StatusContaId == statusId)

@@ -235,6 +235,54 @@ public sealed class ContasGerenciaisControllerTests(CustomWebApplicationFactory 
     }
 
     [Fact]
+    public async Task Post_QuandoCodigoNaoForInformado_DeveGerarCodigoAutomaticoParaRaizEFilha()
+    {
+        await _factory.ResetDatabaseAsync();
+        using var client = _factory.CreateClient();
+
+        var primeiraRaizResponse = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
+        {
+            codigo = "",
+            descricao = "Administrativo",
+            tipo = "Despesa",
+            ativo = true,
+            ehPadraoRecebimentoFaturaCartao = false
+        });
+
+        var primeiraRaiz = await primeiraRaizResponse.Content.ReadFromJsonAsync<ContaGerencialResponse>();
+
+        var segundaRaizResponse = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
+        {
+            codigo = " ",
+            descricao = "Operacional",
+            tipo = "Despesa",
+            ativo = true,
+            ehPadraoRecebimentoFaturaCartao = false
+        });
+
+        var segundaRaiz = await segundaRaizResponse.Content.ReadFromJsonAsync<ContaGerencialResponse>();
+
+        var filhaResponse = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
+        {
+            codigo = (string?)null,
+            descricao = "Software",
+            tipo = "Despesa",
+            contaPaiId = primeiraRaiz!.Id,
+            ativo = true,
+            ehPadraoRecebimentoFaturaCartao = false
+        });
+
+        var filha = await filhaResponse.Content.ReadFromJsonAsync<ContaGerencialResponse>();
+
+        primeiraRaizResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        segundaRaizResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        filhaResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        primeiraRaiz!.Codigo.Should().Be("01");
+        segundaRaiz!.Codigo.Should().Be("02");
+        filha!.Codigo.Should().Be("01.01");
+    }
+
+    [Fact]
     public async Task Get_QuandoOrdenarPorCodigo_DeveRespeitarOrdemAscendente()
     {
         await _factory.ResetDatabaseAsync();

@@ -47,12 +47,12 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var termo = $"%{query.Search.Trim()}%";
+            var termo = $"%{query.Search.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                EF.Functions.Like(x.Titulo, termo) ||
-                EF.Functions.Like(x.ContaGerencialDescricao, termo) ||
-                EF.Functions.Like(x.ResponsavelNome, termo) ||
-                (x.Link != null && EF.Functions.Like(x.Link, termo)));
+                EF.Functions.Like(x.Titulo.ToLower(), termo) ||
+                EF.Functions.Like(x.ContaGerencialDescricao.ToLower(), termo) ||
+                EF.Functions.Like(x.ResponsavelNome.ToLower(), termo) ||
+                (x.Link != null && EF.Functions.Like(x.Link.ToLower(), termo)));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Prioridade))
@@ -116,8 +116,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
 
         if (!string.IsNullOrWhiteSpace(query.Link))
         {
-            var link = $"%{query.Link.Trim()}%";
-            consulta = consulta.Where(x => x.Link != null && EF.Functions.Like(x.Link, link));
+            var link = $"%{query.Link.Trim().ToLower()}%";
+            consulta = consulta.Where(x => x.Link != null && EF.Functions.Like(x.Link.ToLower(), link));
         }
 
         consulta = (query.SortBy ?? string.Empty).ToLowerInvariant() switch

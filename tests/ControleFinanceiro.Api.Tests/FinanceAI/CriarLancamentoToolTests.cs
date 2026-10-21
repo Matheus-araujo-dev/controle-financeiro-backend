@@ -24,7 +24,7 @@ public sealed class CriarLancamentoToolTests(CustomWebApplicationFactory factory
         using var client = _factory.CreateClient();
         var fixture = await FinancialFixtureSeed.CreateAsync(client);
 
-        var scope = _factory.Services.CreateScope();
+        var scope = _factory.Services.CreateWorkspaceScope();
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
         return (scope, new CriarLancamentoTool(db), fixture);
     }

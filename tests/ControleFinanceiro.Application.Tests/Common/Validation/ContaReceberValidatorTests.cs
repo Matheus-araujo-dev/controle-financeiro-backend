@@ -50,7 +50,7 @@ public sealed class ContaReceberValidatorTests
         };
 
         var erros = Create.Validate(req).Errors.Select(e => e.PropertyName).ToArray();
-        erros.Should().Contain(["DataEmissao", "PagadorId", "DataVencimento", "FormaPagamentoId", "Descricao", "Rateios"]);
+        erros.Should().Contain(["PagadorId", "DataVencimento", "FormaPagamentoId", "Descricao", "Rateios"]);
     }
 
     [Theory]

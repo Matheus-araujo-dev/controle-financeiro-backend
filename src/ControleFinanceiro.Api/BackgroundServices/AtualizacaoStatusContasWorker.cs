@@ -12,7 +12,7 @@ public sealed class AtualizacaoStatusContasWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<AtualizacaoStatusContasWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromHours(12);
+    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromHours(4);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -22,10 +22,8 @@ public sealed class AtualizacaoStatusContasWorker(
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<AtualizacaoStatusContasService>();
-
-                await service.MarcarContasVencidasAsync(stoppingToken);
+                await ControleFinanceiro.Application.Common.WorkspaceJobRunner.RunAsync<AtualizacaoStatusContasService>(
+                    scopeFactory, (service, token) => service.MarcarContasVencidasAsync(token), logger, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

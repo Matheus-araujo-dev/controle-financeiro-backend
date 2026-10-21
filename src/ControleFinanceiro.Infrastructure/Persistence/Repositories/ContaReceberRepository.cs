@@ -7,11 +7,6 @@ namespace ControleFinanceiro.Infrastructure.Persistence.Repositories;
 public sealed class ContaReceberRepository(AppDbContext dbContext)
     : GenericRepository<ContaReceber>(dbContext), IContaReceberRepository
 {
-    public async Task<ContaReceber?> GetByIdWithRateiosAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await DbContext.ContasReceber
-            .Include(c => c.Rateios)
-            .SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
-
     public async Task<IReadOnlyList<ContaReceber>> ListByStatusAsync(Guid statusId, CancellationToken cancellationToken = default) =>
         await DbContext.ContasReceber.AsNoTracking()
             .Where(c => c.StatusContaId == statusId)

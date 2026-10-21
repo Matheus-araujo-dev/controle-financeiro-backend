@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ControleFinanceiro.Application.Common.Persistence;
 using ControleFinanceiro.Application.FinanceAI;
 using ControleFinanceiro.Application.FinanceAI.Tools;
@@ -58,6 +58,8 @@ public sealed class FinanceAgentServiceTenantTests
             db,
             AnonymousUser.Instance,
             [tool],
+            new NullAgentFileService(),
+            new NullTranscricaoAudioService(),
             NullLogger<FinanceAgentService>.Instance);
 
         await service.ProcessarAsync(
@@ -106,8 +108,29 @@ public sealed class FinanceAgentServiceTenantTests
 
         public string? UserId => null;
 
-        public Guid? FamiliaId => null;
+        public string? UserEmail => null;
+
+        public Guid? WorkspaceId => null;
+
+        public Guid? FamiliaId => WorkspaceId;
 
         public string? Papel => null;
     }
+
+    private sealed class NullAgentFileService : IAgentFileService
+    {
+        public Task<AgentFileOutput> SalvarAsync(Guid familiaId, string nomeArquivo, string mimeType, byte[] conteudo, CancellationToken cancellationToken)
+            => Task.FromResult(new AgentFileOutput(nomeArquivo, mimeType, $"/fake/{nomeArquivo}", conteudo.Length));
+
+        public Task<byte[]> LerAsync(string url, CancellationToken cancellationToken)
+            => Task.FromResult(Array.Empty<byte>());
+    }
+
+    private sealed class NullTranscricaoAudioService : ITranscricaoAudioService
+    {
+        public Task<string?> TranscreverAsync(string midiaBase64, string mimeType, CancellationToken cancellationToken)
+            => Task.FromResult<string?>(null);
+    }
 }
+
+

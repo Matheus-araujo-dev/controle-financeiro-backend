@@ -36,6 +36,9 @@ public sealed class ContaPagarCommandService(
     public Task<ContaPagarDetalheResponse?> EstornarAsync(Guid id, CancellationToken cancellationToken) =>
         liquidacao.EstornarAsync(id, cancellationToken);
 
-    public Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancellationToken cancellationToken) =>
-        liquidacao.CancelarAsync(id, cancellationToken);
+    public Task<ContaPagarDetalheResponse?> CancelarAsync(Guid id, CancelarContaPagarRequest? request, CancellationToken cancellationToken) =>
+        liquidacao.CancelarAsync(id, request, cancellationToken);
+
+    public Task<bool> RemoverDaFaturaAsync(Guid id, CancellationToken cancellationToken) =>
+        liquidacao.RemoverDaFaturaAsync(id, cancellationToken);
 }

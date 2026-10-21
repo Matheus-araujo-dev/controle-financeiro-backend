@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ControleFinanceiro.Domain.Financeiro.Events;
 using ControleFinanceiro.SharedKernel.Common;
 
@@ -5,6 +6,10 @@ namespace ControleFinanceiro.Domain.Financeiro;
 
 public sealed class ContaReceber : TenantEntity
 {
+    private static readonly Regex ParcelaDescricaoRegex = new(
+        @"(?<!\d)(?<atual>\d{1,2})\s*/\s*(?<total>\d{1,2})(?!\d)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private readonly List<RateioContaGerencial> _rateios = [];
 
     private ContaReceber()
@@ -56,6 +61,14 @@ public sealed class ContaReceber : TenantEntity
     public Guid? RegraRecorrenciaId { get; private set; }
 
     public OrigemLancamento Origem { get; private set; }
+
+    public Guid? ContaVinculadaId { get; private set; }
+
+    public TipoContaVinculada? TipoContaVinculada { get; private set; }
+
+    public Guid? GrupoReembolsoId { get; private set; }
+
+    public Guid? GrupoResponsaveisId { get; private set; }
 
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
@@ -130,7 +143,8 @@ public sealed class ContaReceber : TenantEntity
         bool ehRecorrente,
         Guid? regraRecorrenciaId,
         OrigemLancamento origem,
-        IReadOnlyCollection<RateioPlano> rateios)
+        IReadOnlyCollection<RateioPlano> rateios,
+        DateOnly? dataAtual = null)
     {
         if (quantidadeParcelas <= 1)
         {
@@ -176,15 +190,24 @@ public sealed class ContaReceber : TenantEntity
 
         for (var index = 0; index < quantidadeParcelas; index++)
         {
+            var dataVenc = dataVencimento.AddMonths(index);
+            var statusParaParcela = dataAtual.HasValue &&
+                (dataVenc.Year > dataAtual.Value.Year ||
+                 (dataVenc.Year == dataAtual.Value.Year && dataVenc.Month > dataAtual.Value.Month))
+                ? StatusConta.FuturoId
+                : statusContaId;
+
             var valorParcela = valorLiquidoParcelado[index];
             var rateiosParcela = ParcelamentoHelper.DistribuirRateios(rateios, valorParcela, valorLiquidoTotal);
+
+            var descricaoParcela = AjustarDescricaoParcela(descricao, index + 1, quantidadeParcelas);
 
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissao,
                 responsavelId,
                 pagadorId,
-                dataVencimento.AddMonths(index),
+                dataVenc,
                 formaPagamentoId,
                 cartaoId,
                 contaBancariaId,
@@ -195,9 +218,9 @@ public sealed class ContaReceber : TenantEntity
                 quantidadeParcelas,
                 index + 1,
                 grupoParcelamentoId,
-                descricao,
+                descricaoParcela,
                 observacao,
-                statusContaId,
+                statusParaParcela,
                 ehRecorrente,
                 regraRecorrenciaId,
                 origem,
@@ -309,14 +332,30 @@ public sealed class ContaReceber : TenantEntity
 
     public void Estornar(Guid statusContaPendenteId)
     {
-        if (StatusContaId != StatusConta.LiquidadaId)
+        if (StatusContaId != StatusConta.LiquidadaId && StatusContaId != StatusConta.ParcialId)
         {
-            throw new InvalidOperationException("Apenas contas liquidadas podem ser estornadas.");
+            throw new InvalidOperationException("Apenas contas liquidadas ou com pagamento parcial podem ser estornadas.");
         }
 
         StatusContaId = statusContaPendenteId;
         DataLiquidacao = null;
         ContaBancariaId = null;
+    }
+
+    public bool CanceladaPorPausaRecorrencia { get; private set; }
+
+    public void CancelarPorPausaRecorrencia()
+    {
+        if (StatusContaId != StatusConta.FuturoId) return;
+        Cancelar(StatusConta.CanceladaId);
+        CanceladaPorPausaRecorrencia = true;
+    }
+
+    public void RetomarAposPausaRecorrencia()
+    {
+        if (!CanceladaPorPausaRecorrencia || StatusContaId != StatusConta.CanceladaId) return;
+        StatusContaId = StatusConta.FuturoId;
+        CanceladaPorPausaRecorrencia = false;
     }
 
     public void Cancelar(Guid statusContaCanceladaId)
@@ -406,6 +445,23 @@ public sealed class ContaReceber : TenantEntity
         }
     }
 
+    public void VincularContaContraria(Guid contaVinculadaId, TipoContaVinculada tipo)
+    {
+        if (contaVinculadaId == Guid.Empty)
+        {
+            throw new ArgumentException("Conta vinculada é obrigatória.", nameof(contaVinculadaId));
+        }
+
+        ContaVinculadaId = contaVinculadaId;
+        TipoContaVinculada = tipo;
+    }
+
+    public void DesvincularContaContraria()
+    {
+        ContaVinculadaId = null;
+        TipoContaVinculada = null;
+    }
+
     private void SubstituirRateios(IReadOnlyCollection<RateioPlano> rateios)
     {
         ValidarRateios(rateios, ValorLiquido);
@@ -428,8 +484,25 @@ public sealed class ContaReceber : TenantEntity
         }
     }
 
-    private static decimal CalcularValorLiquido(decimal valorOriginal, decimal valorDesconto, decimal valorJuros, decimal valorMulta)
+    public void DefinirGrupoReembolso(Guid grupoReembolsoId)
     {
-        return decimal.Round(valorOriginal - valorDesconto + valorJuros + valorMulta, 2, MidpointRounding.AwayFromZero);
+        GrupoReembolsoId = grupoReembolsoId;
     }
+
+    public void DefinirGrupoResponsaveis(Guid grupoResponsaveisId)
+    {
+        GrupoResponsaveisId = grupoResponsaveisId;
+    }
+
+    private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)
+    {
+        if (string.IsNullOrWhiteSpace(descricao))
+            return descricao;
+
+        var semMarcador = ParcelaDescricaoRegex.Replace(descricao, string.Empty).Trim();
+        return $"{semMarcador} {numeroParcela}/{quantidadeParcelas}";
+    }
+
+    private static decimal CalcularValorLiquido(decimal valorOriginal, decimal valorDesconto, decimal valorJuros, decimal valorMulta)
+        => CalculoFinanceiro.ValorLiquido(valorOriginal, valorDesconto, valorJuros, valorMulta);
 }

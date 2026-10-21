@@ -12,6 +12,10 @@ public interface IFinanceiroDbContext
     DbSet<MovimentacaoFinanceira> MovimentacoesFinanceiras { get; }
     DbSet<FaturaCartao> FaturasCartao { get; }
     DbSet<RegraRecorrencia> RegrasRecorrencia { get; }
+    DbSet<Transferencia> Transferencias { get; }
+    DbSet<Plano> Planos { get; }
+    DbSet<Investimento> Investimentos { get; }
+    DbSet<FechamentoMensal> FechamentosMensais { get; }
 }
 
 public interface IReadOnlyFinanceiroDbContext
@@ -23,4 +27,8 @@ public interface IReadOnlyFinanceiroDbContext
     IQueryable<MovimentacaoFinanceira> MovimentacoesFinanceiras { get; }
     IQueryable<FaturaCartao> FaturasCartao { get; }
     IQueryable<RegraRecorrencia> RegrasRecorrencia { get; }
+    IQueryable<Transferencia> Transferencias { get; }
+    IQueryable<Plano> Planos { get; }
+    IQueryable<Investimento> Investimentos { get; }
+    IQueryable<FechamentoMensal> FechamentosMensais { get; }
 }

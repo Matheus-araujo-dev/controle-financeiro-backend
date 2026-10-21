@@ -14,52 +14,83 @@ namespace ControleFinanceiro.Application.Financeiro.Recorrencias;
 
 public sealed class RecorrenciaAppService(
     IAppDbContext dbContext,
-    ContaPagarAppService contaPagarAppService,
-    ContaReceberAppService contaReceberAppService,
+    IContaPagarRecorrenciaService contaPagarRecorrenciaService,
+    IContaReceberRecorrenciaService contaReceberRecorrenciaService,
     ILogger<RecorrenciaAppService> logger)
 {
-    public async Task GerarOcorrenciasRecorrentesNoMesAsync(DateOnly dataReferencia, CancellationToken cancellationToken)
+    private static DateOnly HorizonteSeisMeses(DateOnly referencia)
     {
-        logger.LogInformation("Iniciando geração automática de recorrências para o mês {Mes}/{Ano}.", dataReferencia.Month, dataReferencia.Year);
-        
-        var ateData = new DateOnly(dataReferencia.Year, dataReferencia.Month, DateTime.DaysInMonth(dataReferencia.Year, dataReferencia.Month));
-        var request = new GerarOcorrenciasRecorrenciaRequest(ateData);
+        var horizonte = referencia.AddMonths(6);
+        return new DateOnly(horizonte.Year, horizonte.Month, DateTime.DaysInMonth(horizonte.Year, horizonte.Month));
+    }
 
-        // 1. Obter todas as regras ativas (worker roda sem tenant: filtro global desativado)
+    public async Task<GerarOcorrenciasResultResponse> GerarOcorrenciasRecorrentesNoMesAsync(DateOnly dataReferencia, CancellationToken cancellationToken)
+    {
+        var ateData = HorizonteSeisMeses(dataReferencia);
+        logger.LogInformation(
+            "Iniciando geração automática de recorrências — referência {Data}, horizonte até {AteData}.",
+            dataReferencia, ateData);
+
+        var encerraveis = await dbContext.RegrasRecorrencia
+            .Where(x => !x.Encerrada && x.DataFim.HasValue && x.DataFim <= dataReferencia)
+            .ToArrayAsync(cancellationToken);
+        foreach (var regra in encerraveis) regra.Encerrar(regra.DataFim!.Value);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
         var regrasAtivas = await dbContext.RegrasRecorrencia
             .Where(x => x.Ativa)
-            .Select(x => new { x.Id, x.TipoLancamento, x.FamiliaId })
             .ToArrayAsync(cancellationToken);
 
-        int totalGerado = 0;
+        logger.LogInformation("Regras ativas encontradas: {Total}.", regrasAtivas.Length);
+
+        int totalProcessadas = 0;
+        int totalGeradas = 0;
+        int totalErros = 0;
 
         foreach (var regra in regrasAtivas)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                // Garante que consultas e novas entidades fiquem na família dona da regra.
                 if (regra.FamiliaId != Guid.Empty)
                 {
                     dbContext.DefinirFamiliaCorrente(regra.FamiliaId);
                 }
 
+                int geradas;
                 if (regra.TipoLancamento == Domain.Financeiro.TipoLancamentoRecorrencia.ContaPagar)
                 {
-                    await contaPagarAppService.GerarOcorrenciasAsync(regra.Id, request, cancellationToken);
+                    geradas = await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken, dataReferencia);
                 }
                 else
                 {
-                    await contaReceberAppService.GerarOcorrenciasAsync(regra.Id, request, cancellationToken);
+                    geradas = await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
                 }
-                totalGerado++;
+
+                if (geradas > 0)
+                    logger.LogInformation("Regra {RegraId}: {Geradas} ocorrência(s) gerada(s).", regra.Id, geradas);
+
+                totalGeradas += geradas;
+                totalProcessadas++;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Erro ao gerar ocorrência para a regra {RegraId}.", regra.Id);
+                totalErros++;
+                logger.LogError(ex, "Erro ao gerar ocorrências para a regra {RegraId} (família {FamiliaId}).", regra.Id, regra.FamiliaId);
+                // Entidades com falha ficam no change tracker; limpar para não contaminar iterações seguintes.
+                dbContext.LimparChangeTracker();
             }
         }
 
-        logger.LogInformation("Geração automática concluída. Total de regras processadas: {Total}.", totalGerado);
+        logger.LogInformation(
+            "Geração automática concluída. Processadas: {Processadas}, Geradas: {Geradas}, Erros: {Erros}.",
+            totalProcessadas, totalGeradas, totalErros);
+
+        return new GerarOcorrenciasResultResponse(regrasAtivas.Length, totalProcessadas, totalGeradas, totalErros);
     }
 
     public async Task<RecorrenciaListResponse> ListarAsync(RecorrenciaListQueryRequest query, CancellationToken cancellationToken)
@@ -73,7 +104,7 @@ public sealed class RecorrenciaAppService(
         var tipo = query.Tipo?.Trim();
         var incluiPagar = !string.Equals(tipo, "Receber", StringComparison.OrdinalIgnoreCase);
         var incluiReceber = !string.Equals(tipo, "Pagar", StringComparison.OrdinalIgnoreCase);
-        var termo = string.IsNullOrWhiteSpace(query.Search) ? null : $"%{query.Search.Trim()}%";
+        var termo = string.IsNullOrWhiteSpace(query.Search) ? null : $"%{query.Search.Trim().ToLower()}%";
 
         var rows = new List<RecorrenciaRow>();
         if (incluiPagar)
@@ -123,6 +154,108 @@ public sealed class RecorrenciaAppService(
     public Task<RecorrenciaListResponse> ListarAtivasAsync(CancellationToken cancellationToken) =>
         ListarAsync(new RecorrenciaListQueryRequest { Ativa = true }, cancellationToken);
 
+    public async Task<RecorrenciaListItemResponse?> ObterAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var pagar = await (
+            from regra in dbContext.RegrasRecorrencia.AsNoTracking()
+            where regra.Id == id
+            join conta in dbContext.ContasPagar.AsNoTracking()
+                on regra.Id equals conta.RegraRecorrenciaId
+            where conta.Origem != DomainOrigemLancamento.Recorrencia
+            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
+            from responsavel in responsaveis.DefaultIfEmpty()
+            orderby conta.CreatedAtUtc
+            select new RecorrenciaRow(
+                regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
+                recebedor.Nome, responsavel.Nome)
+        ).FirstOrDefaultAsync(cancellationToken);
+
+        if (pagar != null) return MapearRow(pagar);
+
+        var receber = await (
+            from regra in dbContext.RegrasRecorrencia.AsNoTracking()
+            where regra.Id == id
+            join conta in dbContext.ContasReceber.AsNoTracking()
+                on regra.Id equals conta.RegraRecorrenciaId
+            where conta.Origem != DomainOrigemLancamento.Recorrencia
+            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
+            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
+            from responsavel in responsaveis.DefaultIfEmpty()
+            orderby conta.CreatedAtUtc
+            select new RecorrenciaRow(
+                regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
+                pagador.Nome, responsavel.Nome)
+        ).FirstOrDefaultAsync(cancellationToken);
+
+        return receber != null ? MapearRow(receber) : null;
+    }
+
+    public async Task<RecorrenciaListItemResponse> PausarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Recorrência não encontrada.");
+
+        regra.Pausar();
+
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        await contaPagarRecorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
+        await contaReceberRecorrenciaService.CancelarFuturasNaoPagasAsync(regra.Id, hoje, cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (await ObterAsync(id, cancellationToken))!;
+    }
+
+    public async Task<RecorrenciaListItemResponse> RetomarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Recorrência não encontrada.");
+
+        if (regra.Encerrada || (regra.DataFim.HasValue && regra.DataFim.Value <= DateOnly.FromDateTime(DateTime.Today)))
+            throw ControleFinanceiro.Application.Common.Validation.ValidationExceptionFactory.Create("Recorrencia", "Recorrência encerrada não pode ser retomada.");
+        regra.Retomar();
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
+        var pagar = await dbContext.ContasPagar.Where(x => x.RegraRecorrenciaId == id && x.CanceladaPorPausaRecorrencia && x.DataVencimento >= inicioMes).ToArrayAsync(cancellationToken);
+        foreach (var conta in pagar) conta.RetomarAposPausaRecorrencia();
+        var receber = await dbContext.ContasReceber.Where(x => x.RegraRecorrenciaId == id && x.CanceladaPorPausaRecorrencia && x.DataVencimento >= inicioMes).ToArrayAsync(cancellationToken);
+        foreach (var conta in receber) conta.RetomarAposPausaRecorrencia();
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var ateData = HorizonteSeisMeses(DateOnly.FromDateTime(DateTime.UtcNow));
+        if (regra.TipoLancamento == Domain.Financeiro.TipoLancamentoRecorrencia.ContaPagar)
+        {
+            await contaPagarRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+        }
+        else
+        {
+            await contaReceberRecorrenciaService.GerarPorRegraAsync(regra, ateData, cancellationToken);
+        }
+
+        return (await ObterAsync(id, cancellationToken))!;
+    }
+
+    public async Task<RecorrenciaListItemResponse> EncerrarAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var regra = await dbContext.RegrasRecorrencia.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("Recorrência não encontrada.");
+        if (regra.Ativa) throw ControleFinanceiro.Application.Common.Validation.ValidationExceptionFactory.Create("Recorrencia", "Pause a recorrência antes de encerrá-la.");
+        if (!regra.Encerrada)
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            regra.Encerrar(hoje < regra.DataInicio ? regra.DataInicio : hoje);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        return (await ObterAsync(id, cancellationToken))!;
+    }
+
     private Task<List<RecorrenciaRow>> ConsultarOrigensPagarAsync(
         RecorrenciaListQueryRequest query, string? termo, CancellationToken cancellationToken)
     {
@@ -143,15 +276,15 @@ public sealed class RecorrenciaAppService(
             join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
             from responsavel in responsaveis.DefaultIfEmpty()
             where (termo == null
-                       || EF.Functions.Like(conta.Descricao, termo)
-                       || EF.Functions.Like(recebedor.Nome, termo)
-                       || (responsavel != null && EF.Functions.Like(responsavel.Nome, termo)))
+                       || EF.Functions.Like(conta.Descricao.ToLower(), termo)
+                       || EF.Functions.Like(recebedor.Nome.ToLower(), termo)
+                       || (responsavel != null && EF.Functions.Like(responsavel.Nome.ToLower(), termo)))
                   && (ativa == null || regra.Ativa == ativa)
                   && (dataInicial == null || regra.DataInicio >= dataInicial)
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
-                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
                 recebedor.Nome, responsavel.Nome);
 
@@ -178,15 +311,15 @@ public sealed class RecorrenciaAppService(
             join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
             from responsavel in responsaveis.DefaultIfEmpty()
             where (termo == null
-                       || EF.Functions.Like(conta.Descricao, termo)
-                       || EF.Functions.Like(pagador.Nome, termo)
-                       || (responsavel != null && EF.Functions.Like(responsavel.Nome, termo)))
+                       || EF.Functions.Like(conta.Descricao.ToLower(), termo)
+                       || EF.Functions.Like(pagador.Nome.ToLower(), termo)
+                       || (responsavel != null && EF.Functions.Like(responsavel.Nome.ToLower(), termo)))
                   && (ativa == null || regra.Ativa == ativa)
                   && (dataInicial == null || regra.DataInicio >= dataInicial)
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
-                regra.DataInicio, regra.DataFim, regra.Ativa, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
+                regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
                 pagador.Nome, responsavel.Nome);
 
@@ -220,7 +353,8 @@ public sealed class RecorrenciaAppService(
             row.Descricao,
             row.ValorLiquido,
             row.PessoaNome,
-            row.ResponsavelNome);
+            row.ResponsavelNome,
+            row.Encerrada);
     }
 
     private sealed record RecorrenciaRow(
@@ -231,6 +365,7 @@ public sealed class RecorrenciaAppService(
         DateOnly DataInicio,
         DateOnly? DataFim,
         bool Ativa,
+        bool Encerrada,
         bool PermiteEdicaoOcorrenciaIndividual,
         string? Observacao,
         string ContaOrigemTipo,

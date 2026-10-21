@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using ControleFinanceiro.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Http;
 
@@ -22,14 +22,22 @@ public sealed class HttpCurrentUser(IHttpContextAccessor httpContextAccessor) : 
         }
     }
 
-    public Guid? FamiliaId
+    public string? UserEmail =>
+        AuthenticatedUser()?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)
+        ?? AuthenticatedUser()?.FindFirstValue(ClaimTypes.Email);
+
+    public Guid? WorkspaceId
     {
         get
         {
-            var claim = AuthenticatedUser()?.FindFirstValue(JwtTokenService.FamiliaClaim);
-            return Guid.TryParse(claim, out var familiaId) ? familiaId : null;
+            var claim = AuthenticatedUser()?.FindFirstValue(JwtTokenService.WorkspaceClaim)
+                ?? AuthenticatedUser()?.FindFirstValue(JwtTokenService.FamiliaClaim);
+
+            return Guid.TryParse(claim, out var workspaceId) ? workspaceId : null;
         }
     }
+
+    public Guid? FamiliaId => WorkspaceId;
 
     public string? Papel => AuthenticatedUser()?.FindFirstValue(JwtTokenService.PapelClaim);
 

@@ -285,4 +285,108 @@ public sealed class ContaPagarTests
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("*Não é permitido editar contas liquidadas ou canceladas.*");
     }
+
+    private static ContaPagar CriarContaSimples(decimal valorOriginal = 100m) =>
+        ContaPagar.Criar(
+            numeroDocumento: null,
+            dataEmissao: new DateOnly(2026, 4, 4),
+            responsavelCompraId: null,
+            recebedorId: Guid.NewGuid(),
+            dataVencimento: new DateOnly(2026, 4, 10),
+            formaPagamentoId: Guid.NewGuid(),
+            cartaoId: null,
+            contaBancariaId: null,
+            valorOriginal: valorOriginal,
+            valorDesconto: 0m,
+            valorJuros: 0m,
+            valorMulta: 0m,
+            quantidadeParcelas: 1,
+            numeroParcela: 1,
+            grupoParcelamentoId: null,
+            origemCompraPlanejadaId: null,
+            descricao: "Teste",
+            observacao: null,
+            statusContaId: StatusConta.PendenteId,
+            ehRecorrente: false,
+            regraRecorrenciaId: null,
+            origem: OrigemLancamento.Manual,
+            rateios: [RateioPlano.Create(Guid.NewGuid(), valorOriginal)]);
+
+    [Fact]
+    public void Estornar_QuandoParcial_DeveVoltarParaPendente()
+    {
+        var conta = CriarContaSimples();
+        conta.Liquidar(new DateOnly(2026, 4, 6), Guid.NewGuid(), StatusConta.ParcialId);
+
+        conta.Estornar(StatusConta.PendenteId);
+
+        conta.StatusContaId.Should().Be(StatusConta.PendenteId);
+        conta.DataLiquidacao.Should().BeNull();
+        conta.ContaBancariaId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Estornar_QuandoNemLiquidadaNemParcial_DeveLancarExcecao()
+    {
+        var conta = CriarContaSimples();
+
+        var action = () => conta.Estornar(StatusConta.PendenteId);
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Apenas contas liquidadas ou com pagamento parcial podem ser estornadas.*");
+    }
+
+    [Fact]
+    public void DefinirGrupoReembolso_DeveDefinirPropriedade()
+    {
+        var conta = CriarContaSimples();
+        var grupoId = Guid.NewGuid();
+
+        conta.DefinirGrupoReembolso(grupoId);
+
+        conta.GrupoReembolsoId.Should().Be(grupoId);
+    }
+
+    [Fact]
+    public void DefinirGrupoResponsaveis_DeveDefinirPropriedade()
+    {
+        var conta = CriarContaSimples();
+        var grupoId = Guid.NewGuid();
+
+        conta.DefinirGrupoResponsaveis(grupoId);
+
+        conta.GrupoResponsaveisId.Should().Be(grupoId);
+    }
+
+    [Fact]
+    public void CriarParaFatura_DeveCriarContaPagarPendenteSemRateios()
+    {
+        var recebedorId = Guid.NewGuid();
+        var formaPagamentoId = Guid.NewGuid();
+        var dataVencimento = new DateOnly(2026, 9, 20);
+        const decimal valor = 350m;
+
+        var conta = ContaPagar.CriarParaFatura(recebedorId, dataVencimento, formaPagamentoId, valor, "Fatura Nubank — 2026-08");
+
+        conta.RecebedorId.Should().Be(recebedorId);
+        conta.FormaPagamentoId.Should().Be(formaPagamentoId);
+        conta.DataVencimento.Should().Be(dataVencimento);
+        conta.ValorLiquido.Should().Be(valor);
+        conta.Descricao.Should().Be("Fatura Nubank — 2026-08");
+        conta.StatusContaId.Should().Be(StatusConta.PendenteId);
+        conta.CartaoId.Should().BeNull();
+        conta.FaturaCartaoId.Should().BeNull();
+        conta.Rateios.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CriarParaFatura_QuandoVinculadaAFatura_DeveDefinirFaturaCartaoId()
+    {
+        var faturaId = Guid.NewGuid();
+        var conta = ContaPagar.CriarParaFatura(Guid.NewGuid(), new DateOnly(2026, 9, 20), Guid.NewGuid(), 100m, "Fatura teste");
+
+        conta.VincularFaturaCartao(faturaId);
+
+        conta.FaturaCartaoId.Should().Be(faturaId);
+    }
 }

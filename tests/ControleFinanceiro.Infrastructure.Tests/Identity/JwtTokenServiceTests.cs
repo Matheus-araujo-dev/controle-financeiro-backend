@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ControleFinanceiro.Domain.Identidade;
 using ControleFinanceiro.Infrastructure.Identity;
@@ -30,7 +30,7 @@ public sealed class JwtTokenServiceTests
     }
 
     private static Usuario CriarUsuario() =>
-        Usuario.Criar("google-sub-123", "usuario@teste.local", "Usuário Teste", null);
+        Usuario.Criar("google-sub-123", "usuario@teste.local", "Usuario Teste", null);
 
     [Fact]
     public void CreateAccessToken_DeveEmitirTokenComClaimsEsperadas()
@@ -49,6 +49,7 @@ public sealed class JwtTokenServiceTests
         token.Audiences.Should().Contain("audiencia-teste");
         token.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Sub && c.Value == usuario.Id.ToString());
         token.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Email && c.Value == "usuario@teste.local");
+        token.Claims.Should().Contain(c => c.Type == JwtTokenService.WorkspaceClaim && c.Value == familiaId.ToString());
         token.Claims.Should().Contain(c => c.Type == JwtTokenService.FamiliaClaim && c.Value == familiaId.ToString());
         token.Claims.Should().Contain(c => c.Type == JwtTokenService.PapelClaim && c.Value == nameof(PapelFamilia.Administrador));
         token.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Jti);

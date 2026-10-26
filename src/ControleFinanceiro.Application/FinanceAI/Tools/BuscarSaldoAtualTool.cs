@@ -8,7 +8,7 @@ namespace ControleFinanceiro.Application.FinanceAI.Tools;
 public sealed class BuscarSaldoAtualTool(IAppDbContext db) : IFinanceTool
 {
     public string Name => "buscar_saldo_atual";
-    public string Description => "Retorna o saldo atual de cada conta bancária da família (SaldoInicial + movimentações realizadas). Pode filtrar por uma conta específica.";
+    public string Description => "Retorna o saldo atual de cada conta bancária da família. Use para qualquer pergunta sobre saldo, quanto tem na conta, ou saldo de uma conta específica (ex: 'saldo do picpay', 'quanto tenho no nubank', 'meu saldo'). Pode filtrar por contaBancariaId.";
     public string InputSchema => """
         {
           "type": "object",

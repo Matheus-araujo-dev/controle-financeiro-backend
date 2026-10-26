@@ -9,7 +9,7 @@ namespace ControleFinanceiro.Application.FinanceAI.Tools;
 public sealed class BuscarResumoMensalTool(IAppDbContext db) : IFinanceTool
 {
     public string Name => "buscar_resumo_mensal";
-    public string Description => "Retorna resumo financeiro de um mês: total a pagar, total a receber, saldo atual, maiores categorias de despesa e alertas. Use para perguntas como 'como estou esse mês?' ou 'quanto tenho a pagar?'.";
+    public string Description => "Retorna resumo financeiro mensal: total a pagar, total a receber, saldo projetado e maiores categorias de despesa. Use para visão geral do mês, contas a pagar pendentes ou relatório mensal. NÃO use para consultar saldo de conta bancária específica — use buscar_saldo_atual para isso.";
     public string InputSchema => """
         {
           "type": "object",
@@ -72,17 +72,27 @@ public sealed class BuscarResumoMensalTool(IAppDbContext db) : IFinanceTool
 
     private async Task<decimal> CalcularSaldoAtualAsync(DateOnly ate, CancellationToken ct)
     {
-        var saldoInicial = await db.ContasBancarias
+        var contas = await db.ContasBancarias
             .AsNoTracking()
             .Where(c => c.Ativo)
-            .SumAsync(c => c.SaldoInicial, ct);
+            .Select(c => new { c.Id, c.SaldoInicial })
+            .ToListAsync(ct);
 
-        var movs = await db.MovimentacoesFinanceiras
-            .AsNoTracking()
-            .Where(m => m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
-                     && m.DataMovimentacao <= ate)
-            .SumAsync(m => m.Valor, ct);
+        var contaIds = contas.Select(c => c.Id).ToList();
 
-        return saldoInicial + movs;
+        var movimentadoPorConta = await (
+            from m in db.MovimentacoesFinanceiras.AsNoTracking()
+            join c in db.ContasBancarias.AsNoTracking() on m.ContaBancariaId equals c.Id
+            where m.ContaBancariaId != null
+                && contaIds.Contains(m.ContaBancariaId!.Value)
+                && m.Natureza == NaturezaMovimentacao.Realizada
+                && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId
+                && m.DataMovimentacao <= ate
+                && m.DataMovimentacao >= c.DataSaldoInicial
+            group m by m.ContaBancariaId!.Value into g
+            select new { ContaBancariaId = g.Key, Saldo = g.Sum(m => m.Tipo == TipoMovimentacao.Entrada ? m.Valor : -m.Valor) })
+            .ToDictionaryAsync(x => x.ContaBancariaId, x => x.Saldo, ct);
+
+        return contas.Sum(c => c.SaldoInicial + movimentadoPorConta.GetValueOrDefault(c.Id));
     }
 }

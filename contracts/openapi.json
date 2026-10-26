@@ -23,7 +23,7 @@
                 "$ref": "#/components/schemas/AgentePerguntarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AgentePerguntarRequest"
               }
@@ -125,7 +125,7 @@
                 "$ref": "#/components/schemas/AgenteInsightsRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AgenteInsightsRequest"
               }
@@ -187,7 +187,7 @@
                 "$ref": "#/components/schemas/AgenteCategorizarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AgenteCategorizarRequest"
               }
@@ -290,7 +290,7 @@
                 "$ref": "#/components/schemas/SalvarConfiguracaoNotificacaoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/SalvarConfiguracaoNotificacaoRequest"
               }
@@ -462,7 +462,7 @@
                 "$ref": "#/components/schemas/RegistrarPushSubscriptionRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RegistrarPushSubscriptionRequest"
               }
@@ -960,7 +960,7 @@
                 "$ref": "#/components/schemas/CriarApiKeyRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarApiKeyRequest"
               }
@@ -1149,7 +1149,7 @@
                 "$ref": "#/components/schemas/GoogleLoginRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/GoogleLoginRequest"
               }
@@ -1391,7 +1391,7 @@
                 "$ref": "#/components/schemas/BootstrapEchoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/BootstrapEchoRequest"
               }
@@ -1600,7 +1600,7 @@
                 "$ref": "#/components/schemas/CriarCartaoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarCartaoRequest"
               }
@@ -1765,7 +1765,7 @@
                 "$ref": "#/components/schemas/AtualizarCartaoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarCartaoRequest"
               }
@@ -2039,7 +2039,7 @@
                 "$ref": "#/components/schemas/CriarCompraPlanejadaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarCompraPlanejadaRequest"
               }
@@ -2204,7 +2204,7 @@
                 "$ref": "#/components/schemas/AtualizarCompraPlanejadaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarCompraPlanejadaRequest"
               }
@@ -2297,7 +2297,7 @@
                 "$ref": "#/components/schemas/RealizarCompraPlanejadaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RealizarCompraPlanejadaRequest"
               }
@@ -2633,7 +2633,7 @@
                 "$ref": "#/components/schemas/ConciliarItemRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ConciliarItemRequest"
               }
@@ -2997,7 +2997,7 @@
                 "$ref": "#/components/schemas/VincularItemFaturaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/VincularItemFaturaRequest"
               }
@@ -3071,7 +3071,7 @@
                 "$ref": "#/components/schemas/CriarItemFaturaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarItemFaturaRequest"
               }
@@ -3145,7 +3145,7 @@
                 "$ref": "#/components/schemas/RascunhoFaturaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RascunhoFaturaRequest"
               }
@@ -3236,7 +3236,7 @@
                 "$ref": "#/components/schemas/PreviaReembolsoFaturaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/PreviaReembolsoFaturaRequest"
               }
@@ -3503,7 +3503,7 @@
                 "$ref": "#/components/schemas/CriarContaBancariaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarContaBancariaRequest"
               }
@@ -3668,7 +3668,7 @@
                 "$ref": "#/components/schemas/AtualizarContaBancariaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarContaBancariaRequest"
               }
@@ -3914,7 +3914,7 @@
                 "$ref": "#/components/schemas/CriarContaGerencialRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarContaGerencialRequest"
               }
@@ -4079,7 +4079,7 @@
                 "$ref": "#/components/schemas/AtualizarContaGerencialRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarContaGerencialRequest"
               }
@@ -4455,7 +4455,7 @@
                 "$ref": "#/components/schemas/CriarContaPagarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarContaPagarRequest"
               }
@@ -4729,7 +4729,7 @@
                 "$ref": "#/components/schemas/AtualizarContaPagarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarContaPagarRequest"
               }
@@ -4842,7 +4842,7 @@
                 "$ref": "#/components/schemas/AtualizarContaPagarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarContaPagarRequest"
               }
@@ -4955,7 +4955,7 @@
                 "$ref": "#/components/schemas/GerarOcorrenciasRecorrenciaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/GerarOcorrenciasRecorrenciaRequest"
               }
@@ -5162,7 +5162,7 @@
                 "$ref": "#/components/schemas/EncerrarRecorrenciaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/EncerrarRecorrenciaRequest"
               }
@@ -5275,7 +5275,7 @@
                 "$ref": "#/components/schemas/LiquidarContaPagarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/LiquidarContaPagarRequest"
               }
@@ -5482,7 +5482,7 @@
                 "$ref": "#/components/schemas/CancelarContaPagarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CancelarContaPagarRequest"
               }
@@ -6030,7 +6030,7 @@
                 "$ref": "#/components/schemas/CriarContaReceberRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarContaReceberRequest"
               }
@@ -6195,7 +6195,7 @@
                 "$ref": "#/components/schemas/AtualizarContaReceberRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarContaReceberRequest"
               }
@@ -6308,7 +6308,7 @@
                 "$ref": "#/components/schemas/AtualizarContaReceberRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarContaReceberRequest"
               }
@@ -6421,7 +6421,7 @@
                 "$ref": "#/components/schemas/GerarOcorrenciasRecorrenciaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/GerarOcorrenciasRecorrenciaRequest"
               }
@@ -6628,7 +6628,7 @@
                 "$ref": "#/components/schemas/EncerrarRecorrenciaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/EncerrarRecorrenciaRequest"
               }
@@ -6741,7 +6741,7 @@
                 "$ref": "#/components/schemas/LiquidarContaReceberRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/LiquidarContaReceberRequest"
               }
@@ -6948,7 +6948,7 @@
                 "$ref": "#/components/schemas/CancelarContaReceberRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CancelarContaReceberRequest"
               }
@@ -8272,7 +8272,7 @@
                 "$ref": "#/components/schemas/CriarWorkspaceRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarWorkspaceRequest"
               }
@@ -8415,7 +8415,7 @@
                 "$ref": "#/components/schemas/RenomearFamiliaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RenomearFamiliaRequest"
               }
@@ -8571,7 +8571,7 @@
                 "$ref": "#/components/schemas/CriarConviteFamiliaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarConviteFamiliaRequest"
               }
@@ -8910,7 +8910,7 @@
                 "$ref": "#/components/schemas/AlterarPapelMembroRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AlterarPapelMembroRequest"
               }
@@ -9435,7 +9435,7 @@
                 "$ref": "#/components/schemas/PagarFaturaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/PagarFaturaRequest"
               }
@@ -9929,7 +9929,7 @@
                 "$ref": "#/components/schemas/ConfirmarImportacaoFaturaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ConfirmarImportacaoFaturaRequest"
               }
@@ -10184,7 +10184,7 @@
                 "$ref": "#/components/schemas/ReabrirFechamentoMensalRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ReabrirFechamentoMensalRequest"
               }
@@ -10400,7 +10400,7 @@
                 "$ref": "#/components/schemas/CriarFormaPagamentoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarFormaPagamentoRequest"
               }
@@ -10565,7 +10565,7 @@
                 "$ref": "#/components/schemas/AtualizarFormaPagamentoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarFormaPagamentoRequest"
               }
@@ -10902,7 +10902,7 @@
                 "$ref": "#/components/schemas/ReceberImportacaoWhatsappWebhookRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/ReceberImportacaoWhatsappWebhookRequest"
               }
@@ -11075,7 +11075,7 @@
                 "$ref": "#/components/schemas/AprovarImportacaoWhatsappRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AprovarImportacaoWhatsappRequest"
               }
@@ -11188,7 +11188,7 @@
                 "$ref": "#/components/schemas/AprovarImportacaoWhatsappRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AprovarImportacaoWhatsappRequest"
               }
@@ -11395,7 +11395,7 @@
                 "$ref": "#/components/schemas/RevisarItemImportadoWhatsappRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RevisarItemImportadoWhatsappRequest"
               }
@@ -11508,7 +11508,7 @@
                 "$ref": "#/components/schemas/RevisarItemImportadoWhatsappRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RevisarItemImportadoWhatsappRequest"
               }
@@ -11698,7 +11698,7 @@
                 "$ref": "#/components/schemas/CriarInvestimentoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarInvestimentoRequest"
               }
@@ -11863,7 +11863,7 @@
                 "$ref": "#/components/schemas/AtualizarInvestimentoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarInvestimentoRequest"
               }
@@ -12019,7 +12019,7 @@
                 "$ref": "#/components/schemas/AtualizarValorAtualRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarValorAtualRequest"
               }
@@ -12132,7 +12132,7 @@
                 "$ref": "#/components/schemas/EncerrarInvestimentoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/EncerrarInvestimentoRequest"
               }
@@ -12544,7 +12544,7 @@
                 "$ref": "#/components/schemas/UpsertMetaOrcamentoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/UpsertMetaOrcamentoRequest"
               }
@@ -12724,7 +12724,7 @@
                 "$ref": "#/components/schemas/WhatsappRegistrarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/WhatsappRegistrarRequest"
               }
@@ -12911,7 +12911,7 @@
                 "$ref": "#/components/schemas/WhatsappAlertasRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/WhatsappAlertasRequest"
               }
@@ -13152,7 +13152,7 @@
                 "$ref": "#/components/schemas/CriarPessoaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarPessoaRequest"
               }
@@ -13317,7 +13317,7 @@
                 "$ref": "#/components/schemas/AtualizarPessoaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarPessoaRequest"
               }
@@ -13729,7 +13729,7 @@
                 "$ref": "#/components/schemas/CriarPlanoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarPlanoRequest"
               }
@@ -13894,7 +13894,7 @@
                 "$ref": "#/components/schemas/AtualizarPlanoRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/AtualizarPlanoRequest"
               }
@@ -14193,7 +14193,7 @@
                 "$ref": "#/components/schemas/RetirarDinheiroRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RetirarDinheiroRequest"
               }
@@ -14845,7 +14845,7 @@
                 "$ref": "#/components/schemas/CriarReembolsoContaPagarRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarReembolsoContaPagarRequest"
               }
@@ -15085,7 +15085,7 @@
                 "$ref": "#/components/schemas/CriarTransferenciaRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CriarTransferenciaRequest"
               }
@@ -15333,7 +15333,7 @@
                 "$ref": "#/components/schemas/WhatsappMensagemInboundRequest"
               }
             },
-            "application/*\u002Bjson": {
+            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/WhatsappMensagemInboundRequest"
               }
@@ -15357,6 +15357,482 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WhatsappMensagemInboundResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agente/perguntar-com-arquivo": {
+      "post": {
+        "tags": [
+          "Agente"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mensagem": {
+                    "type": "string"
+                  },
+                  "conversaId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "arquivo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "mensagem": {
+                  "style": "form"
+                },
+                "conversaId": {
+                  "style": "form"
+                },
+                "arquivo": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentePerguntarResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentePerguntarResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentePerguntarResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agente/perguntar-stream": {
+      "post": {
+        "tags": [
+          "Agente"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentePerguntarRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentePerguntarRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentePerguntarRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agente/perguntar-stream-com-arquivo": {
+      "post": {
+        "tags": [
+          "Agente"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mensagem": {
+                    "type": "string"
+                  },
+                  "conversaId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "arquivo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "mensagem": {
+                  "style": "form"
+                },
+                "conversaId": {
+                  "style": "form"
+                },
+                "arquivo": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agente/conversas": {
+      "get": {
+        "tags": [
+          "Agente"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversaResumoResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversaResumoResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversaResumoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agente/conversas/{id}": {
+      "get": {
+        "tags": [
+          "Agente"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversaDetalheResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversaDetalheResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversaDetalheResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agente/arquivos/{fileId}/{nomeArquivo}": {
+      "get": {
+        "tags": [
+          "Agente"
+        ],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nomeArquivo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -15476,6 +15952,28 @@
         },
         "additionalProperties": false
       },
+      "AgentFileOutputDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "tamanhoBytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
       "AgentePerguntarResponse": {
         "type": "object",
         "properties": {
@@ -15490,6 +15988,13 @@
           "tokensUsados": {
             "type": "integer",
             "format": "int32"
+          },
+          "arquivos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentFileOutputDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -23083,6 +23588,18 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "midiaBase64": {
+            "type": "string",
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "nomeArquivo": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -23104,6 +23621,76 @@
           }
         },
         "additionalProperties": false
+      },
+      "ConversaDetalheResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "criadaEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mensagens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversaMensagemResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversaMensagemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "papel": {
+            "type": "string",
+            "nullable": true
+          },
+          "conteudo": {
+            "type": "string",
+            "nullable": true
+          },
+          "criadaEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConversaResumoResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "criadaEmUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ultimaMensagemUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ultimaMensagemResumo": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalMensagens": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
@@ -23115,7 +23702,7 @@
       },
       "ApiKey": {
         "type": "apiKey",
-        "description": "API Key para agentes de servi\u00E7o (WhatsApp, automa\u00E7\u00F5es).",
+        "description": "API Key para agentes de serviço (WhatsApp, automações).",
         "name": "X-Api-Key",
         "in": "header"
       }

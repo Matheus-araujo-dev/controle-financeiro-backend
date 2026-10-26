@@ -34,3 +34,6 @@ public sealed record PreviaReembolsoFaturaRequest(Guid? ContaPagarId, bool Parce
     IReadOnlyList<Guid> PagadoresIds, DateOnly DataVencimento);
 public sealed record PreviaReembolsoFaturaResponse(Guid PagadorId, string PagadorNome, int NumeroParcela,
     int QuantidadeParcelas, decimal Valor, DateOnly DataVencimento);
+
+public sealed record SugestaoItemConciliacaoResponse(Guid ItemId, string? Descricao, Guid? RecebedorId, Guid? ResponsavelCompraId, Guid? ContaGerencialId, double Confianca);
+public sealed record SugestoesConciliacaoResponse(IReadOnlyList<SugestaoItemConciliacaoResponse> Sugestoes);

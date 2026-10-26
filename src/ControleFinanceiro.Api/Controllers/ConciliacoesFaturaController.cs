@@ -9,7 +9,7 @@ namespace ControleFinanceiro.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/faturas/{faturaId:guid}/conciliacoes")]
-public sealed class ConciliacoesFaturaController(ConciliacaoFaturaAppService service, CriarItemFaturaAppService criacao) : ApiControllerBase
+public sealed class ConciliacoesFaturaController(ConciliacaoFaturaAppService service, CriarItemFaturaAppService criacao, ConciliacaoSugestaoService sugestao) : ApiControllerBase
 {
     [HttpPost]
     [Consumes("multipart/form-data")]
@@ -67,4 +67,12 @@ public sealed class ConciliacoesFaturaController(ConciliacaoFaturaAppService ser
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Ignorar(Guid faturaId, Guid id, Guid itemId, CancellationToken ct)
         => await service.IgnorarAsync(faturaId, id, itemId, ct) ? NoContent() : NotFoundResponse();
+
+    [HttpPost("{id:guid}/sugerir")]
+    [ProducesResponseType(typeof(SugestoesConciliacaoResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SugestoesConciliacaoResponse>> Sugerir(Guid faturaId, Guid id, CancellationToken ct)
+    {
+        var result = await sugestao.SugerirAsync(faturaId, id, ct);
+        return result is null ? NotFoundResponse() : Ok(result);
+    }
 }

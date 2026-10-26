@@ -15839,6 +15839,69 @@
           }
         }
       }
+    },
+    "/api/v1/faturas/{faturaId}/conciliacoes/{id}/sugerir": {
+      "post": {
+        "tags": [
+          "ConciliacoesFatura"
+        ],
+        "parameters": [
+          {
+            "name": "faturaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SugestoesConciliacaoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SugestoesConciliacaoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SugestoesConciliacaoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "DebugUser": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -23688,6 +23751,52 @@
           "totalMensagens": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SugestaoItemConciliacaoResponse": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "recebedorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "responsavelCompraId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "contaGerencialId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "confianca": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SugestoesConciliacaoResponse": {
+        "type": "object",
+        "properties": {
+          "sugestoes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SugestaoItemConciliacaoResponse"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

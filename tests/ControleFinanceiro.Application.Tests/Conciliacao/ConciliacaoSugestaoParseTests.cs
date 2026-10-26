@@ -83,9 +83,9 @@ public sealed class ConciliacaoSugestaoParseTests
     public void MarkdownFences_SaoRemovidas()
     {
         var item = CriarItem();
-        var json = $"""
+        var json = $$"""
             ```json
-            {{"sugestoes":[{{"itemId":"{item.Id}","descricao":"Limpo","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":0.7}}]}}
+            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"Limpo","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":0.7}]}
             ```
             """;
 

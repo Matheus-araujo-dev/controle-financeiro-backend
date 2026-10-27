@@ -19383,6 +19383,22 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "responsaveisAdicionaisIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "valoresPorResponsavel": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

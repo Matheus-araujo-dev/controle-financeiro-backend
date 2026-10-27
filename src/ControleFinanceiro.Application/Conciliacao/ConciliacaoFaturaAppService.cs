@@ -195,7 +195,8 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         var item = session?.Itens.SingleOrDefault(x => x.Id == itemId);
         if (item is null) return null;
         if (item.StatusItem != StatusItemConciliacao.Pendente) throw Erro("Item já processado.");
-        if (request.AtualizadoEmUtc != item.UpdatedAtUtc) throw new DbUpdateConcurrencyException();
+        if (TruncarMicrossegundos(request.AtualizadoEmUtc) != TruncarMicrossegundos(item.UpdatedAtUtc))
+            throw new DbUpdateConcurrencyException();
         if (request.Dados.ValueKind != JsonValueKind.Object || request.Dados.GetRawText().Length > 65536)
             throw Erro("Rascunho inválido ou muito grande.");
         session!.SalvarRascunho(itemId, request.Dados.GetRawText());
@@ -263,6 +264,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
     internal static string LimparDescricaoParcela(string descricao) => ParcelaRegex.Replace(descricao, "").Trim();
 
     private static CompraComparavel Comparavel(ContaPagar c) => new(c.Id, c.DataCompra ?? c.DataEmissao, c.Descricao, c.ValorLiquido, c.NumeroParcela, c.QuantidadeParcelas);
+    private static DateTime TruncarMicrossegundos(DateTime dt) => new(dt.Ticks - dt.Ticks % 10, dt.Kind);
     private static Exception Erro(string message) => ValidationExceptionFactory.Create("Conciliacao", message);
 
     private static IReadOnlyCollection<RateioPlano> Ratear(IReadOnlyCollection<RateioContaGerencial> rateios, decimal anterior, decimal novo)

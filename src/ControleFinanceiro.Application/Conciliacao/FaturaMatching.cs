@@ -37,11 +37,13 @@ public static class FaturaMatching
             var name = EstabelecimentoKey.Normalizar(conta.Descricao);
             var identified = original.Length > 0 && (name == original || name == alias);
             var dataProxima = days <= 3;
-            if (!dataProxima && !(item.NumeroParcela > 1 && identified)) continue;
-            var points = (difference == 0 ? 40 : 35) + (days == 0 ? 30 : dataProxima ? 20 : 0) + (identified ? 30 : 0);
+            var parcelaExata = item.NumeroParcela > 1 && difference == 0;
+            if (!dataProxima && !parcelaExata && !(item.NumeroParcela > 1 && identified)) continue;
+            var points = (difference == 0 ? 40 : 35) + (days == 0 ? 30 : dataProxima ? 20 : 0) + (identified ? 30 : 0) + (parcelaExata && !dataProxima ? 15 : 0);
             var reason = (difference == 0 ? "Mesmo valor" : "Diferença de centavos") +
                 (days == 0 ? ", mesma data" : dataProxima ? ", data próxima" : ", data original divergente") +
-                (identified ? ", estabelecimento reconhecido" : ", conferir estabelecimento");
+                (identified ? ", estabelecimento reconhecido" : ", conferir estabelecimento") +
+                (parcelaExata && !dataProxima ? ", parcela com valor exato" : "");
             candidates.Add(new(conta.Id, difference, points, reason, identified || points >= 55));
         }
         // A correspondência é apenas uma sugestão. Empate ou candidatos concorrentes exigem escolha humana.

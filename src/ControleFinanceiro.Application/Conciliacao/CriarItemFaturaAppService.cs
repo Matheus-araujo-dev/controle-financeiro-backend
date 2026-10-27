@@ -37,30 +37,65 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
                 select i.Id).AnyAsync(ct);
             if (jaImportada || jaConciliada) throw Erro("Este item já possui uma conta. Use o vínculo com o lançamento existente.");
 
-            await helper.ValidarCriacaoOuAtualizacaoAsync(item.Data, request.RecebedorId, request.ResponsavelCompraId,
+            var responsaveisIds = new[] { request.ResponsavelCompraId ?? Guid.Empty }
+                .Concat(request.ResponsaveisAdicionaisIds ?? []).Where(x => x != Guid.Empty).Distinct().ToArray();
+            if (responsaveisIds.Length == 0) throw Erro("Informe ao menos um responsável.");
+
+            await helper.ValidarCriacaoOuAtualizacaoAsync(item.Data, request.RecebedorId, responsaveisIds[0],
                 request.FormaPagamentoId, fatura.CartaoId, null, null, item.QuantidadeParcelas, request.Rateios, ct, item.Data, faturaImportacaoId: faturaId);
             helper.ValidarRecorrencia(item.Data, request.Recorrencia, item.QuantidadeParcelas);
             if (item.Valor < 0 && (request.Recorrencia is not null || request.Reembolso is not null))
                 throw Erro("Créditos de estorno não geram recorrência nem reembolso.");
-            var template = new CriarContaPagarRequest(null, null, item.Data, request.ResponsavelCompraId, request.RecebedorId,
+
+            for (var i = 1; i < responsaveisIds.Length; i++)
+            {
+                var resp = await db.Pessoas.AsNoTracking()
+                    .SingleOrDefaultAsync(x => x.Id == responsaveisIds[i], ct)
+                    ?? throw Erro($"Responsável {i + 1} não encontrado.");
+                if (!resp.EhResponsavel)
+                    throw Erro($"A pessoa '{resp.Nome}' não está marcada como responsável.");
+            }
+
+            var template = new CriarContaPagarRequest(null, null, item.Data, responsaveisIds[0], request.RecebedorId,
                 fatura.DataVencimento, request.FormaPagamentoId, fatura.CartaoId, null, null, item.Valor, 0, 0, 0,
                 item.QuantidadeParcelas, request.Descricao, request.Observacao, request.Rateios, request.Recorrencia, item.Data);
             var regra = request.Recorrencia is null ? null : helper.CriarRegraRecorrencia(template, request.Recorrencia);
             if (regra is not null) db.RegrasRecorrencia.Add(regra);
-            // O PDF descreve esta parcela; não dividir novamente o valor nem recriar parcelas anteriores.
-            var contas = ContaPagar.CriarParcelasCartaoImportadas(item.Data, request.ResponsavelCompraId,
-                request.RecebedorId, request.FormaPagamentoId, fatura.CartaoId, item.Valor,
-                item.NumeroParcela, item.QuantidadeParcelas, request.Descricao, request.Observacao,
-                regra is not null, regra?.Id,
-                request.Rateios.Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor)).ToArray(),
-                fatura.DataVencimento, item.Data).ToArray();
-            var conta = contas[0];
-            conta.VincularFaturaCartao(faturaId);
-            foreach (var parcela in contas)
+
+            var baseRateios = request.Rateios.Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor)).ToArray();
+            var grupoResponsaveisId = responsaveisIds.Length > 1 ? Guid.NewGuid() : (Guid?)null;
+            var valoresPorResponsavel = (request.ValoresPorResponsavel?.Count == responsaveisIds.Length)
+                ? request.ValoresPorResponsavel.ToArray()
+                : ParcelamentoHelper.Distribuir(item.Valor, responsaveisIds.Length).ToArray();
+
+            ContaPagar? conta = null;
+            var todasContas = new List<ContaPagar>();
+            for (var i = 0; i < responsaveisIds.Length; i++)
+            {
+                var valorResp = responsaveisIds.Length > 1 ? valoresPorResponsavel[i] : item.Valor;
+                var rateiosResp = responsaveisIds.Length > 1
+                    ? ParcelamentoHelper.DistribuirRateios(baseRateios, valorResp, item.Valor).ToArray()
+                    : baseRateios;
+
+                var contas = ContaPagar.CriarParcelasCartaoImportadas(item.Data, responsaveisIds[i],
+                    request.RecebedorId, request.FormaPagamentoId, fatura.CartaoId, valorResp,
+                    item.NumeroParcela, item.QuantidadeParcelas, request.Descricao, request.Observacao,
+                    regra is not null, regra?.Id, rateiosResp,
+                    fatura.DataVencimento, item.Data).ToArray();
+
+                if (grupoResponsaveisId.HasValue)
+                    foreach (var c in contas) c.DefinirGrupoResponsaveis(grupoResponsaveisId.Value);
+
+                conta ??= contas[0];
+                todasContas.AddRange(contas);
+            }
+
+            conta!.VincularFaturaCartao(faturaId);
+            foreach (var parcela in todasContas.Where(c => c.ResponsavelCompraId == conta.ResponsavelCompraId))
                 parcela.DefinirChaveSerieImportacaoCartao(parcela.NumeroParcela == item.NumeroParcela
                     ? chave
                     : $"{chave}|parcela:{parcela.NumeroParcela}");
-            db.ContasPagar.AddRange(contas); db.RateiosContaGerencial.AddRange(contas.SelectMany(x => x.Rateios));
+            db.ContasPagar.AddRange(todasContas); db.RateiosContaGerencial.AddRange(todasContas.SelectMany(x => x.Rateios));
             session.ConciliarContaPagar(itemId, conta.Id, null);
             await db.SaveChangesAsync(ct);
             if (regra is not null)

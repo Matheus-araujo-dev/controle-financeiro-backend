@@ -36,4 +36,46 @@ public sealed class MemoriaEstabelecimentoTests
         var action = () => MemoriaEstabelecimento.Criar(Guid.Empty, "LOJA");
         action.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public void Criar_ChaveVazia_LancaExcecao()
+    {
+        var act = () => MemoriaEstabelecimento.Criar(Guid.NewGuid(), "");
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Criar_ChaveExcede500_LancaExcecao()
+    {
+        var act = () => MemoriaEstabelecimento.Criar(Guid.NewGuid(), new string('X', 501));
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Criar_ChaveValida_CriaMemoria()
+    {
+        var cartaoId = Guid.NewGuid();
+        var memoria = MemoriaEstabelecimento.Criar(cartaoId, "MERCADO LIVRE");
+        memoria.CartaoId.Should().Be(cartaoId);
+        memoria.Chave.Should().Be("MERCADO LIVRE");
+        memoria.PreferenciasJson.Should().Be("{}");
+        memoria.Confirmacoes.Should().Be(0);
+    }
+
+    [Fact]
+    public void AplicarDecisao_CamposVazios_LancaExcecao()
+    {
+        var memoria = MemoriaEstabelecimento.Criar(Guid.NewGuid(), "LOJA");
+        var act = () => memoria.AplicarDecisao(new Dictionary<string, string>());
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void AplicarDecisao_CampoExcede80Caracteres_LancaExcecao()
+    {
+        var memoria = MemoriaEstabelecimento.Criar(Guid.NewGuid(), "LOJA");
+        var campoGrande = new string('x', 81);
+        var act = () => memoria.AplicarDecisao(new Dictionary<string, string> { [campoGrande] = "\"valor\"" });
+        act.Should().Throw<ArgumentException>();
+    }
 }

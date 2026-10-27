@@ -20,7 +20,8 @@ public sealed record ReembolsoFaturaConfig(bool ParcelarIgual, decimal ValorTota
     Guid FormaPagamentoId, DateOnly DataVencimento, string Descricao, string? Observacao, IReadOnlyList<RateioRequest> Rateios);
 public sealed record CriarItemFaturaRequest(string Descricao, Guid RecebedorId, Guid? ResponsavelCompraId,
     Guid FormaPagamentoId, IReadOnlyList<RateioRequest> Rateios, RecorrenciaConfigRequest? Recorrencia,
-    ReembolsoFaturaConfig? Reembolso, string? Observacao, bool Aprender = true, IReadOnlyList<string>? CamposParaAprender = null);
+    ReembolsoFaturaConfig? Reembolso, string? Observacao, bool Aprender = true, IReadOnlyList<string>? CamposParaAprender = null,
+    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null, IReadOnlyList<decimal>? ValoresPorResponsavel = null);
 
 public sealed record RateioMemoriaResponse(Guid ContaGerencialId, decimal Proporcao);
 public sealed record PreferenciasFaturaResponse(string? Descricao, Guid? ResponsavelCompraId, Guid? RecebedorId,

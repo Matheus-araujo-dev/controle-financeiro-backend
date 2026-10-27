@@ -68,29 +68,8 @@ jobs:
           echo "/tmp/invoice-python/bin" >> "$GITHUB_PATH"
 
       - name: Test with coverage gate
-        shell: bash
-        run: |
-          mkdir -p TestResults
-          set -o pipefail
-          pwsh ./scripts/coverage-gate.ps1 -Threshold 80 2>&1 | tee TestResults/test-output.log
-          exit_code=$?
-          if [ $exit_code -ne 0 ]; then
-            echo "::group::Test output (last 100 lines)"
-            tail -100 TestResults/test-output.log
-            echo "::endgroup::"
-            tail -50 TestResults/test-output.log | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-          fi
-          exit $exit_code
-
-      - name: Upload test output log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output-log
-          path: TestResults/test-output.log
-          if-no-files-found: ignore
+        shell: pwsh
+        run: ./scripts/coverage-gate.ps1 -Threshold 80
 
       - name: Publish validated API contract
         uses: actions/upload-artifact@v4

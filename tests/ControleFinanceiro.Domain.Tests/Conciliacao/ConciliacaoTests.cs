@@ -1,4 +1,4 @@
-﻿using ControleFinanceiro.Domain.Conciliacao;
+ïusing ControleFinanceiro.Domain.Conciliacao;
 using FluentAssertions;
 
 namespace ControleFinanceiro.Domain.Tests.Conciliacao;
@@ -114,6 +114,27 @@ public sealed class ConciliacaoTests
             new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CriarItens(1));
 
         var action = () => conciliacao.ConciliarItem(Guid.NewGuid(), Guid.NewGuid());
+
+        action.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void ConciliarItem_SessaoFatura_LancaExcecao()
+    {
+        var item = ItemConciliacao.CriarFatura(new DateOnly(2026, 1, 1), "Compra", 100m, "chave", 1, 1);
+        var session = Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [item]);
+        var act = () => session.ConciliarItem(item.Id, Guid.NewGuid());
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void IgnorarItem_QuandoItemNaoExiste_DeveFalhar()
+    {
+        var conciliacao = Domain.Conciliacao.Conciliacao.Criar(
+            "extrato.ofx", FormatoArquivo.Ofx, Guid.NewGuid(),
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CriarItens(1));
+
+        var action = () => conciliacao.IgnorarItem(Guid.NewGuid());
 
         action.Should().Throw<InvalidOperationException>();
     }

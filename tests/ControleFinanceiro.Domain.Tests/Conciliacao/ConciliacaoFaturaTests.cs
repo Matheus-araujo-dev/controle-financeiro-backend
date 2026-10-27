@@ -53,4 +53,97 @@ public sealed class ConciliacaoFaturaTests
         var act = () => session.ConciliarContaPagar(item.Id, Guid.NewGuid(), 33.33m);
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public void CriarFatura_FaturaIdVazio_LancaExcecao()
+    {
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.Empty, "hash", [Item("a")]);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_NomeArquivoVazio_LancaExcecao()
+    {
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("", Guid.NewGuid(), "hash", [Item("a")]);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_HashArquivoVazio_LancaExcecao()
+    {
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "", [Item("a")]);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_ItensVazios_LancaExcecao()
+    {
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", []);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_ChavesDuplicadas_LancaExcecao()
+    {
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [Item("a"), Item("a")]);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_ItemSemChaveOrigem_LancaExcecao()
+    {
+        var item = ItemConciliacao.Criar(new DateOnly(2026, 1, 1), "Mov", 100m, "DOC1");
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [item]);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_AvisoLeituraExcede2000_LancaExcecao()
+    {
+        var avisoGrande = new string('X', 2001);
+        var act = () => Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [Item("a")], avisoGrande);
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void CriarFatura_ComAvisoETotalDocumento_DefineCampos()
+    {
+        var session = Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [Item("a")], "Aviso teste", 999.99m);
+        session.AvisoLeitura.Should().Be("Aviso teste");
+        session.TotalDocumento.Should().Be(999.99m);
+    }
+
+    [Fact]
+    public void ConciliarContaPagar_ItemNaoEncontrado_LancaExcecao()
+    {
+        var session = Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [Item("a")]);
+        var act = () => session.ConciliarContaPagar(Guid.NewGuid(), Guid.NewGuid(), null);
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void SalvarRascunho_SessaoFatura_SalvaJson()
+    {
+        var item = Item("a");
+        var session = Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [item]);
+        session.SalvarRascunho(item.Id, "{\"campo\":\"valor\"}");
+        item.RascunhoJson.Should().Be("{\"campo\":\"valor\"}");
+    }
+
+    [Fact]
+    public void SalvarRascunho_SessaoBancaria_LancaExcecao()
+    {
+        var item = ItemConciliacao.Criar(new DateOnly(2026, 1, 1), "Mov", 100m, "DOC1");
+        var session = Domain.Conciliacao.Conciliacao.Criar("banco.csv", FormatoArquivo.Csv, Guid.NewGuid(), item.Data, item.Data, [item]);
+        var act = () => session.SalvarRascunho(item.Id, "{}");
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void SalvarRascunho_ItemNaoEncontrado_LancaExcecao()
+    {
+        var session = Domain.Conciliacao.Conciliacao.CriarFatura("fatura.pdf", Guid.NewGuid(), "hash", [Item("a")]);
+        var act = () => session.SalvarRascunho(Guid.NewGuid(), "{}");
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

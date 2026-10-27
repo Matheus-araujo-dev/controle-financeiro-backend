@@ -47,8 +47,16 @@ public sealed class FaturaMatchingTests
         FaturaMatching.Encontrar(item with { Descricao = "Outra loja" }, [conta]).Should().BeEmpty();
     }
     [Fact]
-    public void MesmoValorSemIdentidade_DevePedirRevisao()
+    public void UnicoCanditatoComEscoreAlto_SemIdentidade_CorrespondenciaClara()
     {
-        FaturaMatching.Encontrar(Compra(33.33m, "OUTRA LOJA"), [Compra(33.33m)]).Single().CorrespondenciaClara.Should().BeFalse();
+        FaturaMatching.Encontrar(Compra(33.33m, "OUTRA LOJA"), [Compra(33.33m)]).Single().CorrespondenciaClara.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MultiplosCandidatos_SemIdentidade_PedemRevisao()
+    {
+        var result = FaturaMatching.Encontrar(Compra(33.33m, "OUTRA LOJA"), [Compra(33.33m, "A"), Compra(33.33m, "B")]);
+        result.Should().HaveCount(2);
+        result.Should().OnlyContain(x => !x.CorrespondenciaClara);
     }
 }

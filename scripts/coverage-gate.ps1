@@ -17,6 +17,11 @@ $ErrorActionPreference = 'Stop'
 $backend = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $results = Join-Path $backend 'TestResults\coverage-collector'
 $report = Join-Path $backend 'TestResults\coverage-report'
+$testResultsDir = Join-Path $backend 'TestResults'
+
+if (-not (Test-Path $testResultsDir)) {
+    New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
+}
 
 foreach ($dir in @($results, $report)) {
     if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
@@ -31,7 +36,8 @@ function Write-Summary([string]$text) {
 Write-Host "=== Gate de cobertura (collector + ReportGenerator, line >= $Threshold%) ===" -ForegroundColor Cyan
 Write-Summary "## Coverage Gate (line >= $Threshold%)"
 
-$testLog = Join-Path $backend 'TestResults\test-output.log'
+$testLog = Join-Path $testResultsDir 'test-output.log'
+$ErrorActionPreference = 'Continue'
 dotnet test (Join-Path $backend 'ControleFinanceiro.sln') -c Debug --nologo `
     --collect:"XPlat Code Coverage" `
     --results-directory $results `
@@ -39,11 +45,11 @@ dotnet test (Join-Path $backend 'ControleFinanceiro.sln') -c Debug --nologo `
     --logger "trx;LogFileName=results.trx" `
     2>&1 | Tee-Object -FilePath $testLog
 $testExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
 
 if ($testExit -ne 0) {
     Write-Host "`nGATE REPROVADO: testes falharam." -ForegroundColor Red
     Write-Summary "`n### :x: Testes falharam (exit code $testExit)"
-    # Write last 80 lines of test output to summary
     $tail = Get-Content $testLog -Tail 80 -ErrorAction SilentlyContinue
     if ($tail) {
         Write-Summary "`n<details><summary>Últimas 80 linhas do output</summary>`n`n``````"

@@ -14,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Conciliacao;
 
-public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaReader reader, ContaPagarSharedHelper helper, MemoriaEstabelecimentoAppService memoria, IAtomicOperation atomic, IReembolsoAppService reembolsos)
+public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaReader reader, ContaPagarSharedHelper helper, MemoriaEstabelecimentoAppService memoria, IAtomicOperation atomic, IReembolsoAppService reembolsos, ConciliacaoSugestaoService sugestaoIa)
 {
     public async Task<ConciliacaoFaturaResponse?> IniciarAsync(Guid faturaId, string nome, Stream arquivo, CancellationToken ct, string? senha = null)
     {
@@ -55,7 +55,40 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         var session = Domain.Conciliacao.Conciliacao.CriarFatura(Path.GetFileName(nome), faturaId, hash, itens, parsed.AvisoFormato, parsed.TotalDocumento);
         db.Conciliacoes.Add(session);
         await db.SaveChangesAsync(ct);
+
+        await AutoSugerirAsync(faturaId, session, ct);
+
         return await ObterAsync(faturaId, session.Id, ct);
+    }
+
+    private async Task AutoSugerirAsync(Guid faturaId, Domain.Conciliacao.Conciliacao session, CancellationToken ct)
+    {
+        try
+        {
+            var sugestoes = await sugestaoIa.SugerirAsync(faturaId, session.Id, ct);
+            if (sugestoes?.Sugestoes is null or { Count: 0 }) return;
+
+            foreach (var s in sugestoes.Sugestoes.Where(s => s.Confianca >= 0.5))
+            {
+                var rascunho = JsonSerializer.Serialize(new
+                {
+                    descricao = s.Descricao,
+                    recebedorId = s.RecebedorId,
+                    responsavelCompraId = s.ResponsavelCompraId,
+                    contaGerencialId = s.ContaGerencialId,
+                    confianca = s.Confianca,
+                    fonteIA = true
+                });
+
+                session.SalvarRascunho(s.ItemId, rascunho);
+            }
+
+            await db.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            // LLM failure should not block the import
+        }
     }
 
     public async Task<ConciliacaoFaturaResponse?> ObterAsync(Guid faturaId, Guid id, CancellationToken ct)
@@ -124,7 +157,6 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
                 throw Erro("Não é permitido ajustar contas liquidadas ou faturas fechadas.");
         }
         conta.VincularFaturaCartao(faturaId);
-        // Valida o vínculo antes de alterar dinheiro. Uma única gravação mantém conta e decisão atômicas.
         session.ConciliarContaPagar(itemId, conta.Id, anterior);
         if (anterior != item.Valor)
         {
@@ -163,7 +195,6 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
             throw Erro("Rascunho inválido ou muito grande.");
         session!.SalvarRascunho(itemId, request.Dados.GetRawText());
         await db.SaveChangesAsync(ct);
-        // Return the persisted precision (PostgreSQL timestamps use microseconds).
         var persistedVersion = await db.ItensConciliacao.AsNoTracking().Where(x => x.Id == itemId)
             .Select(x => x.UpdatedAtUtc).SingleAsync(ct);
         return new(persistedVersion);

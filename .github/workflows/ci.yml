@@ -71,6 +71,14 @@ jobs:
         shell: pwsh
         run: ./scripts/coverage-gate.ps1 -Threshold 80
 
+      - name: Upload test output log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-log
+          path: TestResults/test-output.log
+          if-no-files-found: ignore
+
       - name: Publish validated API contract
         uses: actions/upload-artifact@v4
         with:

@@ -1,4 +1,4 @@
-ïusing ControleFinanceiro.Domain.Conciliacao;
+using ControleFinanceiro.Domain.Conciliacao;
 using FluentAssertions;
 
 namespace ControleFinanceiro.Domain.Tests.Conciliacao;

@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControleFinanceiro.Application.Conciliacao;
 
-public sealed class ConciliacaoAppService(IAppDbContext dbContext)
+public sealed class ConciliacaoAppService(IAppDbContext dbContext, ConciliacaoBancariaSugestaoService llmSugestao)
 {
     private const int MaxFileBytes = 5 * 1024 * 1024;
 
@@ -51,7 +51,10 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
         var conciliacao = Domain.Conciliacao.Conciliacao.Criar(nomeArquivo, formato, contaBancariaId, dataInicio, dataFim, itens);
         dbContext.Conciliacoes.Add(conciliacao);
 
-        await SugerirMatchesAsync(conciliacao, contaBancariaId, cancellationToken);
+        var movimentacoes = await CarregarMovimentacoesAsync(conciliacao, contaBancariaId, cancellationToken);
+        SugerirMatches(conciliacao, movimentacoes);
+        await llmSugestao.SugerirAsync(conciliacao, movimentacoes, cancellationToken);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return MapDetalhe(conciliacao);
@@ -102,18 +105,23 @@ public sealed class ConciliacaoAppService(IAppDbContext dbContext)
         return true;
     }
 
-    private async Task SugerirMatchesAsync(
+    private async Task<IReadOnlyList<MovimentacaoFinanceira>> CarregarMovimentacoesAsync(
         Domain.Conciliacao.Conciliacao conciliacao,
         Guid contaBancariaId,
         CancellationToken cancellationToken)
     {
-        var movimentacoes = await dbContext.MovimentacoesFinanceiras.AsNoTracking()
+        return await dbContext.MovimentacoesFinanceiras.AsNoTracking()
             .Where(m => m.ContaBancariaId == contaBancariaId
                 && m.DataMovimentacao >= conciliacao.DataInicio.AddDays(-3)
                 && m.DataMovimentacao <= conciliacao.DataFim.AddDays(3)
                 && m.StatusMovimentacaoId != StatusMovimentacao.CanceladaId)
             .ToListAsync(cancellationToken);
+    }
 
+    private static void SugerirMatches(
+        Domain.Conciliacao.Conciliacao conciliacao,
+        IReadOnlyList<MovimentacaoFinanceira> movimentacoes)
+    {
         foreach (var item in conciliacao.Itens)
         {
             var melhorMatch = movimentacoes

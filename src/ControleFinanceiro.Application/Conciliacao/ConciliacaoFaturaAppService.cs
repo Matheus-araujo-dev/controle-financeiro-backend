@@ -18,7 +18,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
 {
     public async Task<ConciliacaoFaturaResponse?> IniciarAsync(Guid faturaId, string nome, Stream arquivo, CancellationToken ct, string? senha = null)
     {
-        var fatura = await db.FaturasCartao.AsNoTracking().SingleOrDefaultAsync(x => x.Id == faturaId, ct);
+        var fatura = await db.FaturasCartao.SingleOrDefaultAsync(x => x.Id == faturaId, ct);
         if (fatura is null) return null;
         if (senha?.Length > 128) throw Erro("A senha do PDF deve ter até 128 caracteres.");
         if (!string.Equals(Path.GetExtension(nome), ".pdf", StringComparison.OrdinalIgnoreCase))
@@ -54,6 +54,11 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         }).ToArray();
         var session = Domain.Conciliacao.Conciliacao.CriarFatura(Path.GetFileName(nome), faturaId, hash, itens, parsed.AvisoFormato, parsed.TotalDocumento);
         db.Conciliacoes.Add(session);
+
+        var totalPdf = session.TotalDocumento ?? itens.Sum(i => i.Valor);
+        if (totalPdf > 0 && totalPdf != fatura.ValorTotal)
+            fatura.AtualizarValorTotal(totalPdf);
+
         await db.SaveChangesAsync(ct);
 
         await AutoSugerirAsync(faturaId, session, ct);

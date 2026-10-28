@@ -52,19 +52,19 @@ public sealed class ContaGerencialAppService(
                     EF.Functions.Like(parent.Descricao.ToLower(), contaPai)));
         }
 
-        if (query.ResponsavelPadraoId.HasValue)
+        if (query.MembroPadraoId.HasValue)
         {
-            consulta = consulta.Where(x => x.ResponsavelPadraoId == query.ResponsavelPadraoId.Value);
+            consulta = consulta.Where(x => x.MembroPadraoId == query.MembroPadraoId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.ResponsavelPadrao))
+        if (!string.IsNullOrWhiteSpace(query.MembroPadrao))
         {
-            var responsavelPadrao = $"%{query.ResponsavelPadrao.Trim().ToLower()}%";
+            var membroPadrao = $"%{query.MembroPadrao.Trim().ToLower()}%";
             consulta = consulta.Where(x =>
-                x.ResponsavelPadraoId.HasValue &&
+                x.MembroPadraoId.HasValue &&
                 dbContext.Pessoas.Any(pessoa =>
-                    pessoa.Id == x.ResponsavelPadraoId.Value &&
-                    EF.Functions.Like(pessoa.Nome.ToLower(), responsavelPadrao)));
+                    pessoa.Id == x.MembroPadraoId.Value &&
+                    EF.Functions.Like(pessoa.Nome.ToLower(), membroPadrao)));
         }
 
         if (query.Ativo.HasValue)
@@ -111,16 +111,16 @@ public sealed class ContaGerencialAppService(
                         .Select(parent => parent.Descricao)
                         .FirstOrDefault())
                     .ThenBy(x => x.Descricao),
-            "responsavelpadraonome" => query.SortDirection == SortDirection.Desc
+            "membropadraonome" => query.SortDirection == SortDirection.Desc
                 ? consulta
                     .OrderByDescending(x => dbContext.Pessoas
-                        .Where(pessoa => pessoa.Id == x.ResponsavelPadraoId)
+                        .Where(pessoa => pessoa.Id == x.MembroPadraoId)
                         .Select(pessoa => pessoa.Nome)
                         .FirstOrDefault())
                     .ThenByDescending(x => x.Descricao)
                 : consulta
                     .OrderBy(x => dbContext.Pessoas
-                        .Where(pessoa => pessoa.Id == x.ResponsavelPadraoId)
+                        .Where(pessoa => pessoa.Id == x.MembroPadraoId)
                         .Select(pessoa => pessoa.Nome)
                         .FirstOrDefault())
                     .ThenBy(x => x.Descricao),
@@ -159,8 +159,8 @@ public sealed class ContaGerencialAppService(
             .Where(x => contasPai.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Descricao, cancellationToken);
         var responsaveisPadraoIds = entidades
-            .Where(x => x.ResponsavelPadraoId.HasValue)
-            .Select(x => x.ResponsavelPadraoId!.Value)
+            .Where(x => x.MembroPadraoId.HasValue)
+            .Select(x => x.MembroPadraoId!.Value)
             .Distinct()
             .ToArray();
         var responsaveisPadrao = await dbContext.Pessoas.AsNoTracking()
@@ -185,9 +185,9 @@ public sealed class ContaGerencialAppService(
                 x.ContaPaiId.HasValue && descricoesPai.TryGetValue(x.ContaPaiId.Value, out var descricaoPai)
                     ? descricaoPai
                     : null,
-                x.ResponsavelPadraoId,
-                x.ResponsavelPadraoId.HasValue && responsaveisPadrao.TryGetValue(x.ResponsavelPadraoId.Value, out var responsavelPadraoNome)
-                    ? responsavelPadraoNome
+                x.MembroPadraoId,
+                x.MembroPadraoId.HasValue && responsaveisPadrao.TryGetValue(x.MembroPadraoId.Value, out var membroPadraoNome)
+                    ? membroPadraoNome
                     : null,
                 x.Ativo,
                 !contasComFilhosSet.Contains(x.Id),
@@ -218,9 +218,9 @@ public sealed class ContaGerencialAppService(
                 .Select(parent => parent.Descricao)
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
-        var responsavelPadraoNome = conta.ResponsavelPadraoId.HasValue
+        var membroPadraoNome = conta.MembroPadraoId.HasValue
             ? await dbContext.Pessoas.AsNoTracking()
-                .Where(pessoa => pessoa.Id == conta.ResponsavelPadraoId.Value)
+                .Where(pessoa => pessoa.Id == conta.MembroPadraoId.Value)
                 .Select(pessoa => pessoa.Nome)
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
@@ -240,8 +240,8 @@ public sealed class ContaGerencialAppService(
             MapearTipo(conta.Tipo),
             conta.ContaPaiId,
             contaPaiDescricao,
-            conta.ResponsavelPadraoId,
-            responsavelPadraoNome,
+            conta.MembroPadraoId,
+            membroPadraoNome,
             conta.Ativo,
             aceitaLancamentos,
             conta.EhPadraoRecebimentoFaturaCartao,
@@ -258,7 +258,7 @@ public sealed class ContaGerencialAppService(
         await ValidarHierarquiaAsync(null, request.ContaPaiId, cancellationToken);
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(null, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
-        await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        await ValidarMembroPadraoAsync(request.MembroPadraoId, cancellationToken);
         await ValidarContaContrariaAsync(null, request.ContaGerencialContrariaId, MapearTipo(tipoEfetivo), cancellationToken);
         var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken);
 
@@ -271,7 +271,7 @@ public sealed class ContaGerencialAppService(
                 request.Descricao,
                 MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
-                request.ResponsavelPadraoId,
+                request.MembroPadraoId,
                 request.Ativo,
                 request.EhPadraoRecebimentoFaturaCartao,
                 request.ContaGerencialContrariaId);
@@ -303,7 +303,7 @@ public sealed class ContaGerencialAppService(
         await ValidarHierarquiaAsync(id, request.ContaPaiId, cancellationToken);
         var tipoEfetivo = await ResolverTipoEfetivoAsync(request.Tipo, request.ContaPaiId, cancellationToken);
         await ValidarPadraoRecebimentoFaturaAsync(id, tipoEfetivo, request.EhPadraoRecebimentoFaturaCartao, cancellationToken);
-        await ValidarResponsavelPadraoAsync(request.ResponsavelPadraoId, cancellationToken);
+        await ValidarMembroPadraoAsync(request.MembroPadraoId, cancellationToken);
         await ValidarContaContrariaAsync(id, request.ContaGerencialContrariaId, MapearTipo(tipoEfetivo), cancellationToken);
         var codigo = await ResolverCodigoAsync(request.Codigo, request.ContaPaiId, cancellationToken, id);
 
@@ -314,7 +314,7 @@ public sealed class ContaGerencialAppService(
                 request.Descricao,
                 MapearTipo(tipoEfetivo),
                 request.ContaPaiId,
-                request.ResponsavelPadraoId,
+                request.MembroPadraoId,
                 request.Ativo,
                 request.EhPadraoRecebimentoFaturaCartao,
                 request.ContaGerencialContrariaId);
@@ -518,19 +518,19 @@ public sealed class ContaGerencialAppService(
         }
     }
 
-    private async Task ValidarResponsavelPadraoAsync(Guid? responsavelPadraoId, CancellationToken cancellationToken)
+    private async Task ValidarMembroPadraoAsync(Guid? membroPadraoId, CancellationToken cancellationToken)
     {
-        if (!responsavelPadraoId.HasValue)
+        if (!membroPadraoId.HasValue)
         {
             return;
         }
 
-        var existeResponsavelPadrao = await dbContext.Pessoas
-            .AnyAsync(x => x.Id == responsavelPadraoId.Value, cancellationToken);
+        var existeMembroPadrao = await dbContext.Pessoas
+            .AnyAsync(x => x.Id == membroPadraoId.Value, cancellationToken);
 
-        if (!existeResponsavelPadrao)
+        if (!existeMembroPadrao)
         {
-            throw ValidationExceptionFactory.Create("ResponsavelPadraoId", "Responsável padrão não encontrado.");
+            throw ValidationExceptionFactory.Create("MembroPadraoId", "Membro padrão não encontrado.");
         }
     }
 
@@ -541,7 +541,7 @@ public sealed class ContaGerencialAppService(
             "descricao" => "Descricao",
             "contaPaiId" => "ContaPaiId",
             "ehPadraoRecebimentoFaturaCartao" => "EhPadraoRecebimentoFaturaCartao",
-            "responsavelPadraoId" => "ResponsavelPadraoId",
+            "membroPadraoId" => "MembroPadraoId",
             "contaGerencialContrariaId" => "ContaGerencialContrariaId",
             _ => "Request"
         };

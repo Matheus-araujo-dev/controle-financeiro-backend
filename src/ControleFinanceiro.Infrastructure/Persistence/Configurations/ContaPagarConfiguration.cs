@@ -48,7 +48,7 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.HasIndex(x => x.DataVencimento);
         builder.HasIndex(x => x.DataEmissao);
         builder.HasIndex(x => x.RegraRecorrenciaId);
-        builder.HasIndex(x => x.ResponsavelCompraId);
+        builder.HasIndex(x => x.PagadorId);
         builder.HasIndex(x => x.GrupoParcelamentoId);
 
         builder.HasIndex("StatusContaId", "DataVencimento");
@@ -69,7 +69,7 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
 
         builder.HasOne<Pessoa>()
             .WithMany()
-            .HasForeignKey(x => x.ResponsavelCompraId)
+            .HasForeignKey(x => x.PagadorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<FormaPagamento>()
@@ -118,6 +118,6 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
 
         builder.HasIndex(x => x.ContaVinculadaId);
         builder.HasIndex(x => x.GrupoReembolsoId).HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
-        builder.HasIndex(x => x.GrupoResponsaveisId).HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
+        builder.HasIndex(x => x.GrupoPagadoresId).HasFilter("\"GrupoPagadoresId\" IS NOT NULL");
     }
 }

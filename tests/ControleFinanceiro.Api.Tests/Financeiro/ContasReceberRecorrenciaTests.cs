@@ -57,7 +57,7 @@ public sealed class ContasReceberRecorrenciaTests(CustomWebApplicationFactory fa
         {
             id,
             dataEmissao = "2026-04-04",
-            responsavelId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-15",
             formaPagamentoId = fixture.FormaPagamentoManualId,

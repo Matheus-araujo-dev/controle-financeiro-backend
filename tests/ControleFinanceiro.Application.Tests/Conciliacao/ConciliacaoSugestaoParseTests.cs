@@ -47,7 +47,7 @@ public sealed class ConciliacaoSugestaoParseTests
     {
         var item = CriarItem("PAG*JoseDaSilva");
         var json = $$"""
-            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"José da Silva","recebedorId":"{{Rec1}}","responsavelCompraId":"{{Resp1}}","contaGerencialId":"{{Cat1}}","confianca":0.9}]}
+            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"José da Silva","recebedorId":"{{Rec1}}","pagadorId":"{{Resp1}}","contaGerencialId":"{{Cat1}}","confianca":0.9}]}
             """;
 
         var result = ConciliacaoSugestaoService.ParseSugestoes(json, [item], Categorias, Recebedores, Responsaveis);
@@ -57,7 +57,7 @@ public sealed class ConciliacaoSugestaoParseTests
         s.ItemId.Should().Be(item.Id);
         s.Descricao.Should().Be("José da Silva");
         s.RecebedorId.Should().Be(Rec1);
-        s.ResponsavelCompraId.Should().Be(Resp1);
+        s.PagadorId.Should().Be(Resp1);
         s.ContaGerencialId.Should().Be(Cat1);
         s.Confianca.Should().Be(0.9);
     }
@@ -68,14 +68,14 @@ public sealed class ConciliacaoSugestaoParseTests
         var item = CriarItem();
         var idFalso = Guid.NewGuid();
         var json = $$"""
-            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"Teste","recebedorId":"{{idFalso}}","responsavelCompraId":"{{idFalso}}","contaGerencialId":"{{idFalso}}","confianca":0.5}]}
+            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"Teste","recebedorId":"{{idFalso}}","pagadorId":"{{idFalso}}","contaGerencialId":"{{idFalso}}","confianca":0.5}]}
             """;
 
         var result = ConciliacaoSugestaoService.ParseSugestoes(json, [item], Categorias, Recebedores, Responsaveis);
 
         var s = result.Sugestoes[0];
         s.RecebedorId.Should().BeNull();
-        s.ResponsavelCompraId.Should().BeNull();
+        s.PagadorId.Should().BeNull();
         s.ContaGerencialId.Should().BeNull();
     }
 
@@ -85,7 +85,7 @@ public sealed class ConciliacaoSugestaoParseTests
         var item = CriarItem();
         var json = $$"""
             ```json
-            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"Limpo","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":0.7}]}
+            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"Limpo","recebedorId":null,"pagadorId":null,"contaGerencialId":null,"confianca":0.7}]}
             ```
             """;
 
@@ -101,7 +101,7 @@ public sealed class ConciliacaoSugestaoParseTests
         var item1 = CriarItem("COMPRA A");
         var item2 = CriarItem("COMPRA B");
         var json = $$"""
-            {"sugestoes":[{"itemId":"{{item1.Id}}","descricao":"Compra A","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":0.8}]}
+            {"sugestoes":[{"itemId":"{{item1.Id}}","descricao":"Compra A","recebedorId":null,"pagadorId":null,"contaGerencialId":null,"confianca":0.8}]}
             """;
 
         var result = ConciliacaoSugestaoService.ParseSugestoes(json, [item1, item2], Categorias, Recebedores, Responsaveis);
@@ -118,7 +118,7 @@ public sealed class ConciliacaoSugestaoParseTests
         var item = CriarItem();
         var descLonga = new string('A', 300);
         var json = $$"""
-            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"{{descLonga}}","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":0.5}]}
+            {"sugestoes":[{"itemId":"{{item.Id}}","descricao":"{{descLonga}}","recebedorId":null,"pagadorId":null,"contaGerencialId":null,"confianca":0.5}]}
             """;
 
         var result = ConciliacaoSugestaoService.ParseSugestoes(json, [item], Categorias, Recebedores, Responsaveis);
@@ -142,7 +142,7 @@ public sealed class ConciliacaoSugestaoParseTests
     {
         var item = CriarItem();
         var json = $$"""
-            {"sugestoes":[{"itemId":"{{Guid.NewGuid()}}","descricao":"Intruso","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":1.0},{"itemId":"{{item.Id}}","descricao":"Real","recebedorId":null,"responsavelCompraId":null,"contaGerencialId":null,"confianca":0.6}]}
+            {"sugestoes":[{"itemId":"{{Guid.NewGuid()}}","descricao":"Intruso","recebedorId":null,"pagadorId":null,"contaGerencialId":null,"confianca":1.0},{"itemId":"{{item.Id}}","descricao":"Real","recebedorId":null,"pagadorId":null,"contaGerencialId":null,"confianca":0.6}]}
             """;
 
         var result = ConciliacaoSugestaoService.ParseSugestoes(json, [item], Categorias, Recebedores, Responsaveis);

@@ -67,7 +67,7 @@ public sealed class ContaPagarRecorrenciaService(
         }
 
         var contexto = await helper.ValidarCriacaoOuAtualizacaoAsync(
-            request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
+            request.DataEmissao, request.RecebedorId, request.PagadorId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
             request.DataCompra, request.ForcarProximaFatura);
@@ -145,7 +145,7 @@ public sealed class ContaPagarRecorrenciaService(
             regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao);
 
         await helper.ValidarCriacaoOuAtualizacaoAsync(
-            request.DataEmissao, request.RecebedorId, request.ResponsavelCompraId,
+            request.DataEmissao, request.RecebedorId, request.PagadorId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
             request.DataCompra, request.ForcarProximaFatura);
@@ -175,7 +175,7 @@ public sealed class ContaPagarRecorrenciaService(
             helper.AtualizarContaExistente(contaFutura, requestAjustado);
             await helper.SincronizarRateiosContaAsync(contaFutura, cancellationToken);
             await helper.ValidarCriacaoOuAtualizacaoAsync(
-                requestAjustado.DataEmissao, requestAjustado.RecebedorId, requestAjustado.ResponsavelCompraId,
+                requestAjustado.DataEmissao, requestAjustado.RecebedorId, requestAjustado.PagadorId,
                 requestAjustado.FormaPagamentoId, requestAjustado.CartaoId, requestAjustado.ContaBancariaId,
                 requestAjustado.DataLiquidacao, requestAjustado.QuantidadeParcelas, requestAjustado.Rateios, cancellationToken,
                 requestAjustado.DataCompra, request.ForcarProximaFatura);

@@ -43,7 +43,7 @@ public sealed class RecorrenciaInativaNaoGeraTests(CustomWebApplicationFactory f
         {
             Tipo.Receber => new
             {
-                dataEmissao = data, dataVencimento = data, responsavelId = f.ResponsavelId, pagadorId = f.PagadorId,
+                dataEmissao = data, dataVencimento = data, recebedorId = f.MembroId, pagadorId = f.PagadorId,
                 formaPagamentoId = f.FormaPagamentoManualId, valorOriginal = 100m, quantidadeParcelas = 1,
                 descricao = "Receita recorrente",
                 rateios = new[] { new { contaGerencialId = f.ContaGerencialReceitaId, valor = 100m } },
@@ -60,7 +60,7 @@ public sealed class RecorrenciaInativaNaoGeraTests(CustomWebApplicationFactory f
             _ => new
             {
                 dataEmissao = data, dataVencimento = data, recebedorId = f.RecebedorId,
-                responsavelCompraId = f.ResponsavelId, formaPagamentoId = f.FormaPagamentoManualId,
+                pagadorId = f.MembroId, formaPagamentoId = f.FormaPagamentoManualId,
                 valorOriginal = 100m, quantidadeParcelas = 1, descricao = "Aluguel",
                 rateios = new[] { new { contaGerencialId = f.ContaGerencialDespesaId, valor = 100m } },
                 recorrencia

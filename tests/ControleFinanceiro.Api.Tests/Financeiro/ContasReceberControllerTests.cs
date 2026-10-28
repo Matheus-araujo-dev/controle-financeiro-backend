@@ -438,7 +438,7 @@ public sealed class ContasReceberControllerTests(CustomWebApplicationFactory fac
         var createResponse = await client.PostAsJsonAsync("/api/v1/contas-receber", new
         {
             dataEmissao = "2026-04-04",
-            responsavelId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -460,7 +460,7 @@ public sealed class ContasReceberControllerTests(CustomWebApplicationFactory fac
         {
             id = created.Id,
             dataEmissao = "2026-04-04",
-            responsavelId = fixture.ResponsavelId,
+            recebedorId = fixture.RecebedorId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,

@@ -194,7 +194,7 @@ public sealed class ImportacaoFaturaService(
             var parcelas = new[] { ContaPagar.Criar(
                 numeroDocumento: null,
                 dataEmissao: item.DataTransacao,
-                responsavelCompraId: null,
+                pagadorId: null,
                 recebedorId: request.RecebedorPadraoId,
                 dataVencimento: vencimento,
                 contaBancariaId: null,

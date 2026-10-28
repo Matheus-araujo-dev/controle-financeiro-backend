@@ -19,7 +19,7 @@ public sealed class DashboardResponsaveisEPrevisaoTests(CustomWebApplicationFact
         await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao = "2026-04-03",
-            responsavelCompraId = fixture.ResponsavelId,
+            responsavelCompraId = fixture.MembroId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -35,7 +35,7 @@ public sealed class DashboardResponsaveisEPrevisaoTests(CustomWebApplicationFact
         await client.PostAsJsonAsync("/api/v1/contas-receber", new
         {
             dataEmissao = "2026-04-03",
-            responsavelId = fixture.ResponsavelId,
+            responsavelId = fixture.MembroId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-22",
             formaPagamentoId = fixture.FormaPagamentoManualId,

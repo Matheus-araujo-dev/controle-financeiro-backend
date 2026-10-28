@@ -267,7 +267,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             return null;
         }
 
-        var itens = await ListarItensAsync(item.CartaoId, item.Competencia, responsavelId: null, cancellationToken);
+        var itens = await ListarItensAsync(item.CartaoId, item.Competencia, pagadorId: null, cancellationToken);
         var status = MapearStatus(item.Status);
 
         return new FaturaDetalheResponse(
@@ -656,7 +656,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
 
         if (fatura is null) return null;
 
-        var todos = await ListarItensAsync(fatura.CartaoId, fatura.Competencia, query.ResponsavelId, cancellationToken);
+        var todos = await ListarItensAsync(fatura.CartaoId, fatura.Competencia, query.PagadorId, cancellationToken);
 
         var ordenados = (query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
@@ -666,9 +666,9 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             "recebedornome" => query.SortDirection == SortDirection.Desc
                 ? todos.OrderByDescending(x => x.RecebedorNome).ToArray()
                 : todos.OrderBy(x => x.RecebedorNome).ToArray(),
-            "responsavelnome" => query.SortDirection == SortDirection.Desc
-                ? todos.OrderByDescending(x => x.ResponsavelNome).ToArray()
-                : todos.OrderBy(x => x.ResponsavelNome).ToArray(),
+            "pagadornome" => query.SortDirection == SortDirection.Desc
+                ? todos.OrderByDescending(x => x.PagadorNome).ToArray()
+                : todos.OrderBy(x => x.PagadorNome).ToArray(),
             "valorliquido" or "valor" => query.SortDirection == SortDirection.Desc
                 ? todos.OrderByDescending(x => x.ValorLiquido).ToArray()
                 : todos.OrderBy(x => x.ValorLiquido).ToArray(),
@@ -687,7 +687,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             ordenados = ordenados
                 .Where(x => x.Descricao.Contains(termo, StringComparison.OrdinalIgnoreCase)
                          || x.RecebedorNome.Contains(termo, StringComparison.OrdinalIgnoreCase)
-                         || (x.ResponsavelNome?.Contains(termo, StringComparison.OrdinalIgnoreCase) ?? false))
+                         || (x.PagadorNome?.Contains(termo, StringComparison.OrdinalIgnoreCase) ?? false))
                 .ToArray();
         }
 
@@ -703,7 +703,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
     private async Task<IReadOnlyCollection<FaturaItemResponse>> ListarItensAsync(
         Guid cartaoId,
         string competencia,
-        Guid? responsavelId,
+        Guid? pagadorId,
         CancellationToken cancellationToken)
     {
         var cartao = await dbContext.Cartoes
@@ -714,16 +714,16 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
             from conta in dbContext.ContasPagar.AsNoTracking()
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
             join status in dbContext.StatusContas.AsNoTracking() on conta.StatusContaId equals status.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into respJoin
-            from responsavel in respJoin.DefaultIfEmpty()
+            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id into pagJoin
+            from pagador in pagJoin.DefaultIfEmpty()
             where conta.CartaoId == cartaoId
             select new
             {
                 conta.Id,
                 conta.Descricao,
                 RecebedorNome = recebedor.Nome,
-                ResponsavelNome = (string?)responsavel.Nome,
-                conta.ResponsavelCompraId,
+                PagadorNome = (string?)pagador.Nome,
+                conta.PagadorId,
                 conta.DataEmissao,
                 conta.DataCompra,
                 conta.DataVencimento,
@@ -740,7 +740,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                     conta.DataVencimento,
                     cartao.DiaFechamentoFatura,
                     cartao.DiaVencimentoFatura).Competencia == competencia)
-            .Where(conta => !responsavelId.HasValue || conta.ResponsavelCompraId == responsavelId)
+            .Where(conta => !pagadorId.HasValue || conta.PagadorId == pagadorId)
             .OrderBy(conta => conta.DataEmissao)
             .ThenBy(conta => conta.NumeroParcela)
             .ToArray();
@@ -754,7 +754,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                     conta.Id,
                     conta.Descricao,
                     conta.RecebedorNome,
-                    conta.ResponsavelNome,
+                    conta.PagadorNome,
                     conta.DataCompra ?? conta.DataEmissao,
                     conta.ValorLiquido,
                     conta.StatusCodigo,
@@ -767,7 +767,7 @@ public sealed class FaturaCartaoAppService(IAppDbContext dbContext)
                     conta.Id,
                     $"Estorno: {conta.Descricao}",
                     conta.RecebedorNome,
-                    conta.ResponsavelNome,
+                    conta.PagadorNome,
                     conta.DataCompra ?? conta.DataEmissao,
                     -conta.ValorLiquido,
                     "ESTORNO",

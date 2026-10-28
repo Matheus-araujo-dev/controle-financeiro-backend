@@ -8,7 +8,7 @@ public sealed class ContaGerencialBuilder
     private string _descricao = "Conta Gerencial Teste";
     private TipoContaGerencial _tipo = TipoContaGerencial.Despesa;
     private Guid? _contaPaiId;
-    private Guid? _responsavelPadraoId;
+    private Guid? _membroPadraoId;
     private bool _ativo = true;
     private bool _ehPadraoRecebimentoFaturaCartao;
 
@@ -48,9 +48,9 @@ public sealed class ContaGerencialBuilder
         return this;
     }
 
-    public ContaGerencialBuilder ComResponsavelPadraoId(Guid? responsavelPadraoId)
+    public ContaGerencialBuilder ComMembroPadraoId(Guid? membroPadraoId)
     {
-        _responsavelPadraoId = responsavelPadraoId;
+        _membroPadraoId = membroPadraoId;
         return this;
     }
 
@@ -79,7 +79,7 @@ public sealed class ContaGerencialBuilder
             _descricao,
             _tipo,
             _contaPaiId,
-            _responsavelPadraoId,
+            _membroPadraoId,
             _ativo,
             _ehPadraoRecebimentoFaturaCartao);
     }

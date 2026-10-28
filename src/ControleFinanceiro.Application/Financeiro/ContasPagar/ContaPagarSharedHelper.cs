@@ -27,7 +27,7 @@ public sealed class ContaPagarSharedHelper(
     internal async Task<ContaPagarValidationContext> ValidarCriacaoOuAtualizacaoAsync(
         DateOnly dataEmissao,
         Guid recebedorId,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid formaPagamentoId,
         Guid? cartaoId,
         Guid? contaBancariaId,
@@ -46,14 +46,14 @@ public sealed class ContaPagarSharedHelper(
         if (!recebedor.EhRecebedor)
             throw validationFactory.Create("RecebedorId", "A pessoa selecionada não está marcada como recebedor.");
 
-        if (responsavelCompraId.HasValue)
+        if (pagadorId.HasValue)
         {
-            var responsavel = await dbContext.Pessoas.AsNoTracking()
-                .SingleOrDefaultAsync(x => x.Id == responsavelCompraId.Value, cancellationToken)
-                ?? throw validationFactory.Create("ResponsavelCompraId", "Responsável não encontrado.");
+            var pagador = await dbContext.Pessoas.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == pagadorId.Value, cancellationToken)
+                ?? throw validationFactory.Create("PagadorId", "Pagador não encontrado.");
 
-            if (!responsavel.EhResponsavel)
-                throw validationFactory.Create("ResponsavelCompraId", "A pessoa selecionada não está marcada como responsável.");
+            if (!(pagador.EhPagador && pagador.EhRecebedor))
+                throw validationFactory.Create("PagadorId", "A pessoa selecionada não é um membro da família.");
         }
 
         var formaPagamento = await lookupCache.GetFormaPagamentoByIdAsync(formaPagamentoId, cancellationToken)
@@ -273,7 +273,7 @@ public sealed class ContaPagarSharedHelper(
                 : conta.StatusContaId == StatusConta.FuturoId ? StatusConta.FuturoId : StatusConta.PendenteId;
 
             conta.Atualizar(
-                request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
+                request.NumeroDocumento, request.DataEmissao, request.PagadorId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -307,7 +307,7 @@ public sealed class ContaPagarSharedHelper(
         return ContaPagar.Criar(
             template.NumeroDocumento,
             RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
-            template.ResponsavelCompraId, template.RecebedorId, dataVencimento,
+            template.PagadorId, template.RecebedorId, dataVencimento,
             template.FormaPagamentoId, template.CartaoId, template.ContaBancariaId,
             template.ValorOriginal, template.ValorDesconto, template.ValorJuros, template.ValorMulta,
             1, 1, null, null, template.Descricao, template.Observacao,
@@ -333,7 +333,7 @@ public sealed class ContaPagarSharedHelper(
 
     internal static string SerializarTemplate(CriarContaPagarRequest request) =>
         JsonSerializer.Serialize(new ContaPagarRecorrenciaTemplate(
-            request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
+            request.NumeroDocumento, request.DataEmissao, request.PagadorId,
             request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
             request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -342,7 +342,7 @@ public sealed class ContaPagarSharedHelper(
 
     internal static string SerializarTemplate(AtualizarContaPagarRequest request) =>
         JsonSerializer.Serialize(new ContaPagarRecorrenciaTemplate(
-            request.NumeroDocumento, request.DataEmissao, request.ResponsavelCompraId,
+            request.NumeroDocumento, request.DataEmissao, request.PagadorId,
             request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
             request.ValorDesconto, request.ValorJuros, request.ValorMulta,

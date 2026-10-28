@@ -22,8 +22,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             from compra in dbContext.ComprasPlanejadas.AsNoTracking()
             join contaGerencial in dbContext.ContasGerenciais.AsNoTracking() on compra.ContaGerencialId equals contaGerencial.Id into contasGerenciaisJoin
             from contaGerencial in contasGerenciaisJoin.DefaultIfEmpty()
-            join responsavel in dbContext.Pessoas.AsNoTracking() on compra.ResponsavelId equals responsavel.Id into responsaveisJoin
-            from responsavel in responsaveisJoin.DefaultIfEmpty()
+            join pagador in dbContext.Pessoas.AsNoTracking() on compra.PagadorId equals pagador.Id into pagadoresJoin
+            from pagador in pagadoresJoin.DefaultIfEmpty()
             join contaPagar in dbContext.ContasPagar.AsNoTracking() on compra.ContaPagarGeradaId equals contaPagar.Id into contasPagarJoin
             from contaPagar in contasPagarJoin.DefaultIfEmpty()
             select new
@@ -38,8 +38,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 compra.QuantidadeParcelasDesejada,
                 compra.ContaGerencialId,
                 ContaGerencialDescricao = contaGerencial != null ? contaGerencial.Descricao : "Conta gerencial indisponível",
-                compra.ResponsavelId,
-                ResponsavelNome = responsavel != null ? responsavel.Nome : "Responsável indisponível",
+                compra.PagadorId,
+                PagadorNome = pagador != null ? pagador.Nome : "Pagador indisponível",
                 compra.Link,
                 ContaPagarGeradaId = contaPagar != null && !contaPagar.CartaoId.HasValue ? compra.ContaPagarGeradaId : null,
                 ConvertidaEmContaPagarEmUtc = contaPagar != null && !contaPagar.CartaoId.HasValue ? compra.ConvertidaEmContaPagarEmUtc : null
@@ -51,7 +51,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             consulta = consulta.Where(x =>
                 EF.Functions.Like(x.Titulo.ToLower(), termo) ||
                 EF.Functions.Like(x.ContaGerencialDescricao.ToLower(), termo) ||
-                EF.Functions.Like(x.ResponsavelNome.ToLower(), termo) ||
+                EF.Functions.Like(x.PagadorNome.ToLower(), termo) ||
                 (x.Link != null && EF.Functions.Like(x.Link.ToLower(), termo)));
         }
 
@@ -79,9 +79,9 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             consulta = consulta.Where(x => statuses.Contains(x.Status));
         }
 
-        if (query.ResponsavelId.HasValue)
+        if (query.PagadorId.HasValue)
         {
-            consulta = consulta.Where(x => x.ResponsavelId == query.ResponsavelId.Value);
+            consulta = consulta.Where(x => x.PagadorId == query.PagadorId.Value);
         }
 
         if (query.ContaGerencialId.HasValue)
@@ -137,9 +137,9 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             "contagerencialdescricao" => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.ContaGerencialDescricao).ThenByDescending(x => x.Titulo)
                 : consulta.OrderBy(x => x.ContaGerencialDescricao).ThenBy(x => x.Titulo),
-            "responsavelnome" => query.SortDirection == SortDirection.Desc
-                ? consulta.OrderByDescending(x => x.ResponsavelNome).ThenByDescending(x => x.Titulo)
-                : consulta.OrderBy(x => x.ResponsavelNome).ThenBy(x => x.Titulo),
+            "pagadornome" => query.SortDirection == SortDirection.Desc
+                ? consulta.OrderByDescending(x => x.PagadorNome).ThenByDescending(x => x.Titulo)
+                : consulta.OrderBy(x => x.PagadorNome).ThenBy(x => x.Titulo),
             "quantidadeparcelasdesejada" => query.SortDirection == SortDirection.Desc
                 ? consulta.OrderByDescending(x => x.QuantidadeParcelasDesejada).ThenByDescending(x => x.Titulo)
                 : consulta.OrderBy(x => x.QuantidadeParcelasDesejada).ThenBy(x => x.Titulo),
@@ -167,8 +167,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 x.QuantidadeParcelasDesejada,
                 x.ContaGerencialId,
                 x.ContaGerencialDescricao,
-                x.ResponsavelId,
-                x.ResponsavelNome,
+                x.PagadorId,
+                x.PagadorNome,
                 x.Link,
                 x.ContaPagarGeradaId,
                 x.ConvertidaEmContaPagarEmUtc))
@@ -192,8 +192,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             from compra in dbContext.ComprasPlanejadas.AsNoTracking()
             join contaGerencial in dbContext.ContasGerenciais.AsNoTracking() on compra.ContaGerencialId equals contaGerencial.Id into contasGerenciaisJoin
             from contaGerencial in contasGerenciaisJoin.DefaultIfEmpty()
-            join responsavel in dbContext.Pessoas.AsNoTracking() on compra.ResponsavelId equals responsavel.Id into responsaveisJoin
-            from responsavel in responsaveisJoin.DefaultIfEmpty()
+            join pagador in dbContext.Pessoas.AsNoTracking() on compra.PagadorId equals pagador.Id into pagadoresJoin
+            from pagador in pagadoresJoin.DefaultIfEmpty()
             join contaPagar in dbContext.ContasPagar.AsNoTracking() on compra.ContaPagarGeradaId equals contaPagar.Id into contasPagarJoin
             from contaPagar in contasPagarJoin.DefaultIfEmpty()
             where compra.Id == id
@@ -209,8 +209,8 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 compra.QuantidadeParcelasDesejada,
                 compra.ContaGerencialId,
                 contaGerencial != null ? contaGerencial.Descricao : "Conta gerencial indisponível",
-                compra.ResponsavelId,
-                responsavel != null ? responsavel.Nome : "Responsável indisponível",
+                compra.PagadorId,
+                pagador != null ? pagador.Nome : "Pagador indisponível",
                 compra.Link,
                 compra.Observacao,
                 contaPagar != null && !contaPagar.CartaoId.HasValue ? compra.ContaPagarGeradaId : null,
@@ -224,7 +224,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
         CriarCompraPlanejadaRequest request,
         CancellationToken cancellationToken)
     {
-        await ValidarReferenciasAsync(request.ContaGerencialId, request.ResponsavelId, cancellationToken);
+        await ValidarReferenciasAsync(request.ContaGerencialId, request.PagadorId, cancellationToken);
 
         PlanejamentoCompra compra;
 
@@ -240,7 +240,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 request.Parcelavel,
                 request.QuantidadeParcelasDesejada,
                 request.ContaGerencialId,
-                request.ResponsavelId,
+                request.PagadorId,
                 request.Link,
                 request.Observacao);
         }
@@ -272,7 +272,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             throw ValidationExceptionFactory.Create("Status", "Compra planejada já realizada não pode ser editada.");
         }
 
-        await ValidarReferenciasAsync(request.ContaGerencialId, request.ResponsavelId, cancellationToken);
+        await ValidarReferenciasAsync(request.ContaGerencialId, request.PagadorId, cancellationToken);
 
         try
         {
@@ -286,7 +286,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 request.Parcelavel,
                 request.QuantidadeParcelasDesejada,
                 request.ContaGerencialId,
-                request.ResponsavelId,
+                request.PagadorId,
                 request.Link,
                 request.Observacao);
         }
@@ -344,7 +344,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
                 compra.Id,
                 request.NumeroDocumento,
                 request.DataCompra,
-                compra.ResponsavelId,
+                compra.PagadorId,
                 request.RecebedorId,
                 request.DataVencimento ?? request.DataCompra,
                 request.FormaPagamentoId,
@@ -365,7 +365,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
         return await ObterPorIdAsync(id, cancellationToken);
     }
 
-    private async Task ValidarReferenciasAsync(Guid contaGerencialId, Guid responsavelId, CancellationToken cancellationToken)
+    private async Task ValidarReferenciasAsync(Guid contaGerencialId, Guid pagadorId, CancellationToken cancellationToken)
     {
         await ContaGerencialLancamentoValidator.ValidarContaLancavelPorTipoAsync(
             dbContext,
@@ -377,9 +377,9 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
             "Compras planejadas aceitam apenas contas gerenciais de despesa.",
             cancellationToken);
 
-        if (!await dbContext.Pessoas.AnyAsync(x => x.Id == responsavelId, cancellationToken))
+        if (!await dbContext.Pessoas.AnyAsync(x => x.Id == pagadorId, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ResponsavelId", "Responsável não encontrado.");
+            throw ValidationExceptionFactory.Create("PagadorId", "Pagador não encontrado.");
         }
     }
 
@@ -409,7 +409,7 @@ public sealed class PlanejamentoCompraAppService(IAppDbContext dbContext, IConta
         {
             ArgumentException { ParamName: "titulo" } => "Titulo",
             ArgumentException { ParamName: "contaGerencialId" } => "ContaGerencialId",
-            ArgumentException { ParamName: "responsavelId" } => "ResponsavelId",
+            ArgumentException { ParamName: "pagadorId" } => "PagadorId",
             ArgumentException { ParamName: "link" } => "Link",
             ArgumentOutOfRangeException { ParamName: "valorEstimado" } => "ValorEstimado",
             ArgumentOutOfRangeException { ParamName: "quantidadeParcelasDesejada" } => "QuantidadeParcelasDesejada",

@@ -40,7 +40,7 @@ public sealed class PlanejamentoCompra : TenantEntity
 
     public Guid ContaGerencialId { get; private set; }
 
-    public Guid ResponsavelId { get; private set; }
+    public Guid PagadorId { get; private set; }
 
     public string? Link { get; private set; }
 
@@ -60,7 +60,7 @@ public sealed class PlanejamentoCompra : TenantEntity
         bool parcelavel,
         int? quantidadeParcelasDesejada,
         Guid contaGerencialId,
-        Guid responsavelId,
+        Guid pagadorId,
         string? link,
         string? observacao)
     {
@@ -75,7 +75,7 @@ public sealed class PlanejamentoCompra : TenantEntity
             parcelavel,
             quantidadeParcelasDesejada,
             contaGerencialId,
-            responsavelId,
+            pagadorId,
             link,
             observacao);
 
@@ -92,7 +92,7 @@ public sealed class PlanejamentoCompra : TenantEntity
         bool parcelavel,
         int? quantidadeParcelasDesejada,
         Guid contaGerencialId,
-        Guid responsavelId,
+        Guid pagadorId,
         string? link,
         string? observacao)
     {
@@ -111,9 +111,9 @@ public sealed class PlanejamentoCompra : TenantEntity
             throw new ArgumentException("Conta gerencial é obrigatória.", nameof(contaGerencialId));
         }
 
-        if (responsavelId == Guid.Empty)
+        if (pagadorId == Guid.Empty)
         {
-            throw new ArgumentException("Responsável é obrigatório.", nameof(responsavelId));
+            throw new ArgumentException("Pagador é obrigatório.", nameof(pagadorId));
         }
 
         if (!string.IsNullOrWhiteSpace(link) &&
@@ -136,7 +136,7 @@ public sealed class PlanejamentoCompra : TenantEntity
         Parcelavel = parcelavel;
         QuantidadeParcelasDesejada = parcelavel ? quantidadeParcelasDesejada : null;
         ContaGerencialId = contaGerencialId;
-        ResponsavelId = responsavelId;
+        PagadorId = pagadorId;
         Link = NormalizarOpcional(link);
         Observacao = NormalizarOpcional(observacao);
     }

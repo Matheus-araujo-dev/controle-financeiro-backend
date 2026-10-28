@@ -12,7 +12,7 @@ public sealed record CompraPlanejadaListQueryRequest : ListQueryRequest
 
     public IReadOnlyList<string>? Statuses { get; init; }
 
-    public Guid? ResponsavelId { get; init; }
+    public Guid? PagadorId { get; init; }
 
     public Guid? ContaGerencialId { get; init; }
 
@@ -39,7 +39,7 @@ public sealed record CriarCompraPlanejadaRequest(
     bool Parcelavel,
     int? QuantidadeParcelasDesejada,
     Guid ContaGerencialId,
-    Guid ResponsavelId,
+    Guid PagadorId,
     string? Link,
     string? Observacao);
 
@@ -53,7 +53,7 @@ public sealed record AtualizarCompraPlanejadaRequest(
     bool Parcelavel,
     int? QuantidadeParcelasDesejada,
     Guid ContaGerencialId,
-    Guid ResponsavelId,
+    Guid PagadorId,
     string? Link,
     string? Observacao);
 
@@ -80,8 +80,8 @@ public sealed record CompraPlanejadaResumoResponse(
     int? QuantidadeParcelasDesejada,
     Guid ContaGerencialId,
     string ContaGerencialDescricao,
-    Guid ResponsavelId,
-    string ResponsavelNome,
+    Guid PagadorId,
+    string PagadorNome,
     string? Link,
     Guid? ContaPagarGeradaId,
     DateTime? ConvertidaEmContaPagarEmUtc);
@@ -110,8 +110,8 @@ public sealed record CompraPlanejadaDetalheResponse(
     int? QuantidadeParcelasDesejada,
     Guid ContaGerencialId,
     string ContaGerencialDescricao,
-    Guid ResponsavelId,
-    string ResponsavelNome,
+    Guid PagadorId,
+    string PagadorNome,
     string? Link,
     string? Observacao,
     Guid? ContaPagarGeradaId,

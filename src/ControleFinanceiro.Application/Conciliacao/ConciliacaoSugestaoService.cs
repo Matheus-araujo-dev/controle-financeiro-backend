@@ -51,7 +51,7 @@ public sealed class ConciliacaoSugestaoService(
             .ToListAsync(ct);
 
         var responsaveis = await db.Pessoas.AsNoTracking()
-            .Where(p => p.FamiliaId == familiaId && p.Ativo && p.EhResponsavel)
+            .Where(p => p.FamiliaId == familiaId && p.Ativo && p.EhPagador)
             .Select(p => new { p.Id, p.Nome })
             .Take(200)
             .ToListAsync(ct);
@@ -60,7 +60,7 @@ public sealed class ConciliacaoSugestaoService(
         var recebedoresJson = string.Join(", ", recebedores.Select(r => $"\"{r.Nome}\" (id:{r.Id})"));
         var responsaveisJson = string.Join(", ", responsaveis.Select(r => $"\"{r.Nome}\" (id:{r.Id})"));
 
-        var exemploJson = """{"sugestoes":[{"itemId":"guid","descricao":"texto limpo","recebedorId":"guid-ou-null","responsavelCompraId":"guid-ou-null","contaGerencialId":"guid-ou-null","confianca":0.0}]}""";
+        var exemploJson = """{"sugestoes":[{"itemId":"guid","descricao":"texto limpo","recebedorId":"guid-ou-null","pagadorId":"guid-ou-null","contaGerencialId":"guid-ou-null","confianca":0.0}]}""";
 
         var systemPrompt = $"""
             Você é um assistente de conciliação de fatura de cartão de crédito.
@@ -73,7 +73,7 @@ public sealed class ConciliacaoSugestaoService(
             Regras:
             - "descricao": limpe a descrição original removendo códigos, asteriscos e prefixos de gateway (ex: "PAG*JoseDaSilva" → "José da Silva", "MERCADOLIVRE*MERCADOL" → "Mercado Livre"). Mantenha o nome do estabelecimento legível.
             - "recebedorId": associe ao recebedor que melhor corresponde ao estabelecimento. Null se nenhum se encaixar.
-            - "responsavelCompraId": se a descrição sugerir quem comprou, associe. Caso contrário, null.
+            - "pagadorId": se a descrição sugerir quem comprou, associe. Caso contrário, null.
             - "contaGerencialId": associe à categoria de despesa mais adequada. Null se incerto.
             - "confianca": 0.0 a 1.0, indicando sua certeza geral na sugestão.
             - NUNCA retorne IDs que não estejam nas listas acima.
@@ -111,7 +111,7 @@ public sealed class ConciliacaoSugestaoService(
         IReadOnlyList<ItemConciliacao> itens,
         IReadOnlySet<Guid> categoriasValidas,
         IReadOnlySet<Guid> recebedoresValidos,
-        IReadOnlySet<Guid> responsaveisValidos)
+        IReadOnlySet<Guid> pagadoresValidos)
     {
         if (string.IsNullOrWhiteSpace(json))
             return new(itens.Select(i => new SugestaoItemConciliacaoResponse(i.Id, null, null, null, null, 0)).ToList());
@@ -135,17 +135,17 @@ public sealed class ConciliacaoSugestaoService(
 
                 var descricao = item["descricao"]?.GetValue<string>();
                 var recebedorStr = item["recebedorId"]?.GetValue<string>();
-                var responsavelStr = item["responsavelCompraId"]?.GetValue<string>();
+                var pagadorStr = item["pagadorId"]?.GetValue<string>();
                 var categoriaStr = item["contaGerencialId"]?.GetValue<string>();
                 var confianca = item["confianca"]?.GetValue<double>() ?? 0;
 
                 Guid? recebedorId = Guid.TryParse(recebedorStr, out var rId) && recebedoresValidos.Contains(rId) ? rId : null;
-                Guid? responsavelId = Guid.TryParse(responsavelStr, out var resId) && responsaveisValidos.Contains(resId) ? resId : null;
+                Guid? pagadorId = Guid.TryParse(pagadorStr, out var resId) && pagadoresValidos.Contains(resId) ? resId : null;
                 Guid? categoriaId = Guid.TryParse(categoriaStr, out var cId) && categoriasValidas.Contains(cId) ? cId : null;
 
                 if (descricao is { Length: > 200 }) descricao = descricao[..200];
 
-                result.Add(new SugestaoItemConciliacaoResponse(itemId, descricao, recebedorId, responsavelId, categoriaId, confianca));
+                result.Add(new SugestaoItemConciliacaoResponse(itemId, descricao, recebedorId, pagadorId, categoriaId, confianca));
             }
 
             foreach (var missing in itemIds)

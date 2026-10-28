@@ -201,7 +201,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-04-13",
                 30m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId,
+                fixture.MembroId,
                 marcarComoRecorrente: true);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
@@ -210,7 +210,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-04-13",
                 100m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId);
+                fixture.MembroId);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
                 "Amazon BR 2/3",
@@ -218,7 +218,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-05-13",
                 100m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId);
+                fixture.MembroId);
 
             await dbContext.SaveChangesAsync(default);
         }
@@ -287,7 +287,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-04-13",
                 30m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId,
+                fixture.MembroId,
                 marcarComoRecorrente: true);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
@@ -296,7 +296,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-04-13",
                 100m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId);
+                fixture.MembroId);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
                 "Amazon BR 2/3",
@@ -304,7 +304,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-05-13",
                 100m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId);
+                fixture.MembroId);
 
             await dbContext.SaveChangesAsync(default);
         }
@@ -726,7 +726,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-04-13",
                 30m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId,
+                fixture.MembroId,
                 marcarComoRecorrente: true);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
@@ -735,7 +735,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-05-13",
                 30m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId,
+                fixture.MembroId,
                 marcarComoRecorrente: true);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
@@ -744,7 +744,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-04-13",
                 100m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId);
+                fixture.MembroId);
             AdicionarCompraCartaoImportadaConfirmada(
                 dbContext,
                 "Amazon BR 2/3",
@@ -752,7 +752,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
                 "2026-05-13",
                 100m,
                 fixture.ContaGerencialDespesaId,
-                fixture.ResponsavelId);
+                fixture.MembroId);
 
             await dbContext.SaveChangesAsync(default);
         }
@@ -1053,7 +1053,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         using (var scope = _factory.Services.CreateWorkspaceScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
-            AdicionarCompraCartaoImportadaConfirmada(db, "Compra importada", "2027-01-01", "2027-01-20", 100m, fixture.ContaGerencialDespesaId, fixture.ResponsavelId);
+            AdicionarCompraCartaoImportadaConfirmada(db, "Compra importada", "2027-01-01", "2027-01-20", 100m, fixture.ContaGerencialDespesaId, fixture.MembroId);
             await db.SaveChangesAsync(CancellationToken.None);
             db.ContasPagar.Single(c => c.Id == id).VincularOrigemImportacao(db.ItensImportadosWhatsapp.Single().ImportacaoWhatsappId);
             await db.SaveChangesAsync(CancellationToken.None);
@@ -1206,7 +1206,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.ResponsavelId
+            responsavelId = fixture.MembroId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -1257,7 +1257,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         var response = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao,
-            responsavelCompraId = fixture.ResponsavelId,
+            responsavelCompraId = fixture.MembroId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoCartaoId,

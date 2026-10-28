@@ -74,7 +74,7 @@ public sealed class ContasPagarRecorrenciaTests(CustomWebApplicationFactory fact
         {
             id,
             dataEmissao = "2026-04-04",
-            responsavelCompraId = (Guid?)null,
+            pagadorId = (Guid?)null,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-10",
             formaPagamentoId = fixture.FormaPagamentoManualId,

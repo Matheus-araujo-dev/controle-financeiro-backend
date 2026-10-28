@@ -183,11 +183,11 @@ public sealed class ImportacaoWhatsappAprovacaoService(
 
         foreach (var item in itens)
         {
-            if (!item.ContaGerencialId.HasValue || !item.ResponsavelId.HasValue)
+            if (!item.ContaGerencialId.HasValue || !item.PagadorId.HasValue)
             {
                 throw ValidationExceptionFactory.Create(
                     "Itens",
-                    "Todos os itens de compra em cartão devem possuir conta gerencial e responsável antes da aprovação.");
+                    "Todos os itens de compra em cartão devem possuir conta gerencial e pagador antes da aprovação.");
             }
 
             var payload = ImportacaoWhatsappSuggestionPayload.Parse(item.PayloadSugeridoJson);
@@ -202,10 +202,10 @@ public sealed class ImportacaoWhatsappAprovacaoService(
                 : item.DescricaoAjustada.Trim();
 
             var contaGerencialId = item.ContaGerencialId!.Value;
-            var responsavelId = item.ResponsavelId!.Value;
+            var pagadorId = item.PagadorId!.Value;
             var valorItem = payload.Valor!.Value;
 
-            itensPreparados.Add(new ItemImportadoPreparado(item, payload, cartao, descricao, contaGerencialId, responsavelId, valorItem));
+            itensPreparados.Add(new ItemImportadoPreparado(item, payload, cartao, descricao, contaGerencialId, pagadorId, valorItem));
         }
 
         var competenciaAtualPorCartao = itensPreparados
@@ -226,7 +226,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
             var cartao = preparado.Cartao;
             var descricao = preparado.Descricao;
             var contaGerencialId = preparado.ContaGerencialId;
-            var responsavelId = preparado.ResponsavelId;
+            var pagadorId = preparado.PagadorId;
             var valorItem = preparado.Valor;
             var infoParcelamento = payload.GetParcelamentoCompraCartaoInfo();
             var competenciaImportacaoAtual = competenciaAtualPorCartao[cartao.Id];
@@ -265,7 +265,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
                     var conta = ContaPagar.Criar(
                         numeroDocumento: null,
                         dataEmissao: dataCompraParcela,
-                        responsavelCompraId: responsavelId,
+                        pagadorId: pagadorId,
                         recebedorId: contexto.RecebedorFaturaId,
                         dataVencimento: competencia.DataVencimento,
                         formaPagamentoId: contexto.FormaPagamentoCartaoId,
@@ -333,7 +333,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
                     var contaRecorrente = ContaPagar.Criar(
                         numeroDocumento: null,
                         dataEmissao: dataCompraRecorrente,
-                        responsavelCompraId: responsavelId,
+                        pagadorId: pagadorId,
                         recebedorId: contexto.RecebedorFaturaId,
                         dataVencimento: competencia.DataVencimento,
                         formaPagamentoId: contexto.FormaPagamentoCartaoId,
@@ -381,7 +381,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
             var contaUnica = ContaPagar.Criar(
                 numeroDocumento: null,
                 dataEmissao: dataCompra,
-                responsavelCompraId: responsavelId,
+                pagadorId: pagadorId,
                 recebedorId: contexto.RecebedorFaturaId,
                 dataVencimento: competenciaImportacaoAtual.DataVencimento,
                 formaPagamentoId: contexto.FormaPagamentoCartaoId,
@@ -575,7 +575,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
                 contaPagarFatura = ContaPagar.Criar(
                     numeroDocumento: fatura.Competencia,
                     dataEmissao: fatura.DataFechamento,
-                    responsavelCompraId: contexto.ResponsavelPagamentoFaturaId,
+                    pagadorId: contexto.PagadorFaturaId,
                     recebedorId: contexto.RecebedorFaturaId,
                     dataVencimento: fatura.DataVencimento,
                     formaPagamentoId: contexto.FormaPagamentoCartaoId,
@@ -608,7 +608,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
                 contaPagarFatura.Atualizar(
                     numeroDocumento: fatura.Competencia,
                     dataEmissao: fatura.DataFechamento,
-                    responsavelCompraId: contexto.ResponsavelPagamentoFaturaId,
+                    pagadorId: contexto.PagadorFaturaId,
                     recebedorId: contexto.RecebedorFaturaId,
                     dataVencimento: fatura.DataVencimento,
                     formaPagamentoId: contexto.FormaPagamentoCartaoId,
@@ -768,9 +768,9 @@ public sealed class ImportacaoWhatsappAprovacaoService(
             throw ValidationExceptionFactory.Create("RecebedorFaturaId", "Recebedor da fatura é obrigatório.");
         }
 
-        if (request.ResponsavelPagamentoFaturaId is null || request.ResponsavelPagamentoFaturaId == Guid.Empty)
+        if (request.PagadorFaturaId is null || request.PagadorFaturaId == Guid.Empty)
         {
-            throw ValidationExceptionFactory.Create("ResponsavelPagamentoFaturaId", "Responsável pelo pagamento da fatura é obrigatório.");
+            throw ValidationExceptionFactory.Create("PagadorFaturaId", "Pagador da fatura é obrigatório.");
         }
 
         var cartaoIds = request.CartaoIds?
@@ -788,9 +788,9 @@ public sealed class ImportacaoWhatsappAprovacaoService(
             throw ValidationExceptionFactory.Create("RecebedorFaturaId", "Recebedor da fatura não encontrado.");
         }
 
-        if (!await dbContext.Pessoas.AnyAsync(x => x.Id == request.ResponsavelPagamentoFaturaId.Value, cancellationToken))
+        if (!await dbContext.Pessoas.AnyAsync(x => x.Id == request.PagadorFaturaId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ResponsavelPagamentoFaturaId", "Responsável pelo pagamento não encontrado.");
+            throw ValidationExceptionFactory.Create("PagadorFaturaId", "Pagador da fatura não encontrado.");
         }
 
         var cartoes = await dbContext.Cartoes
@@ -816,7 +816,7 @@ public sealed class ImportacaoWhatsappAprovacaoService(
 
         return new AprovacaoFaturaContext(
             request.RecebedorFaturaId.Value,
-            request.ResponsavelPagamentoFaturaId.Value,
+            request.PagadorFaturaId.Value,
             formaPagamentoCartao.Id,
             cartoes.ToDictionary(x => x.Id));
     }

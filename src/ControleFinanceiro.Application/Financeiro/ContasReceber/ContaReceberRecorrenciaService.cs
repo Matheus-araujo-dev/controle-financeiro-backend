@@ -65,7 +65,7 @@ public sealed class ContaReceberRecorrenciaService(
         }
 
         var liquidarNaCriacao = await helper.ValidarCriacaoOuAtualizacaoAsync(
-            request.PagadorId, request.ResponsavelId, request.FormaPagamentoId,
+            request.PagadorId, request.RecebedorId, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.DataLiquidacao,
             request.QuantidadeParcelas, request.Rateios, cancellationToken);
 
@@ -101,7 +101,7 @@ public sealed class ContaReceberRecorrenciaService(
             regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao);
 
         await helper.ValidarCriacaoOuAtualizacaoAsync(
-            request.PagadorId, request.ResponsavelId, request.FormaPagamentoId,
+            request.PagadorId, request.RecebedorId, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.DataLiquidacao,
             request.QuantidadeParcelas, request.Rateios, cancellationToken);
 

@@ -19,5 +19,5 @@ public sealed record ContaVinculadaResumo(
     int QuantidadeParcelas = 1);
 
 /// <summary>Campo adicional de request que suporta lista de responsáveis.
-/// Quando informado com 2+ itens, cria uma conta por responsável com valor dividido igualmente.</summary>
+/// Quando informado com 2+ itens, cria uma conta por pagador com valor dividido igualmente.</summary>
 public sealed record ResponsaveisAdicionaisRequest(IReadOnlyList<Guid> ResponsaveisIds);

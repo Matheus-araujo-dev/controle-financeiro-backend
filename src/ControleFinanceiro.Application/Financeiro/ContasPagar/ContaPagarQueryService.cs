@@ -46,9 +46,9 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 conta.Descricao,
                 conta.RecebedorId,
                 RecebedorNome = recebedor.Nome,
-                conta.ResponsavelCompraId,
-                ResponsavelNome = dbContext.Pessoas
-                    .Where(pessoa => pessoa.Id == conta.ResponsavelCompraId)
+                conta.PagadorId,
+                PagadorNome = dbContext.Pessoas
+                    .Where(pessoa => pessoa.Id == conta.PagadorId)
                     .Select(pessoa => pessoa.Nome)
                     .FirstOrDefault(),
                 conta.DataEmissao,
@@ -92,10 +92,10 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             consulta = consulta.Where(x => recebedorIds.Contains(x.RecebedorId));
         }
 
-        var responsavelIds = NormalizarIds(null, query.ResponsavelIds);
-        if (responsavelIds.Length > 0)
+        var pagadorIds = NormalizarIds(null, query.PagadorIds);
+        if (pagadorIds.Length > 0)
         {
-            consulta = consulta.Where(x => x.ResponsavelCompraId.HasValue && responsavelIds.Contains(x.ResponsavelCompraId.Value));
+            consulta = consulta.Where(x => x.PagadorId.HasValue && pagadorIds.Contains(x.PagadorId.Value));
         }
 
         var formaPagamentoIds = NormalizarIds(query.FormaPagamentoId, query.FormaPagamentoIds);
@@ -252,7 +252,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                     x.Descricao,
                     x.RecebedorId,
                     x.RecebedorNome,
-                    x.ResponsavelNome,
+                    x.PagadorNome,
                     x.DataEmissao,
                     x.DataVencimento,
                     x.DataLiquidacao,
@@ -367,8 +367,8 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         CancellationToken cancellationToken)
     {
         var recebedor = await dbContext.Pessoas.AsNoTracking().SingleAsync(x => x.Id == conta.RecebedorId, cancellationToken);
-        var responsavel = conta.ResponsavelCompraId.HasValue
-            ? await dbContext.Pessoas.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.ResponsavelCompraId.Value, cancellationToken)
+        var pagador = conta.PagadorId.HasValue
+            ? await dbContext.Pessoas.AsNoTracking().SingleOrDefaultAsync(x => x.Id == conta.PagadorId.Value, cancellationToken)
             : null;
         var formaPagamento = await _lookupCache.GetFormaPagamentoByIdAsync(conta.FormaPagamentoId, cancellationToken)
             ?? throw new InvalidOperationException("FormaPagamento not found");
@@ -397,7 +397,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             : null;
         var contaVinculada = await ObterContaVinculadaAsync(conta.ContaVinculadaId, conta.TipoContaVinculada, cancellationToken);
         var grupoReembolso = await ObterGrupoReembolsoAsync(conta.GrupoReembolsoId, cancellationToken);
-        var grupoResponsaveis = await ObterGrupoResponsaveisAsync(conta.GrupoResponsaveisId, cancellationToken);
+        var grupoPagadores = await ObterGrupoPagadoresAsync(conta.GrupoPagadoresId, cancellationToken);
 
         if (rateios is null)
         {
@@ -428,8 +428,8 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             conta.Id,
             conta.NumeroDocumento,
             conta.DataEmissao,
-            conta.ResponsavelCompraId,
-            responsavel?.Nome,
+            conta.PagadorId,
+            pagador?.Nome,
             conta.RecebedorId,
             recebedor.Nome,
             conta.DataVencimento,
@@ -475,9 +475,9 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
             conta.UpdatedAtUtc,
             contaVinculada,
             conta.GrupoReembolsoId,
-            conta.GrupoResponsaveisId,
+            conta.GrupoPagadoresId,
             grupoReembolso,
-            grupoResponsaveis);
+            grupoPagadores);
     }
 
     private async Task<ContaVinculadaResumo?> ObterContaVinculadaAsync(
@@ -554,14 +554,14 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
         return contas.Length == 0 ? null : new GrupoReembolsoInfo(grupoReembolsoId.Value, contas);
     }
 
-    private async Task<GrupoResponsaveisInfo?> ObterGrupoResponsaveisAsync(Guid? grupoResponsaveisId, CancellationToken cancellationToken)
+    private async Task<GrupoPagadoresInfo?> ObterGrupoPagadoresAsync(Guid? grupoPagadoresId, CancellationToken cancellationToken)
     {
-        if (!grupoResponsaveisId.HasValue) return null;
+        if (!grupoPagadoresId.HasValue) return null;
 
         var contas = await (
             from cp in dbContext.ContasPagar.AsNoTracking()
             join s in dbContext.StatusContas.AsNoTracking() on cp.StatusContaId equals s.Id
-            where cp.GrupoResponsaveisId == grupoResponsaveisId
+            where cp.GrupoPagadoresId == grupoPagadoresId
             orderby cp.NumeroParcela
             select new ContaVinculadaResumo(
                 cp.Id,
@@ -576,7 +576,7 @@ public sealed class ContaPagarQueryService(IAppDbContext dbContext, ILookupCache
                 cp.QuantidadeParcelas))
             .ToArrayAsync(cancellationToken);
 
-        return contas.Length == 0 ? null : new GrupoResponsaveisInfo(grupoResponsaveisId.Value, contas);
+        return contas.Length == 0 ? null : new GrupoPagadoresInfo(grupoPagadoresId.Value, contas);
     }
 
     private static LancamentoOrigem MapearOrigem(OrigemLancamento origem)

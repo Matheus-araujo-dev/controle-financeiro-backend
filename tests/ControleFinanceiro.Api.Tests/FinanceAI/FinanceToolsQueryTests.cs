@@ -32,7 +32,7 @@ public sealed class FinanceToolsQueryTests(CustomWebApplicationFactory factory)
             ["listar_meios_pagamento"] = "{}",
             ["buscar_resumo_mensal"] = """{"mes":4,"ano":2026}""",
             ["buscar_gastos_por_categoria"] = """{"mes":4,"ano":2026}""",
-            ["buscar_gastos_por_responsavel"] = """{"mes":4,"ano":2026}"""
+            ["buscar_gastos_por_membro"] = """{"mes":4,"ano":2026}"""
         };
 
         foreach (var (nome, input) in casos)

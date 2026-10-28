@@ -3,7 +3,7 @@ namespace ControleFinanceiro.Application.Financeiro.ContasReceber;
 internal sealed record ContaReceberRecorrenciaTemplate(
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelId,
+    Guid? RecebedorId,
     Guid PagadorId,
     DateOnly DataVencimento,
     Guid FormaPagamentoId,

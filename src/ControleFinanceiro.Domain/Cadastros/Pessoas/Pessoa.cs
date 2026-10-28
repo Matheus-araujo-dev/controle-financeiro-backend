@@ -34,8 +34,6 @@ public sealed class Pessoa : TenantEntity
 
     public bool EhRecebedor { get; private set; }
 
-    public bool EhResponsavel { get; private set; }
-
     public Guid? ContaGerencialDespesaId { get; private set; }
 
     public Guid? ContaGerencialReceitaId { get; private set; }
@@ -53,12 +51,11 @@ public sealed class Pessoa : TenantEntity
         bool ativo,
         bool ehPagador = true,
         bool ehRecebedor = true,
-        bool ehResponsavel = true,
         Guid? contaGerencialDespesaId = null,
         Guid? contaGerencialReceitaId = null)
     {
         var pessoa = new Pessoa();
-        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel, contaGerencialDespesaId, contaGerencialReceitaId);
+        pessoa.AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, contaGerencialDespesaId, contaGerencialReceitaId);
         pessoa.SubstituirChavesPix(chavesPix);
         return pessoa;
     }
@@ -74,11 +71,10 @@ public sealed class Pessoa : TenantEntity
         bool ativo,
         bool ehPagador,
         bool ehRecebedor,
-        bool ehResponsavel,
         Guid? contaGerencialDespesaId = null,
         Guid? contaGerencialReceitaId = null)
     {
-        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, ehResponsavel, contaGerencialDespesaId, contaGerencialReceitaId);
+        AtualizarDadosBasicos(nome, tipoPessoa, cpfCnpj, email, telefone, observacao, ativo, ehPagador, ehRecebedor, contaGerencialDespesaId, contaGerencialReceitaId);
         SubstituirChavesPix(chavesPix);
     }
 
@@ -92,7 +88,6 @@ public sealed class Pessoa : TenantEntity
         bool ativo,
         bool ehPagador = true,
         bool ehRecebedor = true,
-        bool ehResponsavel = true,
         Guid? contaGerencialDespesaId = null,
         Guid? contaGerencialReceitaId = null)
     {
@@ -105,7 +100,6 @@ public sealed class Pessoa : TenantEntity
         Ativo = ativo;
         EhPagador = ehPagador;
         EhRecebedor = ehRecebedor;
-        EhResponsavel = ehResponsavel;
         ContaGerencialDespesaId = contaGerencialDespesaId;
         ContaGerencialReceitaId = contaGerencialReceitaId;
     }

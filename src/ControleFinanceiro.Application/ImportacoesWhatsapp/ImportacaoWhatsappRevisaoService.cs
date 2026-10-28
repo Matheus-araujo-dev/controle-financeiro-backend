@@ -51,7 +51,7 @@ public sealed class ImportacaoWhatsappRevisaoService(
                     request.Observacao,
                     confirmacaoClassificada.DescricaoAjustada,
                     request.ContaGerencialId,
-                    request.ResponsavelId,
+                    request.PagadorId,
                     confirmacaoClassificada.ContaReceberId,
                     confirmacaoClassificada.MarcarComoRecorrente);
             }
@@ -61,7 +61,7 @@ public sealed class ImportacaoWhatsappRevisaoService(
                     request.Observacao,
                     confirmacaoClassificada.DescricaoAjustada,
                     request.ContaGerencialId,
-                    request.ResponsavelId,
+                    request.PagadorId,
                     confirmacaoClassificada.ContaReceberId,
                     confirmacaoClassificada.MarcarComoRecorrente);
             }
@@ -72,7 +72,7 @@ public sealed class ImportacaoWhatsappRevisaoService(
                     request.Observacao,
                     confirmacaoClassificada.DescricaoAjustada,
                     request.ContaGerencialId,
-                    request.ResponsavelId,
+                    request.PagadorId,
                     confirmacaoClassificada.ContaReceberId,
                     confirmacaoClassificada.MarcarComoRecorrente);
             }
@@ -142,11 +142,11 @@ public sealed class ImportacaoWhatsappRevisaoService(
                     "Conta gerencial é obrigatória para aprovar compras de cartão importadas.");
             }
 
-            if (!request.ResponsavelId.HasValue)
+            if (!request.PagadorId.HasValue)
             {
                 throw ValidationExceptionFactory.Create(
-                    "ResponsavelId",
-                    "Responsável é obrigatório para aprovar compras de cartão importadas.");
+                    "PagadorId",
+                    "Pagador é obrigatório para aprovar compras de cartão importadas.");
             }
         }
 
@@ -167,10 +167,10 @@ public sealed class ImportacaoWhatsappRevisaoService(
             }
         }
 
-        if (request.ResponsavelId.HasValue &&
-            !await dbContext.Pessoas.AnyAsync(x => x.Id == request.ResponsavelId.Value, cancellationToken))
+        if (request.PagadorId.HasValue &&
+            !await dbContext.Pessoas.AnyAsync(x => x.Id == request.PagadorId.Value, cancellationToken))
         {
-            throw ValidationExceptionFactory.Create("ResponsavelId", "Responsável não encontrado.");
+            throw ValidationExceptionFactory.Create("PagadorId", "Pagador não encontrado.");
         }
 
         if (request.ContaGerencialId.HasValue)
@@ -221,11 +221,11 @@ public sealed class ImportacaoWhatsappRevisaoService(
                 "A geração automática de conta a receber está disponível apenas para compras de cartão importadas.");
         }
 
-        if (!request.ResponsavelId.HasValue)
+        if (!request.PagadorId.HasValue)
         {
             throw ValidationExceptionFactory.Create(
-                "ResponsavelId",
-                "Responsável é obrigatório para gerar conta a receber a partir da fatura.");
+                "PagadorId",
+                "Pagador é obrigatório para gerar conta a receber a partir da fatura.");
         }
 
         if (string.IsNullOrWhiteSpace(payload.Descricao))
@@ -284,8 +284,8 @@ public sealed class ImportacaoWhatsappRevisaoService(
         var contaReceber = ContaReceber.Criar(
             numeroDocumento: null,
             dataEmissao: payload.DataIdentificada ?? DateOnly.FromDateTime(DateTime.UtcNow),
-            responsavelId: request.ResponsavelId,
-            pagadorId: request.ResponsavelId.Value,
+            pagadorId: request.PagadorId,
+            pagadorId: request.PagadorId.Value,
             dataVencimento: dataVencimentoContaReceber.Value,
             formaPagamentoId: formaPagamento.Id,
             cartaoId: null,

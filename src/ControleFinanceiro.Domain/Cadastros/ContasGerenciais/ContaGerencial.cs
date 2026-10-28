@@ -22,7 +22,7 @@ public sealed class ContaGerencial : TenantEntity
 
     public Guid? ContaPaiId { get; private set; }
 
-    public Guid? ResponsavelPadraoId { get; private set; }
+    public Guid? MembroPadraoId { get; private set; }
 
     public bool Ativo { get; private set; }
 
@@ -35,13 +35,13 @@ public sealed class ContaGerencial : TenantEntity
         string descricao,
         TipoContaGerencial tipo,
         Guid? contaPaiId,
-        Guid? responsavelPadraoId,
+        Guid? membroPadraoId,
         bool ativo,
         bool ehPadraoRecebimentoFaturaCartao,
         Guid? contaGerencialContrariaId = null)
     {
         var conta = new ContaGerencial();
-        conta.Atualizar(codigo, descricao, tipo, contaPaiId, responsavelPadraoId, ativo, ehPadraoRecebimentoFaturaCartao, contaGerencialContrariaId);
+        conta.Atualizar(codigo, descricao, tipo, contaPaiId, membroPadraoId, ativo, ehPadraoRecebimentoFaturaCartao, contaGerencialContrariaId);
         return conta;
     }
 
@@ -50,7 +50,7 @@ public sealed class ContaGerencial : TenantEntity
         string descricao,
         TipoContaGerencial tipo,
         Guid? contaPaiId,
-        Guid? responsavelPadraoId,
+        Guid? membroPadraoId,
         bool ativo,
         bool ehPadraoRecebimentoFaturaCartao,
         Guid? contaGerencialContrariaId = null)
@@ -69,7 +69,7 @@ public sealed class ContaGerencial : TenantEntity
         Descricao = descricao.Trim();
         Tipo = tipo;
         AtualizarContaPai(contaPaiId);
-        ResponsavelPadraoId = responsavelPadraoId;
+        MembroPadraoId = membroPadraoId;
         Ativo = ativo;
         EhPadraoRecebimentoFaturaCartao = ehPadraoRecebimentoFaturaCartao;
         AtualizarContaContraria(contaGerencialContrariaId);

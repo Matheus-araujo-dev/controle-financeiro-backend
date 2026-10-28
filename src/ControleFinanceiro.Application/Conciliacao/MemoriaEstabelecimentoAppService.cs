@@ -33,7 +33,7 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
         var valores = new Dictionary<string, string>
         {
             ["descricao"] = JsonSerializer.Serialize(descricaoPreferida ?? conta.Descricao, JsonOptions),
-            ["responsavelCompraId"] = JsonSerializer.Serialize(conta.ResponsavelCompraId, JsonOptions),
+            ["pagadorId"] = JsonSerializer.Serialize(conta.PagadorId, JsonOptions),
             ["recebedorId"] = JsonSerializer.Serialize(conta.RecebedorId, JsonOptions),
             ["rateios"] = JsonSerializer.Serialize(rateios.Select(r => new RateioMemoriaResponse(r.ContaGerencialId, r.Valor / conta.ValorLiquido)), JsonOptions),
             ["ehRecorrente"] = JsonSerializer.Serialize(conta.EhRecorrente, JsonOptions),

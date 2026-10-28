@@ -10,7 +10,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
-    public async Task Get_DeveRetornarDescricaoValorPessoaEResponsavelDaContaOrigem()
+    public async Task Get_DeveRetornarDescricaoValorPessoaEPagadorDaContaOrigem()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
@@ -20,7 +20,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
         var criarContaPagarResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao = "2026-04-04",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.MembroId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-08",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -51,7 +51,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
         var criarContaReceberResponse = await client.PostAsJsonAsync("/api/v1/contas-receber", new
         {
             dataEmissao = "2026-04-05",
-            responsavelId = fixture.ResponsavelId,
+            recebedorId = fixture.MembroId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-15",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -94,7 +94,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
             item.Descricao == "Aluguel da sede" &&
             item.ValorLiquido == 450m &&
             item.PessoaNome == "Fornecedor Fase 3" &&
-            item.ResponsavelNome == "Responsavel Fase 3");
+            item.PessoaSecundariaNome == "Membro Fase 3");
 
         recorrencias.Items.Should().Contain(item =>
             item.Id == contaReceberCriada!.Recorrencia!.Id &&
@@ -102,7 +102,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
             item.Descricao == "Mensalidade de consultoria" &&
             item.ValorLiquido == 1200m &&
             item.PessoaNome == "Cliente Fase 3" &&
-            item.ResponsavelNome == "Responsavel Fase 3");
+            item.PessoaSecundariaNome == "Membro Fase 3");
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
         await client.PostAsJsonAsync("/api/v1/contas-receber", new
         {
             dataEmissao = "2026-04-05",
-            responsavelId = fixture.ResponsavelId,
+            recebedorId = fixture.MembroId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-15",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -244,7 +244,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
         string Descricao,
         decimal ValorLiquido,
         string PessoaNome,
-        string? ResponsavelNome);
+        string? PessoaSecundariaNome);
 
     private sealed record RecorrenciaListSummaryResponse(int TotalRegistros, decimal ValorTotal);
 

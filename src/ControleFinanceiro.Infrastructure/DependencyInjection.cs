@@ -103,7 +103,7 @@ public static class DependencyInjection
         services.AddScoped<IFinanceTool, BuscarSaldoAtualTool>();
         services.AddScoped<IFinanceTool, BuscarResumoMensalTool>();
         services.AddScoped<IFinanceTool, BuscarGastosPorCategoriaTool>();
-        services.AddScoped<IFinanceTool, BuscarGastosPorResponsavelTool>();
+        services.AddScoped<IFinanceTool, BuscarGastosPorMembroTool>();
         services.AddScoped<IFinanceTool, ListarPessoasTool>();
         services.AddScoped<IFinanceTool, ListarMeiosPagamentoTool>();
         services.AddScoped<IFinanceTool, BuscarContasAPagarTool>();

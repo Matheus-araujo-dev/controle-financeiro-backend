@@ -58,10 +58,10 @@ public sealed class ListarItensPendentesConciliacaoTool(IAppDbContext db, Concil
             : pendentes.Skip((pagina - 1) * 5).Take(5).ToArray();
 
         var pessoaIds = resultado.ContasSistema
-            .SelectMany(c => new[] { c.ResponsavelCompraId, c.RecebedorId })
+            .SelectMany(c => new[] { c.PagadorId, c.RecebedorId })
             .Where(id => id.HasValue).Select(id => id!.Value)
             .Concat(pendentes.Where(p => p.Preferencias is not null)
-                .SelectMany(p => new[] { p.Preferencias!.ResponsavelCompraId, p.Preferencias.RecebedorId }
+                .SelectMany(p => new[] { p.Preferencias!.PagadorId, p.Preferencias.RecebedorId }
                     .Where(id => id.HasValue).Select(id => id!.Value)))
             .Distinct().ToArray();
 
@@ -109,7 +109,7 @@ public sealed class ListarItensPendentesConciliacaoTool(IAppDbContext db, Concil
                     contaPagarId = c.ContaId,
                     descricaoSistema = resultado.ContasSistema.FirstOrDefault(cs => cs.Id == c.ContaId)?.Descricao,
                     valorSistema = resultado.ContasSistema.FirstOrDefault(cs => cs.Id == c.ContaId)?.Valor,
-                    responsavel = NomePessoa(resultado.ContasSistema.FirstOrDefault(cs => cs.Id == c.ContaId)?.ResponsavelCompraId),
+                    pagador = NomePessoa(resultado.ContasSistema.FirstOrDefault(cs => cs.Id == c.ContaId)?.PagadorId),
                     diferenca = c.Diferenca,
                     pontos = c.Pontos,
                     motivo = c.Motivo,
@@ -120,7 +120,7 @@ public sealed class ListarItensPendentesConciliacaoTool(IAppDbContext db, Concil
                 preferenciaAprendida = item.Preferencias is null ? null : new
                 {
                     descricaoSugerida = item.Preferencias.Descricao,
-                    responsavel = NomePessoa(item.Preferencias.ResponsavelCompraId),
+                    pagador = NomePessoa(item.Preferencias.PagadorId),
                     recebedor = NomePessoa(item.Preferencias.RecebedorId),
                     ehRecorrente = item.Preferencias.EhRecorrente,
                     gerarReembolso = item.Preferencias.GerarReembolso

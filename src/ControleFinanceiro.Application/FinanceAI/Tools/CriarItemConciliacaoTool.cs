@@ -22,7 +22,7 @@ public sealed class CriarItemConciliacaoTool(IAppDbContext db, CriarItemFaturaAp
             "itemId": { "type": "string", "description": "ID do item pendente (GUID)" },
             "descricao": { "type": "string", "description": "Descrição para o novo lançamento (ex: 'Mercado Livre - Eletrônicos')" },
             "recebedorNome": { "type": "string", "description": "Nome do recebedor/fornecedor (busca parcial). Se não existir, será criado." },
-            "responsavelNome": { "type": "string", "description": "Nome do responsável pela compra (busca parcial). Se omitido, usa o usuário logado." },
+            "pagadorNome": { "type": "string", "description": "Nome do pagador da compra (busca parcial). Se omitido, usa o usuário logado." },
             "contaGerencialNome": { "type": "string", "description": "Nome da categoria/conta gerencial (busca parcial). Ex: 'Supermercado', 'Transporte'" },
             "formaPagamentoNome": { "type": "string", "description": "Nome da forma de pagamento (busca parcial). Padrão: 'Crédito'." },
             "ehRecorrente": { "type": "boolean", "description": "Se true, cria recorrência mensal. Padrão: false." },
@@ -45,7 +45,7 @@ public sealed class CriarItemConciliacaoTool(IAppDbContext db, CriarItemFaturaAp
 
         var descricao = input?["descricao"]?.GetValue<string>();
         var recebedorNome = input?["recebedorNome"]?.GetValue<string>();
-        var responsavelNome = input?["responsavelNome"]?.GetValue<string>();
+        var pagadorNome = input?["pagadorNome"]?.GetValue<string>();
         var contaGerencialNome = input?["contaGerencialNome"]?.GetValue<string>();
         var formaPagamentoNome = input?["formaPagamentoNome"]?.GetValue<string>() ?? "Crédito";
         var ehRecorrente = input?["ehRecorrente"]?.GetValue<bool>() ?? false;
@@ -77,14 +77,14 @@ public sealed class CriarItemConciliacaoTool(IAppDbContext db, CriarItemFaturaAp
             recebedor = new { novaPessoa.Id, Nome = recebedorNome };
         }
 
-        Guid? responsavelId = null;
-        if (!string.IsNullOrWhiteSpace(responsavelNome))
+        Guid? pagadorId = null;
+        if (!string.IsNullOrWhiteSpace(pagadorNome))
         {
-            var responsavel = await db.Pessoas.AsNoTracking()
-                .Where(p => p.Nome.Contains(responsavelNome))
+            var pagadorPessoa = await db.Pessoas.AsNoTracking()
+                .Where(p => p.Nome.Contains(pagadorNome))
                 .Select(p => new { p.Id })
                 .FirstOrDefaultAsync(cancellationToken);
-            responsavelId = responsavel?.Id;
+            pagadorId = pagadorPessoa?.Id;
         }
 
         var contaGerencial = await db.ContasGerenciais.AsNoTracking()
@@ -145,7 +145,7 @@ public sealed class CriarItemConciliacaoTool(IAppDbContext db, CriarItemFaturaAp
         }
 
         var request = new CriarItemFaturaRequest(
-            descricao, recebedor.Id, responsavelId,
+            descricao, recebedor.Id, pagadorId,
             formaPagamento.Id, rateios, recorrencia,
             null, observacao);
 

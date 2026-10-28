@@ -301,7 +301,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid>("FamiliaId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("ResponsavelPadraoId")
+                    b.Property<Guid?>("MembroPadraoId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Tipo")
@@ -323,7 +323,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasIndex("FamiliaId");
 
-                    b.HasIndex("ResponsavelPadraoId");
+                    b.HasIndex("MembroPadraoId");
 
                     b.HasIndex("FamiliaId", "Codigo")
                         .IsUnique()
@@ -412,11 +412,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<bool>("EhRecebedor")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("EhResponsavel")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
@@ -1177,7 +1172,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid?>("GrupoReembolsoId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("GrupoResponsaveisId")
+                    b.Property<Guid?>("GrupoPagadoresId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("NumeroDocumento")
@@ -1202,6 +1197,9 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid?>("OrigemImportacaoWhatsappId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("PagadorId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("QuantidadeParcelas")
                         .HasColumnType("integer");
 
@@ -1209,9 +1207,6 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("RegraRecorrenciaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ResponsavelCompraId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("StatusContaId")
@@ -1271,8 +1266,8 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.HasIndex("GrupoReembolsoId")
                         .HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
 
-                    b.HasIndex("GrupoResponsaveisId")
-                        .HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
+                    b.HasIndex("GrupoPagadoresId")
+                        .HasFilter("\"GrupoPagadoresId\" IS NOT NULL");
 
                     b.HasIndex("NumeroDocumento");
 
@@ -1280,9 +1275,9 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasIndex("OrigemImportacaoWhatsappId");
 
-                    b.HasIndex("RegraRecorrenciaId");
+                    b.HasIndex("PagadorId");
 
-                    b.HasIndex("ResponsavelCompraId");
+                    b.HasIndex("RegraRecorrenciaId");
 
                     b.HasIndex("CartaoId", "StatusContaId")
                         .HasFilter("\"CartaoId\" IS NOT NULL");
@@ -1354,7 +1349,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<Guid?>("GrupoReembolsoId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("GrupoResponsaveisId")
+                    b.Property<Guid?>("GrupoRecebedoresId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("NumeroDocumento")
@@ -1379,10 +1374,10 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<int>("QuantidadeParcelas")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("RegraRecorrenciaId")
+                    b.Property<Guid?>("RecebedorId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("ResponsavelId")
+                    b.Property<Guid?>("RegraRecorrenciaId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("StatusContaId")
@@ -1437,12 +1432,12 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.HasIndex("GrupoReembolsoId")
                         .HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
 
-                    b.HasIndex("GrupoResponsaveisId")
-                        .HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
+                    b.HasIndex("GrupoRecebedoresId")
+                        .HasFilter("\"GrupoRecebedoresId\" IS NOT NULL");
+
+                    b.HasIndex("RecebedorId");
 
                     b.HasIndex("RegraRecorrenciaId");
-
-                    b.HasIndex("ResponsavelId");
 
                     b.HasIndex("PagadorId", "StatusContaId");
 
@@ -2598,7 +2593,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<DateTime?>("RejeitadoEmUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("ResponsavelId")
+                    b.Property<Guid?>("PagadorId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -2629,7 +2624,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasIndex("ImportacaoWhatsappId");
 
-                    b.HasIndex("ResponsavelId");
+                    b.HasIndex("PagadorId");
 
                     b.ToTable("itens_importados_whatsapp", (string)null);
                 });
@@ -2684,7 +2679,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     b.Property<int?>("QuantidadeParcelasDesejada")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ResponsavelId")
+                    b.Property<Guid>("PagadorId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -2714,7 +2709,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasIndex("FamiliaId");
 
-                    b.HasIndex("ResponsavelId");
+                    b.HasIndex("PagadorId");
 
                     b.ToTable("compras_planejadas", (string)null);
                 });
@@ -2800,7 +2795,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()
-                        .HasForeignKey("ResponsavelPadraoId")
+                        .HasForeignKey("MembroPadraoId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -2939,7 +2934,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()
-                        .HasForeignKey("ResponsavelCompraId")
+                        .HasForeignKey("PagadorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ControleFinanceiro.Domain.Financeiro.StatusConta", null)
@@ -2980,7 +2975,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()
-                        .HasForeignKey("ResponsavelId")
+                        .HasForeignKey("RecebedorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ControleFinanceiro.Domain.Financeiro.StatusConta", null)
@@ -3169,7 +3164,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()
-                        .HasForeignKey("ResponsavelId")
+                        .HasForeignKey("PagadorId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -3188,7 +3183,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasOne("ControleFinanceiro.Domain.Cadastros.Pessoas.Pessoa", null)
                         .WithMany()
-                        .HasForeignKey("ResponsavelId")
+                        .HasForeignKey("PagadorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

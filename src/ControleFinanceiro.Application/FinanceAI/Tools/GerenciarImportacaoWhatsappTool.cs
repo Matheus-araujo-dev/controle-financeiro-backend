@@ -16,7 +16,7 @@ public sealed class GerenciarImportacaoWhatsappTool(ImportacoesWhatsappAppServic
             "acao":          { "type": "string", "enum": ["reprocessar", "confirmar", "completar_fechamento", "reabrir"], "description": "Ação a executar" },
             "importacaoId":  { "type": "string", "description": "ID da importação (GUID)" },
             "recebedorFaturaId":             { "type": "string", "description": "ID da pessoa recebedora da fatura (confirmar/completar_fechamento)" },
-            "responsavelPagamentoFaturaId":   { "type": "string", "description": "ID do responsável pelo pagamento (confirmar/completar_fechamento)" },
+            "pagadorFaturaId":   { "type": "string", "description": "ID do pagador da fatura (confirmar/completar_fechamento)" },
             "cartaoIds":     { "type": "array", "items": { "type": "string" }, "description": "IDs dos cartões vinculados (confirmar/completar_fechamento)" }
           },
           "required": ["acao", "importacaoId"]
@@ -115,7 +115,7 @@ public sealed class GerenciarImportacaoWhatsappTool(ImportacoesWhatsappAppServic
     private static AprovarImportacaoWhatsappRequest? BuildAprovarRequest(JsonNode input)
     {
         Guid? recebedorFaturaId = Guid.TryParse(input["recebedorFaturaId"]?.GetValue<string>(), out var rfId) ? rfId : null;
-        Guid? responsavelId = Guid.TryParse(input["responsavelPagamentoFaturaId"]?.GetValue<string>(), out var rpId) ? rpId : null;
+        Guid? pagadorId = Guid.TryParse(input["pagadorFaturaId"]?.GetValue<string>(), out var rpId) ? rpId : null;
 
         IReadOnlyCollection<Guid>? cartaoIds = null;
         var cartaoIdsNode = input["cartaoIds"]?.AsArray();
@@ -128,9 +128,9 @@ public sealed class GerenciarImportacaoWhatsappTool(ImportacoesWhatsappAppServic
                 .ToArray();
         }
 
-        if (recebedorFaturaId is null && responsavelId is null && cartaoIds is null)
+        if (recebedorFaturaId is null && pagadorId is null && cartaoIds is null)
             return null;
 
-        return new AprovarImportacaoWhatsappRequest(recebedorFaturaId, responsavelId, cartaoIds);
+        return new AprovarImportacaoWhatsappRequest(recebedorFaturaId, pagadorId, cartaoIds);
     }
 }

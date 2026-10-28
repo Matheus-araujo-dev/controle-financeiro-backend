@@ -163,14 +163,14 @@ public sealed class RecorrenciaAppService(
                 on regra.Id equals conta.RegraRecorrenciaId
             where conta.Origem != DomainOrigemLancamento.Recorrencia
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
-            from responsavel in responsaveis.DefaultIfEmpty()
+            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id into pagadores
+            from pagador in pagadores.DefaultIfEmpty()
             orderby conta.CreatedAtUtc
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
                 regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
-                recebedor.Nome, responsavel.Nome)
+                recebedor.Nome, pagador.Nome)
         ).FirstOrDefaultAsync(cancellationToken);
 
         if (pagar != null) return MapearRow(pagar);
@@ -182,14 +182,14 @@ public sealed class RecorrenciaAppService(
                 on regra.Id equals conta.RegraRecorrenciaId
             where conta.Origem != DomainOrigemLancamento.Recorrencia
             join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
-            from responsavel in responsaveis.DefaultIfEmpty()
+            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id into recebedores
+            from recebedor in recebedores.DefaultIfEmpty()
             orderby conta.CreatedAtUtc
             select new RecorrenciaRow(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
                 regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
-                pagador.Nome, responsavel.Nome)
+                pagador.Nome, recebedor.Nome)
         ).FirstOrDefaultAsync(cancellationToken);
 
         return receber != null ? MapearRow(receber) : null;
@@ -273,12 +273,12 @@ public sealed class RecorrenciaAppService(
                       && outra.CreatedAtUtc < conta.CreatedAtUtc)
             join regra in dbContext.RegrasRecorrencia.AsNoTracking() on conta.RegraRecorrenciaId!.Value equals regra.Id
             join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelCompraId equals responsavel.Id into responsaveis
-            from responsavel in responsaveis.DefaultIfEmpty()
+            join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id into pagadores
+            from pagador in pagadores.DefaultIfEmpty()
             where (termo == null
                        || EF.Functions.Like(conta.Descricao.ToLower(), termo)
                        || EF.Functions.Like(recebedor.Nome.ToLower(), termo)
-                       || (responsavel != null && EF.Functions.Like(responsavel.Nome.ToLower(), termo)))
+                       || (pagador != null && EF.Functions.Like(pagador.Nome.ToLower(), termo)))
                   && (ativa == null || regra.Ativa == ativa)
                   && (dataInicial == null || regra.DataInicio >= dataInicial)
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
@@ -286,7 +286,7 @@ public sealed class RecorrenciaAppService(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
                 regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaPagar", conta.Id, conta.Descricao, conta.ValorLiquido,
-                recebedor.Nome, responsavel.Nome);
+                recebedor.Nome, pagador.Nome);
 
         return consulta.ToListAsync(cancellationToken);
     }
@@ -308,12 +308,12 @@ public sealed class RecorrenciaAppService(
                       && outra.CreatedAtUtc < conta.CreatedAtUtc)
             join regra in dbContext.RegrasRecorrencia.AsNoTracking() on conta.RegraRecorrenciaId!.Value equals regra.Id
             join pagador in dbContext.Pessoas.AsNoTracking() on conta.PagadorId equals pagador.Id
-            join responsavel in dbContext.Pessoas.AsNoTracking() on conta.ResponsavelId equals responsavel.Id into responsaveis
-            from responsavel in responsaveis.DefaultIfEmpty()
+            join recebedor in dbContext.Pessoas.AsNoTracking() on conta.RecebedorId equals recebedor.Id into recebedores
+            from recebedor in recebedores.DefaultIfEmpty()
             where (termo == null
                        || EF.Functions.Like(conta.Descricao.ToLower(), termo)
                        || EF.Functions.Like(pagador.Nome.ToLower(), termo)
-                       || (responsavel != null && EF.Functions.Like(responsavel.Nome.ToLower(), termo)))
+                       || (recebedor != null && EF.Functions.Like(recebedor.Nome.ToLower(), termo)))
                   && (ativa == null || regra.Ativa == ativa)
                   && (dataInicial == null || regra.DataInicio >= dataInicial)
                   && (dataFinal == null || regra.DataInicio <= dataFinal)
@@ -321,7 +321,7 @@ public sealed class RecorrenciaAppService(
                 regra.Id, regra.TipoPeriodicidade, regra.TipoDia, regra.DiaOrdemMensal,
                 regra.DataInicio, regra.DataFim, regra.Ativa, regra.Encerrada, regra.PermiteEdicaoOcorrenciaIndividual, regra.Observacao,
                 "ContaReceber", conta.Id, conta.Descricao, conta.ValorLiquido,
-                pagador.Nome, responsavel.Nome);
+                pagador.Nome, recebedor.Nome);
 
         return consulta.ToListAsync(cancellationToken);
     }
@@ -352,8 +352,8 @@ public sealed class RecorrenciaAppService(
             row.ContaOrigemId,
             row.Descricao,
             row.ValorLiquido,
-            row.PessoaNome,
-            row.ResponsavelNome,
+            row.PessoaPrincipalNome,
+            row.PessoaSecundariaNome,
             row.Encerrada);
     }
 
@@ -372,6 +372,6 @@ public sealed class RecorrenciaAppService(
         Guid ContaOrigemId,
         string Descricao,
         decimal ValorLiquido,
-        string PessoaNome,
-        string? ResponsavelNome);
+        string PessoaPrincipalNome,
+        string? PessoaSecundariaNome);
 }

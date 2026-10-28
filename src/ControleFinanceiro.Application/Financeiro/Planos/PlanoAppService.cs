@@ -119,7 +119,7 @@ public sealed class PlanoAppService(IAppDbContext dbContext)
             var conta = ContaPagar.Criar(
                 numeroDocumento: null,
                 dataEmissao: hoje,
-                responsavelCompraId: null,
+                pagadorId: null,
                 recebedorId: plano.RecebedorId.Value,
                 dataVencimento: hoje,
                 formaPagamentoId: plano.FormaPagamentoId.Value,

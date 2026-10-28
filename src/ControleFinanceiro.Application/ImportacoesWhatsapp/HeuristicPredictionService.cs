@@ -55,7 +55,7 @@ public sealed class HeuristicPredictionService(
                 x.TipoSugestao,
                 x.ChaveAprendizado!,
                 x.ContaGerencialId,
-                x.ResponsavelId,
+                x.PagadorId,
                 x.DescricaoAjustada,
                 x.ContaReceberId,
                 x.MarcarComoRecorrente))
@@ -78,7 +78,7 @@ public sealed class HeuristicPredictionService(
                     x.TipoSugestao == item.TipoSugestao &&
                     x.ChaveAprendizado == chaveAprendizado &&
                     (x.ContaGerencialId.HasValue ||
-                     x.ResponsavelId.HasValue ||
+                     x.PagadorId.HasValue ||
                      x.ContaReceberId.HasValue ||
                      x.MarcarComoRecorrente ||
                      !string.IsNullOrWhiteSpace(x.DescricaoAjustada)))
@@ -102,7 +102,7 @@ public sealed class HeuristicPredictionService(
                 .GroupBy(x => new
                 {
                     x.ContaGerencialId,
-                    x.ResponsavelId,
+                    x.PagadorId,
                     x.DescricaoAjustada,
                     GerarContaReceber = x.ContaReceberId.HasValue,
                     x.MarcarComoRecorrente
@@ -110,7 +110,7 @@ public sealed class HeuristicPredictionService(
                 .Select(x => new
                 {
                     x.Key.ContaGerencialId,
-                    x.Key.ResponsavelId,
+                    x.Key.PagadorId,
                     x.Key.DescricaoAjustada,
                     x.Key.GerarContaReceber,
                     x.Key.MarcarComoRecorrente,
@@ -123,7 +123,7 @@ public sealed class HeuristicPredictionService(
 
             predicoes[item.Id] = new HistoricalPredictionData(
                 melhorAgrupamento.ContaGerencialId,
-                melhorAgrupamento.ResponsavelId,
+                melhorAgrupamento.PagadorId,
                 melhorAgrupamento.DescricaoAjustada,
                 melhorAgrupamento.GerarContaReceber,
                 melhorAgrupamento.MarcarComoRecorrente,
@@ -215,7 +215,7 @@ public sealed class HeuristicPredictionService(
                 x.Id,
                 x.Codigo,
                 x.Descricao,
-                x.ResponsavelPadraoId,
+                x.MembroPadraoId,
                 x.ContaPaiId))
             .ToArrayAsync(cancellationToken);
 
@@ -267,7 +267,7 @@ public sealed class HeuristicPredictionService(
         TipoSugestaoImportacaoWhatsapp TipoSugestao,
         string ChaveAprendizado,
         Guid? ContaGerencialId,
-        Guid? ResponsavelId,
+        Guid? PagadorId,
         string? DescricaoAjustada,
         Guid? ContaReceberId,
         bool MarcarComoRecorrente);

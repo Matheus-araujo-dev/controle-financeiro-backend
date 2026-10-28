@@ -23,14 +23,14 @@ public sealed record RevisarItemImportadoWhatsappRequest(
     string? Observacao,
     string? DescricaoAjustada,
     Guid? ContaGerencialId,
-    Guid? ResponsavelId,
+    Guid? PagadorId,
     DateOnly? DataVencimentoContaReceber,
     bool GerarContaReceber,
     bool MarcarComoRecorrente);
 
 public sealed record AprovarImportacaoWhatsappRequest(
     Guid? RecebedorFaturaId,
-    Guid? ResponsavelPagamentoFaturaId,
+    Guid? PagadorFaturaId,
     IReadOnlyCollection<Guid>? CartaoIds);
 
 public sealed record ImportacaoWhatsappListQueryRequest : ListQueryRequest
@@ -86,8 +86,8 @@ public sealed record ItemImportadoWhatsappResponse(
     bool MarcarComoRecorrente,
     Guid? ContaGerencialId,
     string? ContaGerencialDescricao,
-    Guid? ResponsavelId,
-    string? ResponsavelNome,
+    Guid? PagadorId,
+    string? PagadorNome,
     Guid? ContaReceberId,
     string? StatusPrevisaoCodigo,
     string? StatusPrevisaoNome,
@@ -99,8 +99,8 @@ public sealed record ItemImportadoWhatsappResponse(
 public sealed record PredicaoClassificacaoImportacaoWhatsappResponse(
     Guid? ContaGerencialId,
     string? ContaGerencialDescricao,
-    Guid? ResponsavelId,
-    string? ResponsavelNome,
+    Guid? PagadorId,
+    string? PagadorNome,
     string? DescricaoAjustada,
     bool GerarContaReceber,
     bool MarcarComoRecorrente,

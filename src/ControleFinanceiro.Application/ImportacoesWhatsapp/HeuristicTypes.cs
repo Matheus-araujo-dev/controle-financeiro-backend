@@ -2,7 +2,7 @@ namespace ControleFinanceiro.Application.ImportacoesWhatsapp;
 
 public sealed record HistoricalPredictionData(
     Guid? ContaGerencialId,
-    Guid? ResponsavelId,
+    Guid? PagadorId,
     string? DescricaoAjustada,
     bool GerarContaReceber,
     bool MarcarComoRecorrente,
@@ -13,7 +13,7 @@ public sealed record ContaGerencialHeuristicaData(
     Guid Id,
     string? Codigo,
     string Descricao,
-    Guid? ResponsavelPadraoId,
+    Guid? MembroPadraoId,
     Guid? ContaPaiId);
 
 public sealed record CardPurchaseForecastStatusData(

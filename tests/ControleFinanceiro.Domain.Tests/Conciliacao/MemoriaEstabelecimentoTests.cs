@@ -24,7 +24,7 @@ public sealed class MemoriaEstabelecimentoTests
         var memoria = MemoriaEstabelecimento.Criar(Guid.NewGuid(), "LOJA");
         memoria.AplicarDecisao(new Dictionary<string, string> { ["descricao"] = "\"Compra\"" });
         var anterior = memoria.PreferenciasJson;
-        var action = () => memoria.AplicarDecisao(new Dictionary<string, string> { ["descricao"] = "\"Alterado\"", ["responsavelCompraId"] = "json inválido" });
+        var action = () => memoria.AplicarDecisao(new Dictionary<string, string> { ["descricao"] = "\"Alterado\"", ["pagadorId"] = "json inválido" });
         action.Should().Throw<ArgumentException>();
         memoria.PreferenciasJson.Should().Be(anterior);
         memoria.Confirmacoes.Should().Be(1);

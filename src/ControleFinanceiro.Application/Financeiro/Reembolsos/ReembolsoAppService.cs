@@ -26,7 +26,7 @@ public sealed class ReembolsoAppService(
     {
         // ── Validar request ──────────────────────────────────────────────────
         if (request.PagadoresIds is null || request.PagadoresIds.Count == 0)
-            throw ValidationExceptionFactory.Create("PagadoresIds", "Informe ao menos um responsável pelo reembolso.");
+            throw ValidationExceptionFactory.Create("PagadoresIds", "Informe ao menos um pagador para o reembolso.");
 
         if (request.ValorTotal <= 0)
             throw ValidationExceptionFactory.Create("ValorTotal", "Valor do reembolso deve ser maior que zero.");

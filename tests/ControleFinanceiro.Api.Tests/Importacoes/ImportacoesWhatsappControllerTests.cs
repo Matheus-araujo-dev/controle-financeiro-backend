@@ -282,7 +282,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = _factory.CreateClient();
 
         var contaGerencialDespesaId = await CreateContaGerencialAsync(client, "DESP.BRAD", "Compras para terceiros", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Mirce", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Mirce", "Fisica");
         var contaGerencialReceitaPadraoId = await CreateContaGerencialAsync(
             client,
             "REC.DIVIDA",
@@ -324,7 +324,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 observacao = "Compra para terceiro",
                 descricaoAjustada = "Mirce - ZP Studio 1/10",
                 contaGerencialId = contaGerencialDespesaId,
-                responsavelId,
+                pagadorId,
                 dataVencimentoContaReceber = "2026-04-13",
                 gerarContaReceber = true,
                 marcarComoRecorrente = false
@@ -346,7 +346,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task ConfirmarItemCompraCartao_ComCategoriaResponsavelEContaReceber_DevePersistirClassificacaoEGerarContaReceber()
+    public async Task ConfirmarItemCompraCartao_ComCategoriaPagadorEContaReceber_DevePersistirClassificacaoEGerarContaReceber()
     {
         await using var factory = new CustomWebApplicationFactory(services =>
         {
@@ -376,7 +376,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             "Recebimento de divida",
             "Receita",
             true);
-        var responsavelId = await CreatePessoaAsync(client, "Pessoa Reembolsavel", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Pessoa Reembolsavel", "Fisica");
         await CreateFormaPagamentoAsync(client, "Pix recebimento", "Pix", false, false);
 
         var webhookResponse = await client.PostAsJsonAsync("/api/v1/importacoes-whatsapp/webhook", new
@@ -397,7 +397,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 observacao = "Compra feita para terceiro",
                 descricaoAjustada = "Mercado da familia",
                 contaGerencialId = contaGerencialDespesaId,
-                responsavelId,
+                pagadorId,
                 gerarContaReceber = true,
                 marcarComoRecorrente = true
             });
@@ -410,10 +410,10 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var itemConfirmado = detalheConfirmado.Itens.Single();
         itemConfirmado.StatusCodigo.Should().Be("CONFIRMADO");
         itemConfirmado.ContaGerencialId.Should().Be(contaGerencialDespesaId);
-        itemConfirmado.ResponsavelId.Should().Be(responsavelId);
+        itemConfirmado.PagadorId.Should().Be(pagadorId);
         itemConfirmado.ContaReceberId.Should().NotBeNull();
         itemConfirmado.ContaGerencialDescricao.Should().Be("Supermercado");
-        itemConfirmado.ResponsavelNome.Should().Be("Pessoa Reembolsavel");
+        itemConfirmado.PagadorNome.Should().Be("Pessoa Reembolsavel");
         itemConfirmado.DescricaoAjustada.Should().Be("Mercado da familia");
         itemConfirmado.MarcarComoRecorrente.Should().BeTrue();
 
@@ -422,8 +422,8 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         var contaReceber = dbContext.ContasReceber.Single(x => x.Id == itemConfirmado.ContaReceberId!.Value);
         contaReceber.Descricao.Should().Be("Mercado da familia");
-        contaReceber.PagadorId.Should().Be(responsavelId);
-        contaReceber.ResponsavelId.Should().Be(responsavelId);
+        contaReceber.PagadorId.Should().Be(pagadorId);
+        contaReceber.PagadorId.Should().Be(pagadorId);
         contaReceber.ValorLiquido.Should().Be(230.75m);
         contaReceber.Origem.Should().Be(Domain.Financeiro.OrigemLancamento.Importacao);
 
@@ -433,7 +433,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task ConfirmarItemCompraCartao_DeveExigirContaGerencialEResponsavel()
+    public async Task ConfirmarItemCompraCartao_DeveExigirContaGerencialEPagador()
     {
         await using var factory = new CustomWebApplicationFactory(services =>
         {
@@ -458,14 +458,14 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var detalhe = await ReceberImportacaoAsync(client, "Compra cartao amazon 123,45");
         var itemId = detalhe!.Itens.Single().Id;
         var contaGerencialId = await CreateContaGerencialAsync(client, "DESP.AMAZ", "Marketplace", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Comprador", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Comprador", "Fisica");
 
         var responseSemConta = await client.PostAsJsonAsync(
             $"/api/v1/importacoes-whatsapp/itens/{itemId}/confirmar",
             new
             {
                 observacao = "Sem conta",
-                responsavelId
+                pagadorId
             });
 
         var errorSemConta = await responseSemConta.Content.ReadFromJsonAsync<ApiErrorResponse>();
@@ -474,19 +474,19 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         errorSemConta.Should().NotBeNull();
         errorSemConta!.Errors.Should().ContainKey("ContaGerencialId");
 
-        var responseSemResponsavel = await client.PostAsJsonAsync(
+        var responseSemPagador = await client.PostAsJsonAsync(
             $"/api/v1/importacoes-whatsapp/itens/{itemId}/confirmar",
             new
             {
-                observacao = "Sem responsavel",
+                observacao = "Sem pagador",
                 contaGerencialId
             });
 
-        var errorSemResponsavel = await responseSemResponsavel.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        var errorSemPagador = await responseSemPagador.Content.ReadFromJsonAsync<ApiErrorResponse>();
 
-        responseSemResponsavel.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        errorSemResponsavel.Should().NotBeNull();
-        errorSemResponsavel!.Errors.Should().ContainKey("ResponsavelId");
+        responseSemPagador.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        errorSemPagador.Should().NotBeNull();
+        errorSemPagador!.Errors.Should().ContainKey("PagadorId");
     }
 
     [Fact]
@@ -583,7 +583,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = factory.CreateClient();
 
         var contaGerencialDespesaId = await CreateContaGerencialAsync(client, "DESP.AMAZ", "Marketplace", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Comprador Parcelado", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Comprador Parcelado", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Bradesco", "Juridica");
         var formaPagamentoCartaoId = await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Bradesco", "Visa", "2892", 5, 13);
@@ -595,14 +595,14 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             {
                 observacao = "Primeira parcela",
                 contaGerencialId = contaGerencialDespesaId,
-                responsavelId
+                pagadorId
             });
 
         confirmarPrimeira.EnsureSuccessStatusCode();
         var aprovarPrimeira = await client.PostAsJsonAsync($"/api/v1/importacoes-whatsapp/{primeiraImportacao.Id}/confirmar", new
         {
             recebedorFaturaId,
-            responsavelPagamentoFaturaId = responsavelId,
+            pagadorFaturaId = pagadorId,
             cartaoIds = new[] { cartaoId }
         });
         aprovarPrimeira.EnsureSuccessStatusCode();
@@ -615,7 +615,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task GetDetalhe_QuandoHouverHistoricoSemelhante_DevePreverContaGerencialEResponsavel()
+    public async Task GetDetalhe_QuandoHouverHistoricoSemelhante_DevePreverContaGerencialEPagador()
     {
         await using var factory = new CustomWebApplicationFactory(services =>
         {
@@ -640,7 +640,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
 
         var contaGerencialDespesaId = await CreateContaGerencialAsync(client, "DESP.SAU", "Farmacia", "Despesa");
         await CreateContaGerencialAsync(client, "REC.DIV", "Recebimento de divida", "Receita", true);
-        var responsavelId = await CreatePessoaAsync(client, "Dependente", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Dependente", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Bradesco", "Juridica");
         await CreateFormaPagamentoAsync(client, "Pix recebimento", "Pix", false, false);
         var formaPagamentoCartaoId = await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
@@ -664,7 +664,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 observacao = "Historico farmacias",
                 descricaoAjustada = "Farmacia do bairro",
                 contaGerencialId = contaGerencialDespesaId,
-                responsavelId,
+                pagadorId,
                 gerarContaReceber = true,
                 marcarComoRecorrente = true
             });
@@ -673,7 +673,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var aprovarPrimeira = await client.PostAsJsonAsync($"/api/v1/importacoes-whatsapp/{primeiroDetalhe.Id}/confirmar", new
         {
             recebedorFaturaId,
-            responsavelPagamentoFaturaId = responsavelId,
+            pagadorFaturaId = pagadorId,
             cartaoIds = new[] { cartaoId }
         });
         aprovarPrimeira.EnsureSuccessStatusCode();
@@ -692,7 +692,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var predicao = segundoDetalhe!.Itens.Single().Predicao;
         predicao.Should().NotBeNull();
         predicao!.ContaGerencialId.Should().Be(contaGerencialDespesaId);
-        predicao.ResponsavelId.Should().Be(responsavelId);
+        predicao.PagadorId.Should().Be(pagadorId);
         predicao.GerarContaReceber.Should().BeTrue();
         predicao.DescricaoAjustada.Should().Be("Farmacia do bairro");
         predicao.MarcarComoRecorrente.Should().BeTrue();
@@ -728,7 +728,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = factory.CreateClient();
 
         var contaGerencialId = await CreateContaGerencialAsync(client, "DES.10.02", "Moveis e casa", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Matheus", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Matheus", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Nubank", "Juridica");
         var formaPagamentoCartaoId = await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Nubank", "Mastercard", "8082", 5, 15);
@@ -743,7 +743,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 observacao = "Compra parcelada aprovada",
                 descricaoAjustada = "Cadeira DT3 ErgoOne 1/3",
                 contaGerencialId,
-                responsavelId
+                pagadorId
             });
 
         confirmarResponse.EnsureSuccessStatusCode();
@@ -751,7 +751,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var aprovarResponse = await client.PostAsJsonAsync($"/api/v1/importacoes-whatsapp/{detalhe.Id}/confirmar", new
         {
             recebedorFaturaId,
-            responsavelPagamentoFaturaId = responsavelId,
+            pagadorFaturaId = pagadorId,
             cartaoIds = new[] { cartaoId }
         });
 
@@ -835,7 +835,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = factory.CreateClient();
 
         var contaGerencialId = await CreateContaGerencialAsync(client, "DES.08.02", "Juros multa IOF", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Michelle", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Michelle", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Nubank", "Juridica");
         await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Nubank", "Mastercard", "0101", 5, 13);
@@ -850,7 +850,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 observacao = "Parcela intermediaria",
                 descricaoAjustada = "ESTADO DE MINAS GERAIS - Parcela 6/8",
                 contaGerencialId,
-                responsavelId
+                pagadorId
             });
 
         confirmarResponse.EnsureSuccessStatusCode();
@@ -858,7 +858,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var aprovarResponse = await client.PostAsJsonAsync($"/api/v1/importacoes-whatsapp/{detalhe.Id}/confirmar", new
         {
             recebedorFaturaId,
-            responsavelPagamentoFaturaId = responsavelId,
+            pagadorFaturaId = pagadorId,
             cartaoIds = new[] { cartaoId }
         });
 
@@ -938,7 +938,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = factory.CreateClient();
 
         var contaGerencialId = await CreateContaGerencialAsync(client, "DES.02.01", "Supermercado", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Michelle", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Michelle", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Bradesco", "Juridica");
         await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Bradesco Smiles", "Visa", "2892", 5, 15);
@@ -955,7 +955,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 {
                     observacao = "Item aprovado",
                     contaGerencialId,
-                    responsavelId
+                    pagadorId
                 });
 
             confirmarResponse.EnsureSuccessStatusCode();
@@ -964,7 +964,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var aprovarResponse = await client.PostAsJsonAsync($"/api/v1/importacoes-whatsapp/{detalhe.Id}/confirmar", new
         {
             recebedorFaturaId,
-            responsavelPagamentoFaturaId = responsavelId,
+            pagadorFaturaId = pagadorId,
             cartaoIds = new[] { cartaoId }
         });
 
@@ -1020,7 +1020,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = factory.CreateClient();
 
         var contaGerencialId = await CreateContaGerencialAsync(client, "DES.10.02", "Moveis e casa", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Matheus", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Matheus", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Nubank", "Juridica");
         var formaPagamentoCartaoId = await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Nubank", "Mastercard", "8082", 5, 15);
@@ -1035,7 +1035,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 observacao = "Compra parcelada aprovada",
                 descricaoAjustada = "Cadeira DT3 ErgoOne 1/3",
                 contaGerencialId,
-                responsavelId
+                pagadorId
             });
 
         confirmarResponse.EnsureSuccessStatusCode();
@@ -1055,7 +1055,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             new
             {
                 recebedorFaturaId,
-                responsavelPagamentoFaturaId = responsavelId,
+                pagadorFaturaId = pagadorId,
                 cartaoIds = new[] { cartaoId }
             });
 
@@ -1085,7 +1085,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             var contaLegada = ContaPagar.Criar(
                 numeroDocumento: null,
                 dataEmissao: new DateOnly(2025, 8, 25),
-                responsavelCompraId: responsavelId,
+                pagadorId: pagadorId,
                 recebedorId: recebedorFaturaId,
                 dataVencimento: new DateOnly(2025, 9, 15),
                 formaPagamentoId: formaPagamentoCartaoId,
@@ -1129,7 +1129,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             new
             {
                 recebedorFaturaId,
-                responsavelPagamentoFaturaId = responsavelId,
+                pagadorFaturaId = pagadorId,
                 cartaoIds = new[] { cartaoId }
             });
 
@@ -1155,7 +1155,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = _factory.CreateClient();
 
         var contaGerencialId = await CreateContaGerencialAsync(client, "DES.03.02", "App, Uber e onibus", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Michelle", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Michelle", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Nubank", "Juridica");
         await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Nubank", "Mastercard", "0101", 5, 13);
@@ -1193,7 +1193,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 }
                 """,
                 "UBERNUPAY");
-            itemCompra.Confirmar(null, null, contaGerencialId, responsavelId, null, false);
+            itemCompra.Confirmar(null, null, contaGerencialId, pagadorId, null, false);
 
             var itemEstorno = ItemImportadoWhatsapp.Criar(
                 importacao.Id,
@@ -1211,7 +1211,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 }
                 """,
                 "ESTORNOUBER");
-            itemEstorno.Confirmar(null, "Estorno de Uber - NuPay", contaGerencialId, responsavelId, null, false);
+            itemEstorno.Confirmar(null, "Estorno de Uber - NuPay", contaGerencialId, pagadorId, null, false);
 
             var itemCompraMaior = ItemImportadoWhatsapp.Criar(
                 importacao.Id,
@@ -1229,7 +1229,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
                 }
                 """,
                 "SKALLA");
-            itemCompraMaior.Confirmar(null, null, contaGerencialId, responsavelId, null, false);
+            itemCompraMaior.Confirmar(null, null, contaGerencialId, pagadorId, null, false);
 
             importacao.SubstituirItens([itemCompra, itemEstorno, itemCompraMaior]);
             importacao.AprovarRevisao();
@@ -1244,7 +1244,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             new
             {
                 recebedorFaturaId,
-                responsavelPagamentoFaturaId = responsavelId,
+                pagadorFaturaId = pagadorId,
                 cartaoIds = new[] { cartaoId }
             });
 
@@ -1276,7 +1276,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
     }
 
     [Fact]
-    public async Task GetDetalhe_QuandoNaoHouverHistorico_MasDescricaoForObvia_DeveSugerirContaGerencialEPadraoResponsavel()
+    public async Task GetDetalhe_QuandoNaoHouverHistorico_MasDescricaoForObvia_DeveSugerirContaGerencialEPadraoPagador()
     {
         await using var factory = new CustomWebApplicationFactory(services =>
         {
@@ -1299,14 +1299,14 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var responsavelPadraoId = await CreatePessoaAsync(client, "Matheus", "Fisica");
+        var membroPadraoId = await CreatePessoaAsync(client, "Matheus", "Fisica");
         var contaGerencialDespesaId = await CreateContaGerencialAsync(
             client,
             "DES.02.01",
             "Supermercado",
             "Despesa",
             false,
-            responsavelPadraoId);
+            membroPadraoId);
 
         var resposta = await client.PostAsJsonAsync("/api/v1/importacoes-whatsapp/webhook", new
         {
@@ -1322,7 +1322,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var predicao = detalhe!.Itens.Single().Predicao;
         predicao.Should().NotBeNull();
         predicao!.ContaGerencialId.Should().Be(contaGerencialDespesaId);
-        predicao.ResponsavelId.Should().Be(responsavelPadraoId);
+        predicao.PagadorId.Should().Be(membroPadraoId);
         predicao.DescricaoAjustada.Should().BeNull();
         predicao.GerarContaReceber.Should().BeFalse();
         predicao.MarcarComoRecorrente.Should().BeFalse();
@@ -1357,7 +1357,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         using var client = factory.CreateClient();
 
         var contaGerencialId = await CreateContaGerencialAsync(client, "DES.06.02", "Streaming e entretenimento", "Despesa");
-        var responsavelId = await CreatePessoaAsync(client, "Michelle", "Fisica");
+        var pagadorId = await CreatePessoaAsync(client, "Michelle", "Fisica");
         var recebedorFaturaId = await CreatePessoaAsync(client, "Nubank", "Juridica");
         await CreateFormaPagamentoAsync(client, "Cartao de credito", "Credito", true, false);
         var cartaoId = await CreateCartaoAsync(client, "Cartao Nubank", "Mastercard", "0101", 5, 13);
@@ -1371,7 +1371,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             {
                 observacao = "Assinatura recorrente",
                 contaGerencialId,
-                responsavelId,
+                pagadorId,
                 marcarComoRecorrente = true
             });
 
@@ -1380,7 +1380,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var aprovarResponse = await client.PostAsJsonAsync($"/api/v1/importacoes-whatsapp/{detalhe.Id}/confirmar", new
         {
             recebedorFaturaId,
-            responsavelPagamentoFaturaId = responsavelId,
+            pagadorFaturaId = pagadorId,
             cartaoIds = new[] { cartaoId }
         });
 
@@ -1424,14 +1424,14 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var responsavelPadraoId = await CreatePessoaAsync(client, "Matheus", "Fisica");
+        var membroPadraoId = await CreatePessoaAsync(client, "Matheus", "Fisica");
         var contaCombustivelId = await CreateContaGerencialAsync(
             client,
             "DES.03.01",
             "Combustível",
             "Despesa",
             false,
-            responsavelPadraoId);
+            membroPadraoId);
         await CreateContaGerencialAsync(client, "DES.02.02", "Restaurantes", "Despesa");
 
         var resposta = await client.PostAsJsonAsync("/api/v1/importacoes-whatsapp/webhook", new
@@ -1448,7 +1448,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         var predicao = detalhe!.Itens.Single().Predicao;
         predicao.Should().NotBeNull();
         predicao!.ContaGerencialId.Should().Be(contaCombustivelId);
-        predicao.ResponsavelId.Should().Be(responsavelPadraoId);
+        predicao.PagadorId.Should().Be(membroPadraoId);
     }
 
     private static async Task<ImportacaoWhatsappDetalheResponse?> ReceberImportacaoAsync(HttpClient client, string textoBruto)
@@ -1527,7 +1527,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         string descricao,
         string tipo,
         bool ehPadraoRecebimentoFaturaCartao = false,
-        Guid? responsavelPadraoId = null)
+        Guid? membroPadraoId = null)
     {
         var response = await client.PostAsJsonAsync("/api/v1/contas-gerenciais", new
         {
@@ -1535,7 +1535,7 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
             descricao,
             tipo,
             contaPaiId = (Guid?)null,
-            responsavelPadraoId,
+            membroPadraoId,
             ativo = true,
             ehPadraoRecebimentoFaturaCartao
         });
@@ -1603,8 +1603,8 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
         bool MarcarComoRecorrente,
         Guid? ContaGerencialId,
         string? ContaGerencialDescricao,
-        Guid? ResponsavelId,
-        string? ResponsavelNome,
+        Guid? PagadorId,
+        string? PagadorNome,
         Guid? ContaReceberId,
         string? StatusPrevisaoCodigo,
         string? StatusPrevisaoNome,
@@ -1616,8 +1616,8 @@ public sealed class ImportacoesWhatsappControllerTests(CustomWebApplicationFacto
     private sealed record PredicaoClassificacaoImportacaoWhatsappResponse(
         Guid? ContaGerencialId,
         string? ContaGerencialDescricao,
-        Guid? ResponsavelId,
-        string? ResponsavelNome,
+        Guid? PagadorId,
+        string? PagadorNome,
         string? DescricaoAjustada,
         bool GerarContaReceber,
         bool MarcarComoRecorrente,

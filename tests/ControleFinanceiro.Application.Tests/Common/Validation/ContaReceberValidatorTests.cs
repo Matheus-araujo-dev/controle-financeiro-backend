@@ -11,7 +11,7 @@ public sealed class ContaReceberValidatorTests
     private static CriarContaReceberRequest ValidaCriacao() => new(
         NumeroDocumento: "REC-1",
         DataEmissao: new DateOnly(2026, 6, 1),
-        ResponsavelId: null,
+        RecebedorId: null,
         PagadorId: Guid.NewGuid(),
         DataVencimento: new DateOnly(2026, 6, 10),
         FormaPagamentoId: Guid.NewGuid(),
@@ -93,7 +93,7 @@ public sealed class ContaReceberValidatorTests
             Id: Guid.NewGuid(),
             NumeroDocumento: "REC-1",
             DataEmissao: new DateOnly(2026, 6, 1),
-            ResponsavelId: null,
+            RecebedorId: null,
             PagadorId: Guid.NewGuid(),
             DataVencimento: new DateOnly(2026, 6, 10),
             FormaPagamentoId: Guid.NewGuid(),

@@ -20,7 +20,7 @@ public sealed class CriarLancamentoTool(IAppDbContext db) : IFinanceTool
             "valor":             { "type": "number",  "description": "Valor em reais (ex: 45.90)" },
             "contaGerencialId":  { "type": "string",  "description": "ID da categoria financeira." },
             "dataVencimento":    { "type": "string",  "description": "Data no formato YYYY-MM-DD. Se omitida, usa hoje." },
-            "responsavelId":     { "type": "string",  "description": "ID da Pessoa responsável pelo gasto. Se omitido, usa o solicitante." },
+            "pagadorId":     { "type": "string",  "description": "ID da Pessoa pagador pelo gasto. Se omitido, usa o solicitante." },
             "recebedorId":       { "type": "string",  "description": "ID da Pessoa recebedora (fornecedor). Prefira informar. Se omitido e recebedorNome informado, tenta encontrar ou criar." },
             "recebedorNome":     { "type": "string",  "description": "Nome do fornecedor/estabelecimento para busca ou criação automática quando recebedorId não conhecido." },
             "formaPagamentoId":  { "type": "string",  "description": "ID da forma de pagamento. Se omitido, usa a primeira disponível." },
@@ -41,7 +41,7 @@ public sealed class CriarLancamentoTool(IAppDbContext db) : IFinanceTool
         var valor = input?["valor"]?.GetValue<decimal>() ?? 0;
         var contaGerencialIdStr = input?["contaGerencialId"]?.GetValue<string>();
         var dataVencimentoStr = input?["dataVencimento"]?.GetValue<string>();
-        var responsavelIdStr = input?["responsavelId"]?.GetValue<string>();
+        var pagadorIdStr = input?["pagadorId"]?.GetValue<string>();
         var recebedorIdStr = input?["recebedorId"]?.GetValue<string>();
         var recebedorNome = input?["recebedorNome"]?.GetValue<string>();
         var formaPagamentoIdStr = input?["formaPagamentoId"]?.GetValue<string>();
@@ -55,7 +55,7 @@ public sealed class CriarLancamentoTool(IAppDbContext db) : IFinanceTool
             return JsonSerializer.Serialize(new { erro = "contaGerencialId inválido. Use listar_categorias para obter o ID correto." });
 
         var dataVencimento = DateOnly.TryParse(dataVencimentoStr, out var dv) ? dv : DateOnly.FromDateTime(DateTime.UtcNow);
-        Guid? responsavelId = Guid.TryParse(responsavelIdStr, out var rid) ? rid : null;
+        Guid? pagadorId = Guid.TryParse(pagadorIdStr, out var rid) ? rid : null;
         Guid? cartaoId = Guid.TryParse(cartaoIdStr, out var cid) ? cid : null;
 
         var formaPagamentoId = await ResolverFormaPagamentoAsync(formaPagamentoIdStr, cancellationToken);
@@ -72,7 +72,7 @@ public sealed class CriarLancamentoTool(IAppDbContext db) : IFinanceTool
         var conta = ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: DateOnly.FromDateTime(DateTime.UtcNow),
-            responsavelCompraId: responsavelId,
+            pagadorId: pagadorId,
             recebedorId: recebedorId,
             dataVencimento: dataVencimento,
             formaPagamentoId: formaPagamentoId,

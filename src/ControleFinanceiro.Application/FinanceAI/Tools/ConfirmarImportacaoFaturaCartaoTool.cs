@@ -172,7 +172,7 @@ public sealed class ConfirmarImportacaoFaturaCartaoTool(IAppDbContext db) : IFin
             var conta = ContaPagar.Criar(
                 numeroDocumento: null,
                 dataEmissao: item.DataTransacao,
-                responsavelCompraId: null,
+                pagadorId: null,
                 recebedorId: recebedorId,
                 dataVencimento: vencimento,
                 formaPagamentoId: formaPagamentoId.Value,

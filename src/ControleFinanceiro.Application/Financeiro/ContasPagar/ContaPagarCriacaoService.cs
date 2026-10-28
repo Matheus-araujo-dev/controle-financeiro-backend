@@ -25,21 +25,21 @@ public sealed class ContaPagarCriacaoService(
 
     public async Task<ContaPagarDetalheResponse> CriarAsync(CriarContaPagarRequest request, CancellationToken cancellationToken)
     {
-        var responsaveisIds = request.ResponsaveisAdicionaisIds?.Where(id => id != Guid.Empty).Distinct().ToArray();
+        var responsaveisIds = request.PagadoresAdicionaisIds?.Where(id => id != Guid.Empty).Distinct().ToArray();
         if (responsaveisIds is { Length: >= 2 })
             return await CriarComMultiplosResponsaveisAsync(request, responsaveisIds, cancellationToken);
 
-        return await CriarSimplexAsync(request, request.ResponsavelCompraId, cancellationToken);
+        return await CriarSimplexAsync(request, request.PagadorId, cancellationToken);
     }
 
     private async Task<ContaPagarDetalheResponse> CriarSimplexAsync(
-        CriarContaPagarRequest request, Guid? responsavelId, CancellationToken cancellationToken)
+        CriarContaPagarRequest request, Guid? pagadorId, CancellationToken cancellationToken)
     {
         helper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
         var compraPlanejada = await helper.ObterCompraPlanejadaOrigemAsync(request.OrigemCompraPlanejadaId, cancellationToken);
 
         var contexto = await helper.ValidarCriacaoOuAtualizacaoAsync(
-            request.DataEmissao, request.RecebedorId, responsavelId,
+            request.DataEmissao, request.RecebedorId, pagadorId,
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
             request.DataLiquidacao, request.QuantidadeParcelas, request.Rateios, cancellationToken,
             request.DataCompra, request.ForcarProximaFatura);
@@ -54,7 +54,7 @@ public sealed class ContaPagarCriacaoService(
         var rateios = helper.ConverterRateios(request.Rateios);
         var contas = contexto.CompraCartao
             ? ContaPagar.CriarParcelasCartao(
-                request.NumeroDocumento, request.DataEmissao, responsavelId,
+                request.NumeroDocumento, request.DataEmissao, pagadorId,
                 request.RecebedorId, request.FormaPagamentoId, contexto.Cartao!.Id,
                 request.ValorOriginal, request.ValorDesconto, request.ValorJuros, request.ValorMulta,
                 request.QuantidadeParcelas, request.OrigemCompraPlanejadaId, request.Descricao,
@@ -63,7 +63,7 @@ public sealed class ContaPagarCriacaoService(
                 contexto.Cartao.DiaFechamentoFatura, contexto.Cartao.DiaVencimentoFatura,
                 contexto.DataCompraCartao, contexto.DataVencimentoEfetivo)
             : ContaPagar.CriarParcelas(
-                request.NumeroDocumento, request.DataEmissao, responsavelId,
+                request.NumeroDocumento, request.DataEmissao, pagadorId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -99,7 +99,7 @@ public sealed class ContaPagarCriacaoService(
     {
         helper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
 
-        // Validate base context with first responsável
+        // Validate base context with first pagador
         var contexto = await helper.ValidarCriacaoOuAtualizacaoAsync(
             request.DataEmissao, request.RecebedorId, responsaveisIds[0],
             request.FormaPagamentoId, request.CartaoId, request.ContaBancariaId,
@@ -111,14 +111,14 @@ public sealed class ContaPagarCriacaoService(
         {
             var resp = await dbContext.Pessoas.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.Id == responsaveisIds[i], cancellationToken)
-                ?? throw ValidationExceptionFactory.Create("ResponsaveisAdicionaisIds", $"Responsável {i + 1} não encontrado.");
-            if (!resp.EhResponsavel)
-                throw ValidationExceptionFactory.Create("ResponsaveisAdicionaisIds", $"A pessoa '{resp.Nome}' não está marcada como responsável.");
+                ?? throw ValidationExceptionFactory.Create("PagadoresAdicionaisIds", $"Pagador {i + 1} não encontrado.");
+            if (!resp.EhPagador)
+                throw ValidationExceptionFactory.Create("PagadoresAdicionaisIds", $"A pessoa '{resp.Nome}' não está marcada como pagador.");
         }
 
-        var grupoResponsaveisId = Guid.NewGuid();
-        var valoresPorResponsavel = (request.ValoresPorResponsavel?.Count == responsaveisIds.Length)
-            ? request.ValoresPorResponsavel.ToArray()
+        var grupoPagadoresId = Guid.NewGuid();
+        var valoresPorPagador = (request.ValoresPorPagador?.Count == responsaveisIds.Length)
+            ? request.ValoresPorPagador.ToArray()
             : ParcelamentoHelper.Distribuir(request.ValorOriginal, responsaveisIds.Length).ToArray();
         var baseRateios = helper.ConverterRateios(request.Rateios);
         var valorLiquidoBase = request.ValorOriginal - request.ValorDesconto + request.ValorJuros + request.ValorMulta;
@@ -126,14 +126,14 @@ public sealed class ContaPagarCriacaoService(
 
         for (var i = 0; i < responsaveisIds.Length; i++)
         {
-            var responsavelId = responsaveisIds[i];
-            var valorResponsavel = valoresPorResponsavel[i];
-            var rateiosParcela = ParcelamentoHelper.DistribuirRateios(baseRateios, valorResponsavel, valorLiquidoBase > 0 ? valorLiquidoBase : request.ValorOriginal);
+            var pagadorId = responsaveisIds[i];
+            var valorPagador = valoresPorPagador[i];
+            var rateiosParcela = ParcelamentoHelper.DistribuirRateios(baseRateios, valorPagador, valorLiquidoBase > 0 ? valorLiquidoBase : request.ValorOriginal);
 
             var contas = ContaPagar.CriarParcelas(
-                request.NumeroDocumento, request.DataEmissao, responsavelId,
+                request.NumeroDocumento, request.DataEmissao, pagadorId,
                 request.RecebedorId, request.DataVencimento, request.FormaPagamentoId,
-                request.CartaoId, request.ContaBancariaId, valorResponsavel,
+                request.CartaoId, request.ContaBancariaId, valorPagador,
                 request.ValorDesconto / responsaveisIds.Length,
                 request.ValorJuros / responsaveisIds.Length,
                 request.ValorMulta / responsaveisIds.Length,
@@ -142,7 +142,7 @@ public sealed class ContaPagarCriacaoService(
                 OrigemLancamento.Manual, rateiosParcela, DateOnly.FromDateTime(DateTime.Today));
 
             foreach (var conta in contas)
-                conta.DefinirGrupoResponsaveis(grupoResponsaveisId);
+                conta.DefinirGrupoPagadores(grupoPagadoresId);
 
             todasContas.AddRange(contas);
         }
@@ -153,7 +153,7 @@ public sealed class ContaPagarCriacaoService(
         if (contexto.LiquidarNaCriacao)
             dbContext.MovimentacoesFinanceiras.AddRange(
                 ContaPagarSharedHelper.AplicarLiquidacaoAutomatica(
-                    todasContas.Where(c => c.ResponsavelCompraId == responsaveisIds[0]).ToList(),
+                    todasContas.Where(c => c.PagadorId == responsaveisIds[0]).ToList(),
                     request.DataLiquidacao, request.ContaBancariaId!.Value));
 
         await dbContext.SaveChangesAsync(cancellationToken);

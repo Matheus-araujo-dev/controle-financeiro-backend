@@ -65,14 +65,14 @@ public sealed record FaturaListResponse(
 
 public sealed record FaturaItensQueryRequest : ListQueryRequest
 {
-    public Guid? ResponsavelId { get; init; }
+    public Guid? PagadorId { get; init; }
 }
 
 public sealed record FaturaItemResponse(
     Guid ContaPagarId,
     string Descricao,
     string RecebedorNome,
-    string? ResponsavelNome,
+    string? PagadorNome,
     DateOnly DataCompra,
     decimal ValorLiquido,
     string StatusCodigo,

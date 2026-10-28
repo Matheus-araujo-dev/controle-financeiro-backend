@@ -18,9 +18,9 @@ public sealed record ContaGerencialListQueryRequest : ListQueryRequest
 
     public string? ContaPai { get; init; }
 
-    public Guid? ResponsavelPadraoId { get; init; }
+    public Guid? MembroPadraoId { get; init; }
 
-    public string? ResponsavelPadrao { get; init; }
+    public string? MembroPadrao { get; init; }
 
     public bool? Ativo { get; init; }
 
@@ -34,7 +34,7 @@ public sealed record CriarContaGerencialRequest(
     string Descricao,
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
-    Guid? ResponsavelPadraoId,
+    Guid? MembroPadraoId,
     bool Ativo,
     bool EhPadraoRecebimentoFaturaCartao,
     Guid? ContaGerencialContrariaId = null);
@@ -44,7 +44,7 @@ public sealed record AtualizarContaGerencialRequest(
     string Descricao,
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
-    Guid? ResponsavelPadraoId,
+    Guid? MembroPadraoId,
     bool Ativo,
     bool EhPadraoRecebimentoFaturaCartao,
     Guid? ContaGerencialContrariaId = null);
@@ -56,8 +56,8 @@ public sealed record ContaGerencialResumoResponse(
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
     string? ContaPaiDescricao,
-    Guid? ResponsavelPadraoId,
-    string? ResponsavelPadraoNome,
+    Guid? MembroPadraoId,
+    string? MembroPadraoNome,
     bool Ativo,
     bool AceitaLancamentos,
     bool EhPadraoRecebimentoFaturaCartao,
@@ -71,8 +71,8 @@ public sealed record ContaGerencialDetalheResponse(
     ContaGerencialTipo Tipo,
     Guid? ContaPaiId,
     string? ContaPaiDescricao,
-    Guid? ResponsavelPadraoId,
-    string? ResponsavelPadraoNome,
+    Guid? MembroPadraoId,
+    string? MembroPadraoNome,
     bool Ativo,
     bool AceitaLancamentos,
     bool EhPadraoRecebimentoFaturaCartao,

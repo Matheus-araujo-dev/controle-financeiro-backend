@@ -255,7 +255,7 @@ public sealed class FaturasControllerTests(CustomWebApplicationFactory factory) 
         {
             numeroDocumento = "CARTAO-01",
             dataEmissao,
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoCartaoId,

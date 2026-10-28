@@ -210,7 +210,7 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
         using var client = _factory.CreateClient();
 
         var fixture = await FinancialFixtureSeed.CreateAsync(client);
-        var responsavel2 = await CreatePessoaAsync(client, "Responsavel 2");
+        var pagador2 = await CreatePessoaAsync(client, "Pagador 2");
 
         var response = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
@@ -223,9 +223,9 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
             valorJuros = 0m,
             valorMulta = 0m,
             quantidadeParcelas = 1,
-            descricao = "Despesa multi responsavel",
+            descricao = "Despesa multi pagador",
             rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 200m } },
-            responsaveisAdicionaisIds = new[] { fixture.ResponsavelId, responsavel2 }
+            pagadoresAdicionaisIds = new[] { fixture.MembroId, pagador2 }
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -238,7 +238,7 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
         detalhe.GrupoResponsaveis!.Contas.Should().HaveCount(2);
 
         var list = await client.GetFromJsonAsync<ContaListResponse>(
-            "/api/v1/contas-pagar?search=multi+responsavel");
+            "/api/v1/contas-pagar?search=multi+pagador");
         list!.Items.Should().HaveCountGreaterOrEqualTo(2);
         list.Items.Sum(x => x.ValorLiquido).Should().BeApproximately(200m, 0.02m);
     }
@@ -256,7 +256,7 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
         {
             numeroDocumento = (string?)null,
             dataEmissao = "2026-04-01",
-            responsavelId = (Guid?)null,
+            pagadorId = (Guid?)null,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-05-01",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -349,14 +349,14 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
 
     private sealed record ContaPagarDetalheResponse(
         Guid Id, decimal ValorLiquido, Guid? GrupoReembolsoId, Guid? GrupoResponsaveisId,
-        GrupoReembolsoInfo? GrupoReembolso, GrupoResponsaveisInfo? GrupoResponsaveis);
+        GrupoReembolsoInfo? GrupoReembolso, GrupoPagadoresInfo? GrupoResponsaveis);
 
     private sealed record ContaReceberDetalheResponse(
         Guid Id, decimal ValorLiquido, Guid? GrupoReembolsoId, Guid? GrupoResponsaveisId,
-        GrupoReembolsoInfo? GrupoReembolso, GrupoResponsaveisInfo? GrupoResponsaveis);
+        GrupoReembolsoInfo? GrupoReembolso, GrupoPagadoresInfo? GrupoResponsaveis);
 
     private sealed record GrupoReembolsoInfo(Guid GrupoReembolsoId, ContaVinculadaItem[] Contas);
-    private sealed record GrupoResponsaveisInfo(Guid GrupoResponsaveisId, ContaVinculadaItem[] Contas);
+    private sealed record GrupoPagadoresInfo(Guid GrupoResponsaveisId, ContaVinculadaItem[] Contas);
     private sealed record ContaVinculadaItem(Guid Id, decimal ValorLiquido);
     private sealed record ReembolsoResponse(Guid GrupoReembolsoId, ReembolsoContaItem[] ContasReceber);
     private sealed record ReembolsoContaItem(Guid Id, Guid PagadorId, int NumeroParcela, int QuantidadeParcelas, decimal ValorLiquido, string Descricao);

@@ -66,7 +66,7 @@ public sealed class CriarRecebimentoTool(IAppDbContext db) : IFinanceTool
         var conta = ContaReceber.Criar(
             numeroDocumento: null,
             dataEmissao: DateOnly.FromDateTime(DateTime.UtcNow),
-            responsavelId: null,
+            recebedorId: null,
             pagadorId: pagadorId,
             dataVencimento: dataVencimento,
             formaPagamentoId: formaPagamentoId,

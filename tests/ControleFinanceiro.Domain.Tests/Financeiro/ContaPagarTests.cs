@@ -11,7 +11,7 @@ public sealed class ContaPagarTests
         var conta = ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 13),
             formaPagamentoId: Guid.NewGuid(),
@@ -47,7 +47,7 @@ public sealed class ContaPagarTests
         var action = () => ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),
@@ -88,7 +88,7 @@ public sealed class ContaPagarTests
         var action = () => ContaPagar.Criar(
             numeroDocumento: "NF-100",
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),
@@ -120,7 +120,7 @@ public sealed class ContaPagarTests
         var parcelas = ContaPagar.CriarParcelas(
             numeroDocumento: "NF-200",
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),
@@ -158,7 +158,7 @@ public sealed class ContaPagarTests
         var parcelas = ContaPagar.CriarParcelasCartao(
             numeroDocumento: "NF-300",
             dataEmissao: new DateOnly(2026, 4, 8),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             formaPagamentoId: Guid.NewGuid(),
             cartaoId: Guid.NewGuid(),
@@ -194,7 +194,7 @@ public sealed class ContaPagarTests
         var conta = ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),
@@ -234,7 +234,7 @@ public sealed class ContaPagarTests
         var conta = ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),
@@ -264,7 +264,7 @@ public sealed class ContaPagarTests
         var action = () => conta.Atualizar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: conta.RecebedorId,
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: conta.FormaPagamentoId,
@@ -290,7 +290,7 @@ public sealed class ContaPagarTests
         ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),
@@ -348,14 +348,14 @@ public sealed class ContaPagarTests
     }
 
     [Fact]
-    public void DefinirGrupoResponsaveis_DeveDefinirPropriedade()
+    public void DefinirGrupoPagadores_DeveDefinirPropriedade()
     {
         var conta = CriarContaSimples();
         var grupoId = Guid.NewGuid();
 
-        conta.DefinirGrupoResponsaveis(grupoId);
+        conta.DefinirGrupoPagadores(grupoId);
 
-        conta.GrupoResponsaveisId.Should().Be(grupoId);
+        conta.GrupoPagadoresId.Should().Be(grupoId);
     }
 
     [Fact]

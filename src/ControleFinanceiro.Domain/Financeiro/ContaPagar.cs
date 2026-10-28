@@ -20,7 +20,7 @@ public sealed class ContaPagar : TenantEntity
 
     public DateOnly DataEmissao { get; private set; }
 
-    public Guid? ResponsavelCompraId { get; private set; }
+    public Guid? PagadorId { get; private set; }
 
     public Guid RecebedorId { get; private set; }
 
@@ -78,14 +78,14 @@ public sealed class ContaPagar : TenantEntity
 
     public Guid? GrupoReembolsoId { get; private set; }
 
-    public Guid? GrupoResponsaveisId { get; private set; }
+    public Guid? GrupoPagadoresId { get; private set; }
 
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
     public static ContaPagar Criar(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid recebedorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -112,7 +112,7 @@ public sealed class ContaPagar : TenantEntity
         conta.DefinirCampos(
             numeroDocumento,
             dataEmissao,
-            responsavelCompraId,
+            pagadorId,
             recebedorId,
             dataVencimento,
             formaPagamentoId,
@@ -182,7 +182,7 @@ public sealed class ContaPagar : TenantEntity
     public static IReadOnlyCollection<ContaPagar> CriarParcelas(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid recebedorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -210,7 +210,7 @@ public sealed class ContaPagar : TenantEntity
                 Criar(
                     numeroDocumento,
                     dataEmissao,
-                    responsavelCompraId,
+                    pagadorId,
                     recebedorId,
                     dataVencimento,
                     formaPagamentoId,
@@ -262,7 +262,7 @@ public sealed class ContaPagar : TenantEntity
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissao,
-                responsavelCompraId,
+                pagadorId,
                 recebedorId,
                 dataVenc,
                 formaPagamentoId,
@@ -291,7 +291,7 @@ public sealed class ContaPagar : TenantEntity
     public static IReadOnlyCollection<ContaPagar> CriarParcelasCartao(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid recebedorId,
         Guid formaPagamentoId,
         Guid cartaoId,
@@ -327,7 +327,7 @@ public sealed class ContaPagar : TenantEntity
                 Criar(
                     numeroDocumento,
                     dataEmissao,
-                    responsavelCompraId,
+                    pagadorId,
                     recebedorId,
                     dataVencimento,
                     formaPagamentoId,
@@ -374,7 +374,7 @@ public sealed class ContaPagar : TenantEntity
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissaoParcela,
-                responsavelCompraId,
+                pagadorId,
                 recebedorId,
                 dataVencimentoParcela,
                 formaPagamentoId,
@@ -403,7 +403,7 @@ public sealed class ContaPagar : TenantEntity
 
     public static IReadOnlyCollection<ContaPagar> CriarParcelasCartaoImportadas(
         DateOnly dataEmissaoParcelaAtual,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid recebedorId,
         Guid formaPagamentoId,
         Guid cartaoId,
@@ -432,7 +432,7 @@ public sealed class ContaPagar : TenantEntity
                 .Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor))
                 .ToArray();
             parcelas.Add(Criar(
-                null, dataEmissaoParcelaAtual.AddMonths(deslocamento), responsavelCompraId, recebedorId,
+                null, dataEmissaoParcelaAtual.AddMonths(deslocamento), pagadorId, recebedorId,
                 dataVencimentoParcelaAtual.AddMonths(deslocamento), formaPagamentoId, cartaoId, null,
                 valorParcela, 0, 0, 0, quantidadeParcelas, numero, grupoParcelamentoId, null,
                 quantidadeParcelas > 1 ? AjustarDescricaoParcela(descricao, numero, quantidadeParcelas) : descricao,
@@ -454,7 +454,7 @@ public sealed class ContaPagar : TenantEntity
     public void Atualizar(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid recebedorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -478,7 +478,7 @@ public sealed class ContaPagar : TenantEntity
         DefinirCampos(
             numeroDocumento,
             dataEmissao,
-            responsavelCompraId,
+            pagadorId,
             recebedorId,
             dataVencimento,
             formaPagamentoId,
@@ -619,9 +619,9 @@ public sealed class ContaPagar : TenantEntity
         GrupoReembolsoId = grupoReembolsoId;
     }
 
-    public void DefinirGrupoResponsaveis(Guid grupoResponsaveisId)
+    public void DefinirGrupoPagadores(Guid grupoPagadoresId)
     {
-        GrupoResponsaveisId = grupoResponsaveisId;
+        GrupoPagadoresId = grupoPagadoresId;
     }
 
     public void VincularOrigemImportacao(Guid importacaoWhatsappId)
@@ -674,7 +674,7 @@ public sealed class ContaPagar : TenantEntity
     private void DefinirCampos(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelCompraId,
+        Guid? pagadorId,
         Guid recebedorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -723,7 +723,7 @@ public sealed class ContaPagar : TenantEntity
 
         NumeroDocumento = string.IsNullOrWhiteSpace(numeroDocumento) ? null : numeroDocumento.Trim();
         DataEmissao = dataEmissao;
-        ResponsavelCompraId = responsavelCompraId;
+        PagadorId = pagadorId;
         RecebedorId = recebedorId;
         DataVencimento = dataVencimento;
         FormaPagamentoId = formaPagamentoId;

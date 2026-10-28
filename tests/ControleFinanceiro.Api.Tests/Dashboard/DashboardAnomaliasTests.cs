@@ -32,7 +32,7 @@ public sealed class DashboardAnomaliasTests(CustomWebApplicationFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
         var dia = new DateOnly(2027, 1, 5);
         for (var i = 0; i < 5001; i++)
-            db.ContasPagar.Add(ContaPagar.Criar(null, dia, fixture.ResponsavelId, fixture.RecebedorId,
+            db.ContasPagar.Add(ContaPagar.Criar(null, dia, fixture.MembroId, fixture.RecebedorId,
                 dia, fixture.FormaPagamentoManualId, null, null, 100, 0, 0, 0, 1, 1, null, null,
                 "Internet", null, StatusConta.PendenteId, false, null, OrigemLancamento.Manual,
                 [new RateioPlano(fixture.ContaGerencialDespesaId, 100)]));
@@ -55,7 +55,7 @@ public sealed class DashboardAnomaliasTests(CustomWebApplicationFactory factory)
             var result = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
             {
                 dataEmissao = "2027-01-05", dataVencimento = "2027-01-10",
-                responsavelCompraId = fixture.ResponsavelId, recebedorId = fixture.RecebedorId,
+                responsavelCompraId = fixture.MembroId, recebedorId = fixture.RecebedorId,
                 formaPagamentoId = fixture.FormaPagamentoManualId, valorOriginal = 100m,
                 quantidadeParcelas = 1, descricao = "Internet",
                 rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 100m } }
@@ -94,7 +94,7 @@ public sealed class DashboardAnomaliasTests(CustomWebApplicationFactory factory)
                      (100m, 1, StatusConta.PendenteId), (100m, 1, StatusConta.CanceladaId),
                      (100m, 2, StatusConta.PendenteId), (-100m, 1, StatusConta.PendenteId) })
         {
-            db.ContasPagar.Add(ContaPagar.Criar(null, dia, fixture.ResponsavelId, fixture.RecebedorId,
+            db.ContasPagar.Add(ContaPagar.Criar(null, dia, fixture.MembroId, fixture.RecebedorId,
                 dia, valor < 0 ? fixture.FormaPagamentoCartaoId : fixture.FormaPagamentoManualId,
                 valor < 0 ? fixture.CartaoId : null, null, valor, 0, 0, 0, parcelas, 1,
                 parcelas > 1 ? Guid.NewGuid() : null, null, "Internet", null, status, false, null,

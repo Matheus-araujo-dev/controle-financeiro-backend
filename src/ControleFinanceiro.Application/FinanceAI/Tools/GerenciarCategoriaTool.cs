@@ -21,7 +21,7 @@ public sealed class GerenciarCategoriaTool(IAppDbContext db) : IFinanceTool
             "descricao":                       { "type": "string",  "description": "Descrição/nome da categoria" },
             "tipo":                            { "type": "string",  "enum": ["receita", "despesa"], "description": "Tipo: receita ou despesa" },
             "contaPaiId":                      { "type": "string",  "description": "ID da categoria pai (opcional, para subcategorias)" },
-            "responsavelPadraoId":             { "type": "string",  "description": "ID do responsável padrão (opcional)" },
+            "membroPadraoId":             { "type": "string",  "description": "ID do membro padrão (opcional)" },
             "ativo":                           { "type": "boolean", "description": "Se está ativa (padrão: true)" },
             "ehPadraoRecebimentoFaturaCartao": { "type": "boolean", "description": "Se é padrão para recebimento de fatura (apenas receita)" }
           },
@@ -70,10 +70,10 @@ public sealed class GerenciarCategoriaTool(IAppDbContext db) : IFinanceTool
         var ativo = input["ativo"]?.GetValue<bool>() ?? true;
         var ehPadrao = input["ehPadraoRecebimentoFaturaCartao"]?.GetValue<bool>() ?? false;
         Guid? contaPaiId = Guid.TryParse(input["contaPaiId"]?.GetValue<string>(), out var cp) ? cp : null;
-        Guid? responsavelId = Guid.TryParse(input["responsavelPadraoId"]?.GetValue<string>(), out var rp) ? rp : null;
+        Guid? membroId = Guid.TryParse(input["membroPadraoId"]?.GetValue<string>(), out var rp) ? rp : null;
 
         var categoria = ContaGerencial.Criar(codigo, descricao, tipo.Value, contaPaiId,
-            responsavelId, ativo, ehPadrao);
+            membroId, ativo, ehPadrao);
 
         db.ContasGerenciais.Add(categoria);
         await db.SaveChangesAsync(ct);
@@ -101,9 +101,9 @@ public sealed class GerenciarCategoriaTool(IAppDbContext db) : IFinanceTool
         var ativo = input["ativo"]?.GetValue<bool>() ?? categoria.Ativo;
         var ehPadrao = input["ehPadraoRecebimentoFaturaCartao"]?.GetValue<bool>() ?? categoria.EhPadraoRecebimentoFaturaCartao;
         Guid? contaPaiId = Guid.TryParse(input["contaPaiId"]?.GetValue<string>(), out var cp) ? cp : categoria.ContaPaiId;
-        Guid? responsavelId = Guid.TryParse(input["responsavelPadraoId"]?.GetValue<string>(), out var rp) ? rp : categoria.ResponsavelPadraoId;
+        Guid? membroId = Guid.TryParse(input["membroPadraoId"]?.GetValue<string>(), out var rp) ? rp : categoria.MembroPadraoId;
 
-        categoria.Atualizar(codigo, descricao, tipo, contaPaiId, responsavelId, ativo, ehPadrao);
+        categoria.Atualizar(codigo, descricao, tipo, contaPaiId, membroId, ativo, ehPadrao);
         await db.SaveChangesAsync(ct);
 
         return JsonSerializer.Serialize(new

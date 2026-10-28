@@ -51,7 +51,7 @@ public sealed class PlanejamentoCompraTests
     public void Criar_QuandoPayloadValido_DeveNormalizarCampos()
     {
         var contaGerencialId = Guid.NewGuid();
-        var responsavelId = Guid.NewGuid();
+        var pagadorId = Guid.NewGuid();
 
         var planejamento = PlanejamentoCompra.Criar(
             "  Notebook novo  ",
@@ -63,7 +63,7 @@ public sealed class PlanejamentoCompraTests
             false,
             6,
             contaGerencialId,
-            responsavelId,
+            pagadorId,
             "  https://loja.exemplo.com/produto/notebook  ",
             "  Comprar na Black Friday  ");
 
@@ -73,7 +73,7 @@ public sealed class PlanejamentoCompraTests
         planejamento.Parcelavel.Should().BeFalse();
         planejamento.QuantidadeParcelasDesejada.Should().BeNull();
         planejamento.ContaGerencialId.Should().Be(contaGerencialId);
-        planejamento.ResponsavelId.Should().Be(responsavelId);
+        planejamento.PagadorId.Should().Be(pagadorId);
         planejamento.Link.Should().Be("https://loja.exemplo.com/produto/notebook");
         planejamento.Observacao.Should().Be("Comprar na Black Friday");
     }

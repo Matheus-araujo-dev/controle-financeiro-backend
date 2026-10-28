@@ -198,9 +198,9 @@ public sealed class ImportacaoWhatsappQueryService(
             .Distinct()
             .ToArray();
 
-        var responsavelIds = itensOrdenados
-            .Select(x => x.ResponsavelId)
-            .Concat(predicoesPorItemId.Values.Select(x => x.ResponsavelId))
+        var pagadorIds = itensOrdenados
+            .Select(x => x.PagadorId)
+            .Concat(predicoesPorItemId.Values.Select(x => x.PagadorId))
             .Where(x => x.HasValue)
             .Select(x => x!.Value)
             .Distinct()
@@ -213,11 +213,11 @@ public sealed class ImportacaoWhatsappQueryService(
                 .WhereIn(x => x.Id, contaGerencialIds)
                 .ToDictionaryAsync(x => x.Id, x => x.Descricao, cancellationToken);
 
-        var responsaveis = responsavelIds.Length == 0
+        var responsaveis = pagadorIds.Length == 0
             ? new Dictionary<Guid, string>()
             : await dbContext.Pessoas
                 .AsNoTracking()
-                .WhereIn(x => x.Id, responsavelIds)
+                .WhereIn(x => x.Id, pagadorIds)
                 .ToDictionaryAsync(x => x.Id, x => x.Nome, cancellationToken);
 
         return new ImportacaoWhatsappDetalheResponse(
@@ -258,9 +258,9 @@ public sealed class ImportacaoWhatsappQueryService(
                         item.ContaGerencialId.HasValue && contasGerenciais.TryGetValue(item.ContaGerencialId.Value, out var contaDescricao)
                             ? contaDescricao
                             : null,
-                        item.ResponsavelId,
-                        item.ResponsavelId.HasValue && responsaveis.TryGetValue(item.ResponsavelId.Value, out var responsavelNome)
-                            ? responsavelNome
+                        item.PagadorId,
+                        item.PagadorId.HasValue && pessoasMap.TryGetValue(item.PagadorId.Value, out var pagadorNome)
+                            ? pagadorNome
                             : null,
                         item.ContaReceberId,
                         statusPrevisao?.StatusCodigo,
@@ -275,9 +275,9 @@ public sealed class ImportacaoWhatsappQueryService(
                                 predicao.ContaGerencialId.HasValue && contasGerenciais.TryGetValue(predicao.ContaGerencialId.Value, out var contaPredita)
                                     ? contaPredita
                                     : null,
-                                predicao.ResponsavelId,
-                                predicao.ResponsavelId.HasValue && responsaveis.TryGetValue(predicao.ResponsavelId.Value, out var responsavelPredito)
-                                    ? responsavelPredito
+                                predicao.PagadorId,
+                                predicao.PagadorId.HasValue && pessoasMap.TryGetValue(predicao.PagadorId.Value, out var pessoaPredita)
+                                    ? pessoaPredita
                                     : null,
                                 predicao.DescricaoAjustada,
                                 predicao.GerarContaReceber,

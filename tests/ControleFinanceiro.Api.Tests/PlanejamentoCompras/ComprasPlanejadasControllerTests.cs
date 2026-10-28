@@ -11,12 +11,12 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
     private readonly CustomWebApplicationFactory _factory = factory;
 
     [Fact]
-    public async Task PostEGet_DeveCriarCompraPlanejadaComContaGerencialEResponsavel()
+    public async Task PostEGet_DeveCriarCompraPlanejadaComContaGerencialEPagador()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
 
-        var responsavelId = await CriarPessoaAsync(client, "Michelle");
+        var pagadorId = await CriarPessoaAsync(client, "Michelle");
         var contaGerencialId = await CriarContaGerencialAsync(client, "TEC", "Tecnologia");
 
         var createResponse = await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
@@ -30,7 +30,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId,
-            responsavelId,
+            pagadorId,
             link = "https://loja.exemplo.com/produto/notebook",
             observacao = "Aguardar Black Friday"
         });
@@ -43,8 +43,8 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         detail!.Titulo.Should().Be("Notebook novo");
         detail.ContaGerencialId.Should().Be(contaGerencialId);
         detail.ContaGerencialDescricao.Should().Be("Tecnologia");
-        detail.ResponsavelId.Should().Be(responsavelId);
-        detail.ResponsavelNome.Should().Be("Michelle");
+        detail.PagadorId.Should().Be(pagadorId);
+        detail.PagadorNome.Should().Be("Michelle");
         detail.Link.Should().Be("https://loja.exemplo.com/produto/notebook");
         detail.QuantidadeParcelasDesejada.Should().Be(10);
     }
@@ -55,7 +55,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
 
-        var responsavelId = await CriarPessoaAsync(client, "Michelle");
+        var pagadorId = await CriarPessoaAsync(client, "Michelle");
         var contaGerencialId = await CriarContaGerencialAsync(client, "TEC", "Tecnologia");
 
         var response = await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
@@ -67,7 +67,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 1,
             contaGerencialId,
-            responsavelId
+            pagadorId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -79,7 +79,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
 
-        var responsavelId = await CriarPessoaAsync(client, "Michelle");
+        var pagadorId = await CriarPessoaAsync(client, "Michelle");
         var contaPaiId = await CriarContaGerencialAsync(client, "DESP", "Despesas planejadas", null);
         _ = await CriarContaGerencialAsync(client, "DESP.TEC", "Tecnologia", contaPaiId);
 
@@ -92,7 +92,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = contaPaiId,
-            responsavelId
+            pagadorId
         });
 
         var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
@@ -108,7 +108,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
 
-        var responsavelId = await CriarPessoaAsync(client, "Michelle");
+        var pagadorId = await CriarPessoaAsync(client, "Michelle");
         var contaGerencialReceitaId = await CriarContaGerencialAsync(client, "REC", "Receitas diversas", null, "Receita");
 
         var response = await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
@@ -120,7 +120,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = contaGerencialReceitaId,
-            responsavelId
+            pagadorId
         });
 
         var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
@@ -136,7 +136,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
 
-        var responsavelId = await CriarPessoaAsync(client, "Michelle");
+        var pagadorId = await CriarPessoaAsync(client, "Michelle");
         var contaGerencialId = await CriarContaGerencialAsync(client, "TEC", "Tecnologia");
 
         await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
@@ -148,7 +148,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId,
-            responsavelId
+            pagadorId
         });
 
         await client.PostAsJsonAsync("/api/v1/compras-planejadas", new
@@ -160,7 +160,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = false,
             quantidadeParcelasDesejada = (int?)null,
             contaGerencialId,
-            responsavelId
+            pagadorId
         });
 
         var listResponse = await client.GetFromJsonAsync<CompraPlanejadaListResponse>("/api/v1/compras-planejadas?status=Planejada");
@@ -184,7 +184,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         {
             origemCompraPlanejadaId = compraPlanejadaId,
             dataEmissao = "2026-05-20",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-05-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -225,7 +225,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         {
             origemCompraPlanejadaId = compraPlanejadaId,
             dataEmissao = "2026-05-20",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-05-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -279,7 +279,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             link = "https://loja.exemplo.com/produto/notebook",
             observacao = "Alteracao indevida"
         });
@@ -476,7 +476,7 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             link = "https://loja.exemplo.com/produto/notebook",
             observacao = "Aguardar melhor janela"
         });
@@ -557,8 +557,8 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         int? QuantidadeParcelasDesejada,
         Guid ContaGerencialId,
         string ContaGerencialDescricao,
-        Guid ResponsavelId,
-        string ResponsavelNome,
+        Guid PagadorId,
+        string PagadorNome,
         string? Link,
         string? Observacao,
         Guid? ContaPagarGeradaId,
@@ -587,8 +587,8 @@ public sealed class ComprasPlanejadasControllerTests(CustomWebApplicationFactory
         int? QuantidadeParcelasDesejada,
         Guid ContaGerencialId,
         string ContaGerencialDescricao,
-        Guid ResponsavelId,
-        string ResponsavelNome,
+        Guid PagadorId,
+        string PagadorNome,
         string? Link,
         Guid? ContaPagarGeradaId,
         DateTime? ConvertidaEmContaPagarEmUtc);

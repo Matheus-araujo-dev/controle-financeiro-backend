@@ -8,7 +8,7 @@ namespace ControleFinanceiro.Application.FinanceAI.Tools;
 public sealed class GerenciarItemImportacaoWhatsappTool(ImportacoesWhatsappAppService service) : IFinanceTool
 {
     public string Name => "gerenciar_item_importacao_whatsapp";
-    public string Description => "Confirma ou rejeita um item individual de uma importação WhatsApp. Permite ajustar descrição, conta gerencial, responsável e configurações antes de confirmar.";
+    public string Description => "Confirma ou rejeita um item individual de uma importação WhatsApp. Permite ajustar descrição, conta gerencial, pagador e configurações antes de confirmar.";
     public string InputSchema => """
         {
           "type": "object",
@@ -18,7 +18,7 @@ public sealed class GerenciarItemImportacaoWhatsappTool(ImportacoesWhatsappAppSe
             "observacao":           { "type": "string",  "description": "Observação livre (opcional)" },
             "descricaoAjustada":    { "type": "string",  "description": "Descrição ajustada para o lançamento (opcional)" },
             "contaGerencialId":     { "type": "string",  "description": "ID da conta gerencial/categoria (GUID, opcional)" },
-            "responsavelId":        { "type": "string",  "description": "ID do responsável (GUID, opcional)" },
+            "pagadorId":        { "type": "string",  "description": "ID do pagador (GUID, opcional)" },
             "dataVencimentoContaReceber": { "type": "string", "description": "Data de vencimento da conta a receber (YYYY-MM-DD, se gerar)" },
             "gerarContaReceber":    { "type": "boolean", "description": "Se deve gerar conta a receber vinculada (padrão false)" },
             "marcarComoRecorrente": { "type": "boolean", "description": "Se deve marcar como recorrente para predições futuras (padrão false)" }
@@ -74,7 +74,7 @@ public sealed class GerenciarItemImportacaoWhatsappTool(ImportacoesWhatsappAppSe
     private static RevisarItemImportadoWhatsappRequest BuildRequest(JsonNode input)
     {
         Guid? contaGerencialId = Guid.TryParse(input["contaGerencialId"]?.GetValue<string>(), out var cgId) ? cgId : null;
-        Guid? responsavelId = Guid.TryParse(input["responsavelId"]?.GetValue<string>(), out var rId) ? rId : null;
+        Guid? pagadorId = Guid.TryParse(input["pagadorId"]?.GetValue<string>(), out var rId) ? rId : null;
 
         DateOnly? dataVencimento = null;
         var dataStr = input["dataVencimentoContaReceber"]?.GetValue<string>();
@@ -85,7 +85,7 @@ public sealed class GerenciarItemImportacaoWhatsappTool(ImportacoesWhatsappAppSe
             Observacao: input["observacao"]?.GetValue<string>(),
             DescricaoAjustada: input["descricaoAjustada"]?.GetValue<string>(),
             ContaGerencialId: contaGerencialId,
-            ResponsavelId: responsavelId,
+            PagadorId: pagadorId,
             DataVencimentoContaReceber: dataVencimento,
             GerarContaReceber: input["gerarContaReceber"]?.GetValue<bool>() ?? false,
             MarcarComoRecorrente: input["marcarComoRecorrente"]?.GetValue<bool>() ?? false);

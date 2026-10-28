@@ -9,7 +9,7 @@ public sealed class ContaPagarBuilder
 {
     private string? _numeroDocumento = "DOC-001";
     private DateOnly _dataEmissao = new(2026, 4, 1);
-    private Guid? _responsavelCompraId;
+    private Guid? _pagadorId;
     private Guid _recebedorId = Guid.NewGuid();
     private DateOnly _dataVencimento = new(2026, 4, 10);
     private Guid _formaPagamentoId = Guid.NewGuid();
@@ -43,9 +43,9 @@ public sealed class ContaPagarBuilder
         return this;
     }
 
-    public ContaPagarBuilder ComResponsavelCompraId(Guid? responsavelCompraId)
+    public ContaPagarBuilder ComPagadorId(Guid? pagadorId)
     {
-        _responsavelCompraId = responsavelCompraId;
+        _pagadorId = pagadorId;
         return this;
     }
 
@@ -204,7 +204,7 @@ public sealed class ContaPagarBuilder
         return ContaPagar.Criar(
             _numeroDocumento,
             _dataEmissao,
-            _responsavelCompraId,
+            _pagadorId,
             _recebedorId,
             _dataVencimento,
             _formaPagamentoId,

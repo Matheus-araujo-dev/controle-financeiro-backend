@@ -55,7 +55,7 @@ public sealed class AppDbContextConcurrencyTests
         return ContaPagar.Criar(
             numeroDocumento: "DOC-001",
             dataEmissao: new DateOnly(2026, 4, 1),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 10),
             formaPagamentoId: Guid.NewGuid(),

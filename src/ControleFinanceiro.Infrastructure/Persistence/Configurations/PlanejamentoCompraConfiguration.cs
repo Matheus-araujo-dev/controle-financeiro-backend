@@ -47,7 +47,7 @@ public sealed class PlanejamentoCompraConfiguration : IEntityTypeConfiguration<P
 
         builder.HasOne<Pessoa>()
             .WithMany()
-            .HasForeignKey(x => x.ResponsavelId)
+            .HasForeignKey(x => x.PagadorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<ContaGerencial>()

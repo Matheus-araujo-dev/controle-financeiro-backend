@@ -45,11 +45,6 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             consulta = consulta.Where(x => x.EhRecebedor == query.EhRecebedor.Value);
         }
 
-        if (query.EhResponsavel.HasValue)
-        {
-            consulta = consulta.Where(x => x.EhResponsavel == query.EhResponsavel.Value);
-        }
-
         if (!string.IsNullOrWhiteSpace(query.Documento))
         {
             var termoDoc = $"%{query.Documento.Trim().ToLower()}%";
@@ -126,7 +121,6 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 x.Ativo,
                 x.EhPagador,
                 x.EhRecebedor,
-                x.EhResponsavel,
                 x.ContaGerencialDespesaId,
                 x.ContaGerencialReceitaId))
             .ToArray();
@@ -224,7 +218,6 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 pessoa.Ativo,
                 request.EhPagador,
                 request.EhRecebedor,
-                request.EhResponsavel,
                 request.ContaGerencialDespesaId,
                 request.ContaGerencialReceitaId);
 
@@ -289,7 +282,6 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
                 true,
                 request.EhPagador,
                 request.EhRecebedor,
-                request.EhResponsavel,
                 request.ContaGerencialDespesaId,
                 request.ContaGerencialReceitaId);
         }
@@ -363,7 +355,6 @@ public sealed class PessoaAppService(IAppDbContext dbContext)
             pessoa.UpdatedAtUtc,
             pessoa.EhPagador,
             pessoa.EhRecebedor,
-            pessoa.EhResponsavel,
             pessoa.ContaGerencialDespesaId,
             pessoa.ContaGerencialReceitaId);
     }

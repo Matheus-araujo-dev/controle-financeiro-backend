@@ -222,7 +222,7 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         var contaPagarResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao = "2026-04-04",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.MembroId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -277,7 +277,7 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         });
 
         var listResponse = await client.GetFromJsonAsync<MovimentacaoListResponse>(
-            $"/api/v1/movimentacoes?responsavelIds={fixture.ResponsavelId},{responsavelSecundarioId}");
+            $"/api/v1/movimentacoes?responsavelIds={fixture.MembroId},{responsavelSecundarioId}");
 
         liquidarSaidaResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         liquidarEntradaResponse.StatusCode.Should().Be(HttpStatusCode.OK);

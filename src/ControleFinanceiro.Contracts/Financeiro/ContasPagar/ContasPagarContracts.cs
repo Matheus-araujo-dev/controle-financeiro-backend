@@ -38,7 +38,7 @@ public sealed record ContaPagarListQueryRequest : ListQueryRequest
 
     public IReadOnlyCollection<Guid>? FormaPagamentoIds { get; init; }
 
-    public IReadOnlyCollection<Guid>? ResponsavelIds { get; init; }
+    public IReadOnlyCollection<Guid>? PagadorIds { get; init; }
 
     public string? StatusCodigo { get; init; }
 
@@ -63,7 +63,7 @@ public sealed record CriarContaPagarRequest(
     Guid? OrigemCompraPlanejadaId,
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelCompraId,
+    Guid? PagadorId,
     Guid RecebedorId,
     DateOnly DataVencimento,
     Guid FormaPagamentoId,
@@ -82,15 +82,15 @@ public sealed record CriarContaPagarRequest(
     DateOnly? DataCompra = null,
     bool ForcarProximaFatura = false,
     Guid? ContaVinculadaOrigemId = null,
-    /// <summary>Quando informado com 2+ ids, cria uma conta por responsável. Se ValoresPorResponsavel tiver o mesmo comprimento, usa valores customizados; caso contrário divide igualmente.</summary>
-    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null,
-    IReadOnlyList<decimal>? ValoresPorResponsavel = null);
+    /// <summary>Quando informado com 2+ ids, cria uma conta por pagador. Se ValoresPorPagador tiver o mesmo comprimento, usa valores customizados; caso contrário divide igualmente.</summary>
+    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null,
+    IReadOnlyList<decimal>? ValoresPorPagador = null);
 
 public sealed record AtualizarContaPagarRequest(
     Guid Id,
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelCompraId,
+    Guid? PagadorId,
     Guid RecebedorId,
     DateOnly DataVencimento,
     Guid FormaPagamentoId,
@@ -130,7 +130,7 @@ public sealed record ContaPagarResumoResponse(
     string Descricao,
     Guid RecebedorId,
     string RecebedorNome,
-    string? ResponsavelNome,
+    string? PagadorNome,
     DateOnly DataEmissao,
     DateOnly DataVencimento,
     DateOnly? DataLiquidacao,
@@ -165,8 +165,8 @@ public sealed record ContaPagarDetalheResponse(
     Guid Id,
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelCompraId,
-    string? ResponsavelCompraNome,
+    Guid? PagadorId,
+    string? PagadorNome,
     Guid RecebedorId,
     string RecebedorNome,
     DateOnly DataVencimento,
@@ -206,6 +206,6 @@ public sealed record ContaPagarDetalheResponse(
     DateTime UpdatedAtUtc,
     ContaVinculadaResumo? ContaVinculada = null,
     Guid? GrupoReembolsoId = null,
-    Guid? GrupoResponsaveisId = null,
+    Guid? GrupoPagadoresId = null,
     GrupoReembolsoInfo? GrupoReembolso = null,
-    GrupoResponsaveisInfo? GrupoResponsaveis = null);
+    GrupoPagadoresInfo? GrupoPagadores = null);

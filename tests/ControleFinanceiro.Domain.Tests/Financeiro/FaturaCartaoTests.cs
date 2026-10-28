@@ -34,7 +34,7 @@ public sealed class FaturaCartaoTests
         var contaPagar = ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 5),
-            responsavelCompraId: null,
+            pagadorId: null,
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 20),
             formaPagamentoId: Guid.NewGuid(),

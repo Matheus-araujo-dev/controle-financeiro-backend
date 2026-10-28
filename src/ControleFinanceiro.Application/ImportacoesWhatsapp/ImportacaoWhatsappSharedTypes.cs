@@ -11,7 +11,7 @@ internal sealed record ConfirmacaoClassificada(
 
 internal sealed record AprovacaoFaturaContext(
     Guid RecebedorFaturaId,
-    Guid ResponsavelPagamentoFaturaId,
+    Guid PagadorFaturaId,
     Guid FormaPagamentoCartaoId,
     IReadOnlyDictionary<Guid, Cartao> Cartoes);
 
@@ -28,5 +28,5 @@ internal sealed record ItemImportadoPreparado(
     Cartao Cartao,
     string Descricao,
     Guid ContaGerencialId,
-    Guid ResponsavelId,
+    Guid PagadorId,
     decimal Valor);

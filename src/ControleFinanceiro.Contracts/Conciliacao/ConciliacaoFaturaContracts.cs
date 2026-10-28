@@ -6,7 +6,7 @@ namespace ControleFinanceiro.Contracts.Conciliacao;
 public sealed record VincularItemFaturaRequest(Guid ContaPagarId, decimal ValorEsperadoSistema, bool UsarValorFatura, bool Aprender = true, IReadOnlyList<string>? CamposParaAprender = null, ReembolsoFaturaConfig? Reembolso = null);
 public sealed record RateioConciliacaoResponse(Guid ContaGerencialId, decimal Valor);
 public sealed record ContaConciliacaoResponse(Guid Id, DateOnly DataCompra, string Descricao, decimal Valor,
-    int NumeroParcela, int QuantidadeParcelas, Guid? ResponsavelCompraId, Guid RecebedorId,
+    int NumeroParcela, int QuantidadeParcelas, Guid? PagadorId, Guid RecebedorId,
     Guid FormaPagamentoId, Guid? RegraRecorrenciaId, Guid? GrupoReembolsoId,
     IReadOnlyList<RateioConciliacaoResponse> Rateios);
 public sealed record CandidatoConciliacaoResponse(Guid ContaId, decimal Diferenca, int Pontos, string Motivo, bool CorrespondenciaClara);
@@ -18,13 +18,13 @@ public sealed record ConciliacaoFaturaResponse(Guid Id, Guid FaturaId, string No
 
 public sealed record ReembolsoFaturaConfig(bool ParcelarIgual, decimal ValorTotal, IReadOnlyList<Guid> PagadoresIds,
     Guid FormaPagamentoId, DateOnly DataVencimento, string Descricao, string? Observacao, IReadOnlyList<RateioRequest> Rateios);
-public sealed record CriarItemFaturaRequest(string Descricao, Guid RecebedorId, Guid? ResponsavelCompraId,
+public sealed record CriarItemFaturaRequest(string Descricao, Guid RecebedorId, Guid? PagadorId,
     Guid FormaPagamentoId, IReadOnlyList<RateioRequest> Rateios, RecorrenciaConfigRequest? Recorrencia,
     ReembolsoFaturaConfig? Reembolso, string? Observacao, bool Aprender = true, IReadOnlyList<string>? CamposParaAprender = null,
-    IReadOnlyList<Guid>? ResponsaveisAdicionaisIds = null, IReadOnlyList<decimal>? ValoresPorResponsavel = null);
+    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null, IReadOnlyList<decimal>? ValoresPorPagador = null);
 
 public sealed record RateioMemoriaResponse(Guid ContaGerencialId, decimal Proporcao);
-public sealed record PreferenciasFaturaResponse(string? Descricao, Guid? ResponsavelCompraId, Guid? RecebedorId,
+public sealed record PreferenciasFaturaResponse(string? Descricao, Guid? PagadorId, Guid? RecebedorId,
     IReadOnlyList<RateioMemoriaResponse>? Rateios, bool? EhRecorrente, bool? GerarReembolso, IReadOnlyList<Guid>? ReembolsoPagadoresIds);
 
 public sealed record RascunhoFaturaRequest(JsonElement Dados, DateTime AtualizadoEmUtc);
@@ -36,5 +36,5 @@ public sealed record PreviaReembolsoFaturaRequest(Guid? ContaPagarId, bool Parce
 public sealed record PreviaReembolsoFaturaResponse(Guid PagadorId, string PagadorNome, int NumeroParcela,
     int QuantidadeParcelas, decimal Valor, DateOnly DataVencimento);
 
-public sealed record SugestaoItemConciliacaoResponse(Guid ItemId, string? Descricao, Guid? RecebedorId, Guid? ResponsavelCompraId, Guid? ContaGerencialId, double Confianca);
+public sealed record SugestaoItemConciliacaoResponse(Guid ItemId, string? Descricao, Guid? RecebedorId, Guid? PagadorId, Guid? ContaGerencialId, double Confianca);
 public sealed record SugestoesConciliacaoResponse(IReadOnlyList<SugestaoItemConciliacaoResponse> Sugestoes);

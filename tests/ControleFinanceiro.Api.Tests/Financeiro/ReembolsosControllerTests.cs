@@ -233,9 +233,9 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
 
         var detalhe = await client.GetFromJsonAsync<ContaPagarDetalheResponse>($"/api/v1/contas-pagar/{conta!.Id}");
         detalhe.Should().NotBeNull();
-        detalhe!.GrupoResponsaveisId.Should().NotBeNull();
-        detalhe.GrupoResponsaveis.Should().NotBeNull();
-        detalhe.GrupoResponsaveis!.Contas.Should().HaveCount(2);
+        detalhe!.GrupoPagadoresId.Should().NotBeNull();
+        detalhe.GrupoPagadores.Should().NotBeNull();
+        detalhe.GrupoPagadores!.Contas.Should().HaveCount(2);
 
         var list = await client.GetFromJsonAsync<ContaListResponse>(
             "/api/v1/contas-pagar?search=multi+pagador");
@@ -256,7 +256,7 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
         {
             numeroDocumento = (string?)null,
             dataEmissao = "2026-04-01",
-            pagadorId = (Guid?)null,
+            recebedorId = (Guid?)null,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-05-01",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -280,9 +280,9 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
 
         var detalhe = await client.GetFromJsonAsync<ContaReceberDetalheResponse>($"/api/v1/contas-receber/{conta!.Id}");
         detalhe.Should().NotBeNull();
-        detalhe!.GrupoResponsaveisId.Should().NotBeNull();
-        detalhe.GrupoResponsaveis.Should().NotBeNull();
-        detalhe.GrupoResponsaveis!.Contas.Should().HaveCount(2);
+        detalhe!.GrupoRecebedoresId.Should().NotBeNull();
+        detalhe.GrupoRecebedores.Should().NotBeNull();
+        detalhe.GrupoRecebedores!.Contas.Should().HaveCount(2);
 
         var list = await client.GetFromJsonAsync<ContaListResponse>(
             "/api/v1/contas-receber?search=multi+pagador");
@@ -348,15 +348,15 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
     private sealed record ContaDetalheResponse(Guid Id, decimal ValorLiquido, int NumeroParcela, int QuantidadeParcelas);
 
     private sealed record ContaPagarDetalheResponse(
-        Guid Id, decimal ValorLiquido, Guid? GrupoReembolsoId, Guid? GrupoResponsaveisId,
-        GrupoReembolsoInfo? GrupoReembolso, GrupoPagadoresInfo? GrupoResponsaveis);
+        Guid Id, decimal ValorLiquido, Guid? GrupoReembolsoId, Guid? GrupoPagadoresId,
+        GrupoReembolsoInfo? GrupoReembolso, GrupoPagadoresInfo? GrupoPagadores);
 
     private sealed record ContaReceberDetalheResponse(
-        Guid Id, decimal ValorLiquido, Guid? GrupoReembolsoId, Guid? GrupoResponsaveisId,
-        GrupoReembolsoInfo? GrupoReembolso, GrupoPagadoresInfo? GrupoResponsaveis);
+        Guid Id, decimal ValorLiquido, Guid? GrupoReembolsoId, Guid? GrupoRecebedoresId,
+        GrupoReembolsoInfo? GrupoReembolso, GrupoPagadoresInfo? GrupoRecebedores);
 
     private sealed record GrupoReembolsoInfo(Guid GrupoReembolsoId, ContaVinculadaItem[] Contas);
-    private sealed record GrupoPagadoresInfo(Guid GrupoResponsaveisId, ContaVinculadaItem[] Contas);
+    private sealed record GrupoPagadoresInfo(Guid GrupoPagadoresId, ContaVinculadaItem[] Contas);
     private sealed record ContaVinculadaItem(Guid Id, decimal ValorLiquido);
     private sealed record ReembolsoResponse(Guid GrupoReembolsoId, ReembolsoContaItem[] ContasReceber);
     private sealed record ReembolsoContaItem(Guid Id, Guid PagadorId, int NumeroParcela, int QuantidadeParcelas, decimal ValorLiquido, string Descricao);

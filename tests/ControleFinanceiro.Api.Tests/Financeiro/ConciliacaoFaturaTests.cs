@@ -41,7 +41,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         var url = $"/api/v1/faturas/{invoiceId}/conciliacoes/{sessionId}/itens/{itemId}/previa-reembolso";
         var response = await client.PostAsJsonAsync(url, new {
             contaPagarId = (Guid?)null, parcelarIgual = false, valorTotal = 100m,
-            pagadoresIds = new[] { fixture.PagadorId, fixture.PagadorId, fixture.RecebedorId },
+            pagadoresIds = new[] { fixture.PagadorId, fixture.MembroId, fixture.RecebedorId },
             dataVencimento = "2026-10-05"
         });
         response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());

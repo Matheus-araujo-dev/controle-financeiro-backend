@@ -75,7 +75,7 @@ public sealed class FechamentoMensalAppService(IAppDbContext db, ICurrentUser cu
         var qtdVencidos = await contasPagar.CountAsync(x => x.StatusContaId == StatusConta.VencidaId, ct) + await contasReceber.CountAsync(x => x.StatusContaId == StatusConta.VencidaId, ct);
         var qtdSemCategoria = await contasPagar.CountAsync(x => !db.RateiosContaGerencial.Any(r => r.ContaPagarId == x.Id), ct)
             + await contasReceber.CountAsync(x => !db.RateiosContaGerencial.Any(r => r.ContaReceberId == x.Id), ct);
-        var qtdSemResponsavel = await contasPagar.CountAsync(x => x.ResponsavelCompraId == null, ct) + await contasReceber.CountAsync(x => x.ResponsavelId == null, ct);
+        var qtdSemResponsavel = await contasPagar.CountAsync(x => x.PagadorId == null, ct) + await contasReceber.CountAsync(x => x.RecebedorId == null, ct);
         var qtdConciliacoesPendentes = await db.Conciliacoes.AsNoTracking().CountAsync(x => x.DataInicio <= fim && x.DataFim >= inicio && x.Status != StatusConciliacao.Concluida, ct);
         var qtdLancamentos = await contasPagar.CountAsync(ct) + await contasReceber.CountAsync(ct);
 

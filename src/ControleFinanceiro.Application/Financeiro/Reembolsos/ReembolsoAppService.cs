@@ -131,7 +131,7 @@ public sealed class ReembolsoAppService(
                     rateiosParcela);
 
                 conta.DefinirGrupoReembolso(grupoReembolsoId);
-                conta.DefinirGrupoResponsaveis(grupoResponsaveisId);
+                conta.DefinirGrupoRecebedores(grupoResponsaveisId);
                 conta.VincularContaContraria(pagarParcela.Id, Domain.Financeiro.TipoContaVinculada.Pagar);
 
                 todasContasReceber.Add(conta);

@@ -141,12 +141,12 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
             }
         }
 
+        // Stop the test server before closing its shared SQLite connection.
+        await base.DisposeAsync();
         if (_sqliteConnection is not null)
         {
             await _sqliteConnection.DisposeAsync();
         }
-
-        await base.DisposeAsync();
     }
 
     public async Task ResetDatabaseAsync()

@@ -21,7 +21,7 @@ public sealed class DashboardAnomaliasService(IAppDbContext db)
                 && (c.FaturaCartaoId == null || c.CartaoId != null))
             .OrderBy(c => c.DataEmissao).ThenBy(c => c.Id)
             .Select(c => new AnomaliaConta(c.Id, c.DataEmissao, c.Descricao, c.RecebedorId,
-                c.ResponsavelCompraId, c.CartaoId, c.ContaBancariaId, c.ValorLiquido, c.RegraRecorrenciaId))
+                c.PagadorId, c.CartaoId, c.ContaBancariaId, c.ValorLiquido, c.RegraRecorrenciaId))
             .Take(5001).ToListAsync(cancellationToken);
         var completo = contas.Count <= 5000;
         return new(mesReferencia, inicio, completo, contas.Count,

@@ -1206,7 +1206,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.MembroId
+            pagadorId = fixture.MembroId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);

@@ -1871,7 +1871,7 @@
             }
           },
           {
-            "name": "ResponsavelId",
+            "name": "PagadorId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -3772,7 +3772,7 @@
             }
           },
           {
-            "name": "ResponsavelPadraoId",
+            "name": "MembroPadraoId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -3780,7 +3780,7 @@
             }
           },
           {
-            "name": "ResponsavelPadrao",
+            "name": "MembroPadrao",
             "in": "query",
             "schema": {
               "type": "string"
@@ -4266,7 +4266,7 @@
             }
           },
           {
-            "name": "ResponsavelIds",
+            "name": "PagadorIds",
             "in": "query",
             "schema": {
               "type": "array",
@@ -5841,7 +5841,7 @@
             }
           },
           {
-            "name": "ResponsavelIds",
+            "name": "RecebedorIds",
             "in": "query",
             "schema": {
               "type": "array",
@@ -9288,7 +9288,7 @@
             }
           },
           {
-            "name": "ResponsavelId",
+            "name": "PagadorId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -13018,13 +13018,6 @@
             }
           },
           {
-            "name": "EhResponsavel",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
             "name": "Documento",
             "in": "query",
             "schema": {
@@ -16242,17 +16235,17 @@
             "format": "uuid",
             "nullable": true
           },
-          "responsavelPagamentoFaturaId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "cartaoIds": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
             },
+            "nullable": true
+          },
+          "pagadorFaturaId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -16355,10 +16348,6 @@
             "type": "string",
             "format": "uuid"
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "link": {
             "type": "string",
             "nullable": true
@@ -16366,6 +16355,10 @@
           "observacao": {
             "type": "string",
             "nullable": true
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -16439,11 +16432,6 @@
             "format": "uuid",
             "nullable": true
           },
-          "responsavelPadraoId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "ativo": {
             "type": "boolean"
           },
@@ -16451,6 +16439,11 @@
             "type": "boolean"
           },
           "contaGerencialContrariaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "membroPadraoId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -16472,11 +16465,6 @@
           "dataEmissao": {
             "type": "string",
             "format": "date"
-          },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
           },
           "recebedorId": {
             "type": "string",
@@ -16553,6 +16541,11 @@
           },
           "forcarProximaFatura": {
             "type": "boolean"
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -16571,11 +16564,6 @@
           "dataEmissao": {
             "type": "string",
             "format": "date"
-          },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
           },
           "pagadorId": {
             "type": "string",
@@ -16641,6 +16629,11 @@
           },
           "recorrencia": {
             "$ref": "#/components/schemas/RecorrenciaConfigRequest"
+          },
+          "recebedorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -16734,9 +16727,6 @@
             "type": "boolean"
           },
           "ehRecebedor": {
-            "type": "boolean"
-          },
-          "ehResponsavel": {
             "type": "boolean"
           },
           "contaGerencialDespesaId": {
@@ -17219,14 +17209,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "link": {
             "type": "string",
             "nullable": true
@@ -17252,6 +17234,14 @@
           "updatedAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -17346,14 +17336,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "link": {
             "type": "string",
             "nullable": true
@@ -17366,6 +17348,14 @@
           "convertidaEmContaPagarEmUtc": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pagadorNome": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -17826,11 +17816,6 @@
             "type": "integer",
             "format": "int32"
           },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "recebedorId": {
             "type": "string",
             "format": "uuid"
@@ -17854,6 +17839,11 @@
             "items": {
               "$ref": "#/components/schemas/RateioConciliacaoResponse"
             },
+            "nullable": true
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -17886,15 +17876,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelPadraoId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "responsavelPadraoNome": {
-            "type": "string",
-            "nullable": true
-          },
           "ativo": {
             "type": "boolean"
           },
@@ -17918,6 +17899,15 @@
             "nullable": true
           },
           "contaGerencialContrariaNome": {
+            "type": "string",
+            "nullable": true
+          },
+          "membroPadraoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "membroPadraoNome": {
             "type": "string",
             "nullable": true
           }
@@ -17951,15 +17941,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelPadraoId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "responsavelPadraoNome": {
-            "type": "string",
-            "nullable": true
-          },
           "ativo": {
             "type": "boolean"
           },
@@ -17975,6 +17956,15 @@
             "nullable": true
           },
           "contaGerencialContrariaNome": {
+            "type": "string",
+            "nullable": true
+          },
+          "membroPadraoId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "membroPadraoNome": {
             "type": "string",
             "nullable": true
           }
@@ -18031,15 +18021,6 @@
           "dataEmissao": {
             "type": "string",
             "format": "date"
-          },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "responsavelCompraNome": {
-            "type": "string",
-            "nullable": true
           },
           "recebedorId": {
             "type": "string",
@@ -18204,16 +18185,25 @@
             "format": "uuid",
             "nullable": true
           },
-          "grupoResponsaveisId": {
+          "grupoReembolso": {
+            "$ref": "#/components/schemas/GrupoReembolsoInfo"
+          },
+          "pagadorId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
           },
-          "grupoReembolso": {
-            "$ref": "#/components/schemas/GrupoReembolsoInfo"
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           },
-          "grupoResponsaveis": {
-            "$ref": "#/components/schemas/GrupoResponsaveisInfo"
+          "grupoPagadoresId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "grupoPagadores": {
+            "$ref": "#/components/schemas/GrupoPagadoresInfo"
           }
         },
         "additionalProperties": false
@@ -18303,10 +18293,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "dataEmissao": {
             "type": "string",
             "format": "date"
@@ -18360,6 +18346,10 @@
           },
           "ehRecorrente": {
             "type": "boolean"
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -18398,15 +18388,6 @@
           "dataEmissao": {
             "type": "string",
             "format": "date"
-          },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
           },
           "pagadorId": {
             "type": "string",
@@ -18543,16 +18524,25 @@
             "format": "uuid",
             "nullable": true
           },
-          "grupoResponsaveisId": {
+          "grupoReembolso": {
+            "$ref": "#/components/schemas/GrupoReembolsoInfo"
+          },
+          "recebedorId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
           },
-          "grupoReembolso": {
-            "$ref": "#/components/schemas/GrupoReembolsoInfo"
+          "recebedorNome": {
+            "type": "string",
+            "nullable": true
           },
-          "grupoResponsaveis": {
-            "$ref": "#/components/schemas/GrupoResponsaveisInfo"
+          "grupoRecebedoresId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "grupoRecebedores": {
+            "$ref": "#/components/schemas/GrupoPagadoresInfo"
           }
         },
         "additionalProperties": false
@@ -18642,10 +18632,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "dataEmissao": {
             "type": "string",
             "format": "date"
@@ -18699,6 +18685,10 @@
           },
           "ehRecorrente": {
             "type": "boolean"
+          },
+          "recebedorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -18933,10 +18923,6 @@
             "type": "string",
             "format": "uuid"
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "link": {
             "type": "string",
             "nullable": true
@@ -18944,6 +18930,10 @@
           "observacao": {
             "type": "string",
             "nullable": true
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -19017,11 +19007,6 @@
             "format": "uuid",
             "nullable": true
           },
-          "responsavelPadraoId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "ativo": {
             "type": "boolean"
           },
@@ -19029,6 +19014,11 @@
             "type": "boolean"
           },
           "contaGerencialContrariaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "membroPadraoId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -19051,11 +19041,6 @@
           "dataEmissao": {
             "type": "string",
             "format": "date"
-          },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
           },
           "recebedorId": {
             "type": "string",
@@ -19135,7 +19120,12 @@
             "format": "uuid",
             "nullable": true
           },
-          "responsaveisAdicionaisIds": {
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pagadoresAdicionaisIds": {
             "type": "array",
             "items": {
               "type": "string",
@@ -19143,7 +19133,7 @@
             },
             "nullable": true
           },
-          "valoresPorResponsavel": {
+          "valoresPorPagador": {
             "type": "array",
             "items": {
               "type": "number",
@@ -19164,11 +19154,6 @@
           "dataEmissao": {
             "type": "string",
             "format": "date"
-          },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
           },
           "pagadorId": {
             "type": "string",
@@ -19254,6 +19239,11 @@
               "type": "number",
               "format": "double"
             },
+            "nullable": true
+          },
+          "recebedorId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -19348,11 +19338,6 @@
             "type": "string",
             "format": "uuid"
           },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "formaPagamentoId": {
             "type": "string",
             "format": "uuid"
@@ -19384,7 +19369,12 @@
             },
             "nullable": true
           },
-          "responsaveisAdicionaisIds": {
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pagadoresAdicionaisIds": {
             "type": "array",
             "items": {
               "type": "string",
@@ -19392,7 +19382,7 @@
             },
             "nullable": true
           },
-          "valoresPorResponsavel": {
+          "valoresPorPagador": {
             "type": "array",
             "items": {
               "type": "number",
@@ -19440,9 +19430,6 @@
             "type": "boolean"
           },
           "ehRecebedor": {
-            "type": "boolean"
-          },
-          "ehResponsavel": {
             "type": "boolean"
           },
           "contaGerencialDespesaId": {
@@ -20548,10 +20535,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "dataCompra": {
             "type": "string",
             "format": "date"
@@ -20574,6 +20557,10 @@
           },
           "ehEstorno": {
             "type": "boolean"
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -20991,23 +20978,6 @@
         "type": "object",
         "properties": {
           "grupoReembolsoId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "contas": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ContaVinculadaResumo"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GrupoResponsaveisInfo": {
-        "type": "object",
-        "properties": {
-          "grupoResponsaveisId": {
             "type": "string",
             "format": "uuid"
           },
@@ -21620,15 +21590,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "contaReceberId": {
             "type": "string",
             "format": "uuid",
@@ -21658,6 +21619,15 @@
           },
           "predicao": {
             "$ref": "#/components/schemas/PredicaoClassificacaoImportacaoWhatsappResponse"
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -22227,9 +22197,6 @@
           "ehRecebedor": {
             "type": "boolean"
           },
-          "ehResponsavel": {
-            "type": "boolean"
-          },
           "contaGerencialDespesaId": {
             "type": "string",
             "format": "uuid",
@@ -22393,9 +22360,6 @@
           "ehRecebedor": {
             "type": "boolean"
           },
-          "ehResponsavel": {
-            "type": "boolean"
-          },
           "contaGerencialDespesaId": {
             "type": "string",
             "format": "uuid",
@@ -22532,15 +22496,6 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "descricaoAjustada": {
             "type": "string",
             "nullable": true
@@ -22558,6 +22513,15 @@
           "confiancaHistorico": {
             "type": "number",
             "format": "double"
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -22567,11 +22531,6 @@
         "properties": {
           "descricao": {
             "type": "string",
-            "nullable": true
-          },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
             "nullable": true
           },
           "recebedorId": {
@@ -22600,6 +22559,11 @@
               "type": "string",
               "format": "uuid"
             },
+            "nullable": true
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -22980,12 +22944,12 @@
             "type": "string",
             "nullable": true
           },
-          "responsavelNome": {
-            "type": "string",
-            "nullable": true
-          },
           "encerrada": {
             "type": "boolean"
+          },
+          "pagadorNome": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -23236,11 +23200,6 @@
             "format": "uuid",
             "nullable": true
           },
-          "responsavelId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "dataVencimentoContaReceber": {
             "type": "string",
             "format": "date",
@@ -23251,6 +23210,11 @@
           },
           "marcarComoRecorrente": {
             "type": "boolean"
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -23787,11 +23751,6 @@
             "format": "uuid",
             "nullable": true
           },
-          "responsavelCompraId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
           "contaGerencialId": {
             "type": "string",
             "format": "uuid",
@@ -23809,6 +23768,11 @@
           "justificativa": {
             "type": "string",
             "nullable": true
+          },
+          "pagadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -23820,6 +23784,23 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SugestaoItemConciliacaoResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GrupoPagadoresInfo": {
+        "type": "object",
+        "properties": {
+          "grupoPagadoresId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContaVinculadaResumo"
             },
             "nullable": true
           }

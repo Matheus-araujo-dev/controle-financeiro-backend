@@ -179,8 +179,8 @@ public sealed class BuscarDashboardTool(IAppDbContext db, DashboardAppService da
         var gastos = await db.ContasPagar
             .AsNoTracking()
             .Where(c => c.DataVencimento >= periodo.inicio && c.DataVencimento <= periodo.fim
-                && c.ResponsavelCompraId != null)
-            .GroupBy(c => c.ResponsavelCompraId!.Value)
+                && c.PagadorId != null)
+            .GroupBy(c => c.PagadorId!.Value)
             .Select(g => new { ResponsavelId = g.Key, Total = g.Sum(c => c.ValorLiquido), Quantidade = g.Count() })
             .ToListAsync(ct);
 

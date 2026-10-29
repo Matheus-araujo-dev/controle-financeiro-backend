@@ -22,7 +22,7 @@ public sealed class DashboardResponsavelService(IAppDbContext dbContext, Dashboa
         var despesas = await dbContext.ContasPagar.AsNoTracking()
             .Where(c => c.StatusContaId != StatusConta.CanceladaId &&
                         c.DataEmissao >= dataInicial && c.DataEmissao <= dataFinal)
-            .GroupBy(c => c.ResponsavelCompraId)
+            .GroupBy(c => c.PagadorId)
             .Select(g => new
             {
                 ResponsavelId = g.Key,
@@ -35,7 +35,7 @@ public sealed class DashboardResponsavelService(IAppDbContext dbContext, Dashboa
         var receitas = await dbContext.ContasReceber.AsNoTracking()
             .Where(c => c.StatusContaId != StatusConta.CanceladaId &&
                         c.DataEmissao >= dataInicial && c.DataEmissao <= dataFinal)
-            .GroupBy(c => c.ResponsavelId)
+            .GroupBy(c => c.RecebedorId)
             .Select(g => new
             {
                 ResponsavelId = g.Key,

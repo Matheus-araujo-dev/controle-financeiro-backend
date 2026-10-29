@@ -22,7 +22,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         {
             numeroDocumento = "NF-2026-1",
             dataEmissao = "2026-04-04",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -493,7 +493,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         {
             origemCompraPlanejadaId = compraPlanejadaId,
             dataEmissao = "2026-05-20",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-05-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -537,7 +537,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         {
             origemCompraPlanejadaId = compraPlanejadaId,
             dataEmissao = "2026-05-20",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-05-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -807,7 +807,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         var createResponse = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao = "2026-04-04",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -829,7 +829,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
         {
             id = created.Id,
             dataEmissao = "2026-04-04",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -1075,7 +1075,7 @@ public sealed class ContasPagarControllerTests(CustomWebApplicationFactory facto
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             link = "https://loja.exemplo.com/produto/notebook",
             observacao = "Aguardar melhor janela"
         });

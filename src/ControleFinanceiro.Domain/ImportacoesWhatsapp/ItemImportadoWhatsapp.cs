@@ -18,7 +18,7 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
 
     public Guid? ContaGerencialId { get; private set; }
 
-    public Guid? ResponsavelId { get; private set; }
+    public Guid? PagadorId { get; private set; }
 
     public string? DescricaoAjustada { get; private set; }
 
@@ -64,7 +64,7 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
         string? observacao,
         string? descricaoAjustada,
         Guid? contaGerencialId,
-        Guid? responsavelId,
+        Guid? pagadorId,
         Guid? contaReceberId,
         bool marcarComoRecorrente)
     {
@@ -78,7 +78,7 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
         DescricaoAjustada = string.IsNullOrWhiteSpace(descricaoAjustada) ? null : descricaoAjustada.Trim();
         MarcarComoRecorrente = marcarComoRecorrente;
         ContaGerencialId = contaGerencialId;
-        ResponsavelId = responsavelId;
+        PagadorId = pagadorId;
         ContaReceberId = contaReceberId;
         ConfirmadoEmUtc = DateTime.UtcNow;
         RejeitadoEmUtc = null;
@@ -88,7 +88,7 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
         string? observacao,
         string? descricaoAjustada,
         Guid? contaGerencialId,
-        Guid? responsavelId,
+        Guid? pagadorId,
         Guid? contaReceberId,
         bool marcarComoRecorrente)
     {
@@ -101,7 +101,7 @@ public sealed class ItemImportadoWhatsapp : TenantEntity
         DescricaoAjustada = string.IsNullOrWhiteSpace(descricaoAjustada) ? null : descricaoAjustada.Trim();
         MarcarComoRecorrente = marcarComoRecorrente;
         ContaGerencialId = contaGerencialId;
-        ResponsavelId = responsavelId;
+        PagadorId = pagadorId;
         ContaReceberId = contaReceberId;
     }
 

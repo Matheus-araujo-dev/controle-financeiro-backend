@@ -160,7 +160,7 @@ public sealed class CartoesControllerTests(CustomWebApplicationFactory factory) 
         {
             numeroDocumento = "CARTAO-SHARED",
             dataEmissao = "2026-04-05",
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.MembroId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoCartaoId,

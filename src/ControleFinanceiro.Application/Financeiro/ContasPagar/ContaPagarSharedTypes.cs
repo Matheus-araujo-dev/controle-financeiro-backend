@@ -7,7 +7,7 @@ internal sealed record ContaPagarValidationContext(bool LiquidarNaCriacao, bool 
 internal sealed record ContaPagarRecorrenciaTemplate(
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelCompraId,
+    Guid? PagadorId,
     Guid RecebedorId,
     DateOnly DataVencimento,
     Guid FormaPagamentoId,

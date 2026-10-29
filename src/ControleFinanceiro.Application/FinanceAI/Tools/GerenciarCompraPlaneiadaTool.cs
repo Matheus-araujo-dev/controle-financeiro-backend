@@ -25,7 +25,7 @@ public sealed class GerenciarCompraPlaneiadaTool(IAppDbContext db) : IFinanceToo
             "parcelavel":                  { "type": "boolean", "description": "Se pode ser parcelado (padrão: false)" },
             "quantidadeParcelasDesejada":  { "type": "integer", "description": "Número de parcelas desejadas (>=2, se parcelável)" },
             "contaGerencialId":            { "type": "string",  "description": "ID da categoria" },
-            "responsavelId":               { "type": "string",  "description": "ID do responsável" },
+            "pagadorId":               { "type": "string",  "description": "ID do pagador" },
             "link":                        { "type": "string",  "description": "URL do produto (opcional)" },
             "observacao":                  { "type": "string",  "description": "Observação (opcional)" }
           },
@@ -109,7 +109,7 @@ public sealed class GerenciarCompraPlaneiadaTool(IAppDbContext db) : IFinanceToo
         if (!Guid.TryParse(input["contaGerencialId"]?.GetValue<string>(), out var contaGerencialId))
             return JsonSerializer.Serialize(new { erro = "contaGerencialId é obrigatório." });
 
-        var responsavelId = Guid.TryParse(input["responsavelId"]?.GetValue<string>(), out var rId)
+        var pagadorId = Guid.TryParse(input["pagadorId"]?.GetValue<string>(), out var rId)
             ? rId : context.UsuarioId;
 
         var prioridade = MapearPrioridade(input["prioridade"]?.GetValue<string>()) ?? PrioridadePlanejamentoCompra.Media;
@@ -123,7 +123,7 @@ public sealed class GerenciarCompraPlaneiadaTool(IAppDbContext db) : IFinanceToo
             valorEstimado, dataDesejada, prioridade,
             StatusPlanejamentoCompra.Planejada,
             parcelavel, parcelas,
-            contaGerencialId, responsavelId,
+            contaGerencialId, pagadorId,
             input["link"]?.GetValue<string>(),
             input["observacao"]?.GetValue<string>());
 
@@ -154,14 +154,14 @@ public sealed class GerenciarCompraPlaneiadaTool(IAppDbContext db) : IFinanceToo
         var parcelas = input["quantidadeParcelasDesejada"]?.GetValue<int>() ?? compra.QuantidadeParcelasDesejada;
         DateOnly? dataDesejada = DateOnly.TryParse(input["dataDesejada"]?.GetValue<string>(), out var dd) ? dd : compra.DataDesejada;
         var contaGerencialId = Guid.TryParse(input["contaGerencialId"]?.GetValue<string>(), out var cg) ? cg : compra.ContaGerencialId;
-        var responsavelId = Guid.TryParse(input["responsavelId"]?.GetValue<string>(), out var rp) ? rp : compra.ResponsavelId;
+        var pagadorId = Guid.TryParse(input["pagadorId"]?.GetValue<string>(), out var rp) ? rp : compra.PagadorId;
 
         compra.Atualizar(
             titulo,
             input["descricao"]?.GetValue<string>() ?? compra.Descricao,
             valorEstimado, dataDesejada, prioridade,
             compra.Status, parcelavel, parcelas,
-            contaGerencialId, responsavelId,
+            contaGerencialId, pagadorId,
             input["link"]?.GetValue<string>() ?? compra.Link,
             input["observacao"]?.GetValue<string>() ?? compra.Observacao);
 

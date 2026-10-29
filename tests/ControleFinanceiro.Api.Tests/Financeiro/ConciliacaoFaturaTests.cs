@@ -41,7 +41,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         var url = $"/api/v1/faturas/{invoiceId}/conciliacoes/{sessionId}/itens/{itemId}/previa-reembolso";
         var response = await client.PostAsJsonAsync(url, new {
             contaPagarId = (Guid?)null, parcelarIgual = false, valorTotal = 100m,
-            pagadoresIds = new[] { fixture.PagadorId, fixture.ResponsavelId, fixture.RecebedorId },
+            pagadoresIds = new[] { fixture.PagadorId, fixture.PagadorId, fixture.RecebedorId },
             dataVencimento = "2026-10-05"
         });
         response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
@@ -181,7 +181,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
             invoiceId = invoice.Id; sessionId = session.Id; itemId = item.Id;
         }
         object Request(Guid pagadorId) => new {
-            descricao = "Tênis de presente", recebedorId = fixture.RecebedorId, responsavelCompraId = fixture.ResponsavelId,
+            descricao = "Tênis de presente", recebedorId = fixture.RecebedorId, pagadorId = fixture.PagadorId,
             formaPagamentoId = fixture.FormaPagamentoCartaoId,
             rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 33.33m } },
             reembolso = new { parcelarIgual = false, valorTotal = 33.33m, pagadoresIds = new[] { pagadorId },
@@ -226,7 +226,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         var conta = contas[0];
         conta.NumeroParcela.Should().Be(6); conta.QuantidadeParcelas.Should().Be(10);
         conta.ValorLiquido.Should().Be(33.33m); conta.Descricao.Should().Be("Tênis de presente 6/10");
-        conta.ResponsavelCompraId.Should().Be(fixture.ResponsavelId);
+        conta.PagadorId.Should().Be(fixture.PagadorId);
         conta.GrupoReembolsoId.Should().NotBeNull();
         (await context.ContasReceber.IgnoreQueryFilters().CountAsync(x => x.GrupoReembolsoId == conta.GrupoReembolsoId)).Should().Be(1);
         var memoria = await context.MemoriasEstabelecimento.IgnoreQueryFilters().SingleAsync(x => x.CartaoId == fixture.CartaoId);
@@ -298,7 +298,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
             await db.SaveChangesAsync();
             invoiceId = invoice.Id; sessionId = session.Id; itemId = item.Id;
         }
-        var request = new { descricao = "Assinatura", recebedorId = fixture.RecebedorId, responsavelCompraId = fixture.ResponsavelId,
+        var request = new { descricao = "Assinatura", recebedorId = fixture.RecebedorId, pagadorId = fixture.PagadorId,
             formaPagamentoId = fixture.FormaPagamentoCartaoId, rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 100m } },
             recorrencia = new { tipoPeriodicidade = "Mensal", tipoDia = "DiaFixo", diaOrdemMensal = 1, dataInicio = inicio, dataFim = fim, permiteEdicaoOcorrenciaIndividual = true } };
         var url = $"/api/v1/faturas/{invoiceId}/conciliacoes/{sessionId}/itens/{itemId}/criar";

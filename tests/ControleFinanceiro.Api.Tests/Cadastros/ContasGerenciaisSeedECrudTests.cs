@@ -45,7 +45,7 @@ public sealed class ContasGerenciaisSeedECrudTests(CustomWebApplicationFactory f
             Descricao: "Despesa de teste",
             Tipo: ContaGerencialTipo.Despesa,
             ContaPaiId: null,
-            ResponsavelPadraoId: null,
+            MembroPadraoId: null,
             Ativo: true,
             EhPadraoRecebimentoFaturaCartao: false));
         criar.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -63,7 +63,7 @@ public sealed class ContasGerenciaisSeedECrudTests(CustomWebApplicationFactory f
                 Descricao: "Despesa renomeada",
                 Tipo: ContaGerencialTipo.Despesa,
                 ContaPaiId: null,
-                ResponsavelPadraoId: null,
+                MembroPadraoId: null,
                 Ativo: false,
                 EhPadraoRecebimentoFaturaCartao: false));
         atualizar.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -95,7 +95,7 @@ public sealed class ContasGerenciaisSeedECrudTests(CustomWebApplicationFactory f
                 Descricao: "Inexistente",
                 Tipo: ContaGerencialTipo.Despesa,
                 ContaPaiId: null,
-                ResponsavelPadraoId: null,
+                MembroPadraoId: null,
                 Ativo: true,
                 EhPadraoRecebimentoFaturaCartao: false));
 

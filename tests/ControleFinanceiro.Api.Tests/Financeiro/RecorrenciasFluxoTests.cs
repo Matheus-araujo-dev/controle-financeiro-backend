@@ -229,7 +229,7 @@ public sealed class RecorrenciasFluxoTests(CustomWebApplicationFactory factory) 
         {
             dataEmissao = "2026-04-04",
             recebedorId = fixture.RecebedorId,
-            responsavelCompraId = fixture.ResponsavelId,
+            pagadorId = fixture.MembroId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoManualId,
             valorOriginal = 450m,
@@ -267,7 +267,7 @@ public sealed class RecorrenciasFluxoTests(CustomWebApplicationFactory factory) 
         var response = await client.PostAsJsonAsync("/api/v1/contas-receber", new
         {
             dataEmissao = "2026-04-05",
-            responsavelId = fixture.ResponsavelId,
+            recebedorId = fixture.MembroId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-15",
             formaPagamentoId = fixture.FormaPagamentoManualId,
@@ -317,7 +317,7 @@ public sealed class RecorrenciasFluxoTests(CustomWebApplicationFactory factory) 
         string Descricao,
         decimal ValorLiquido,
         string PessoaNome,
-        string? ResponsavelNome,
+        string? PessoaSecundariaNome,
         bool Encerrada = false);
 
     private sealed record GerarOcorrenciasResponse(

@@ -26,7 +26,6 @@ public sealed class GerenciarPessoaTool(IAppDbContext db) : IFinanceTool
             "ativo":                     { "type": "boolean", "description": "Se está ativo (padrão: true)" },
             "ehPagador":                 { "type": "boolean", "description": "Se é pagador (padrão: true)" },
             "ehRecebedor":               { "type": "boolean", "description": "Se é recebedor (padrão: true)" },
-            "ehResponsavel":             { "type": "boolean", "description": "Se é responsável (padrão: true)" },
             "contaGerencialDespesaId":   { "type": "string",  "description": "Categoria padrão de despesa (opcional)" },
             "contaGerencialReceitaId":   { "type": "string",  "description": "Categoria padrão de receita (opcional)" }
           },
@@ -73,7 +72,6 @@ public sealed class GerenciarPessoaTool(IAppDbContext db) : IFinanceTool
         var ativo = input["ativo"]?.GetValue<bool>() ?? true;
         var ehPagador = input["ehPagador"]?.GetValue<bool>() ?? true;
         var ehRecebedor = input["ehRecebedor"]?.GetValue<bool>() ?? true;
-        var ehResponsavel = input["ehResponsavel"]?.GetValue<bool>() ?? true;
         Guid? contaDespId = Guid.TryParse(input["contaGerencialDespesaId"]?.GetValue<string>(), out var cd) ? cd : null;
         Guid? contaRecId = Guid.TryParse(input["contaGerencialReceitaId"]?.GetValue<string>(), out var cr) ? cr : null;
 
@@ -84,7 +82,7 @@ public sealed class GerenciarPessoaTool(IAppDbContext db) : IFinanceTool
             input["telefone"]?.GetValue<string>(),
             input["observacao"]?.GetValue<string>(),
             Array.Empty<ChavePixPlano>(),
-            ativo, ehPagador, ehRecebedor, ehResponsavel,
+            ativo, ehPagador, ehRecebedor,
             contaDespId, contaRecId);
 
         db.Pessoas.Add(pessoa);
@@ -112,7 +110,6 @@ public sealed class GerenciarPessoaTool(IAppDbContext db) : IFinanceTool
         var ativo = input["ativo"]?.GetValue<bool>() ?? pessoa.Ativo;
         var ehPagador = input["ehPagador"]?.GetValue<bool>() ?? pessoa.EhPagador;
         var ehRecebedor = input["ehRecebedor"]?.GetValue<bool>() ?? pessoa.EhRecebedor;
-        var ehResponsavel = input["ehResponsavel"]?.GetValue<bool>() ?? pessoa.EhResponsavel;
         Guid? contaDespId = Guid.TryParse(input["contaGerencialDespesaId"]?.GetValue<string>(), out var cd)
             ? cd : pessoa.ContaGerencialDespesaId;
         Guid? contaRecId = Guid.TryParse(input["contaGerencialReceitaId"]?.GetValue<string>(), out var cr)
@@ -124,7 +121,7 @@ public sealed class GerenciarPessoaTool(IAppDbContext db) : IFinanceTool
             input["email"]?.GetValue<string>() ?? pessoa.Email,
             input["telefone"]?.GetValue<string>() ?? pessoa.Telefone,
             input["observacao"]?.GetValue<string>() ?? pessoa.Observacao,
-            ativo, ehPagador, ehRecebedor, ehResponsavel,
+            ativo, ehPagador, ehRecebedor,
             contaDespId, contaRecId);
 
         await db.SaveChangesAsync(ct);

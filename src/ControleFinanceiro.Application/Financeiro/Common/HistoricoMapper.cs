@@ -29,7 +29,7 @@ public static class HistoricoMapper
     private static readonly IReadOnlySet<string> CamposIgnorados = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "Id", "FamiliaId", "CreatedAtUtc", "UpdatedAtUtc", "CreatedBy", "UpdatedBy",
-        "RecebedorId", "PagadorId", "ResponsavelCompraId", "ResponsavelId",
+        "RecebedorId", "PagadorId", "PagadorId", "PagadorId",
         "FormaPagamentoId", "CartaoId", "ContaBancariaId", "StatusContaId",
         "RegraRecorrenciaId", "GrupoParcelamentoId", "GrupoReembolsoId", "GrupoResponsaveisId",
         "OrigemCompraPlanejadaId", "ContaVinculadaId",

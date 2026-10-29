@@ -37,7 +37,7 @@ public sealed class DashboardFinancialIntegrityTests(CustomWebApplicationFactory
         var compra = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao = "2027-01-05", dataVencimento,
-            responsavelCompraId = fixture.ResponsavelId, recebedorId = fixture.RecebedorId,
+            responsavelCompraId = fixture.MembroId, recebedorId = fixture.RecebedorId,
             formaPagamentoId = fixture.FormaPagamentoCartaoId, cartaoId = fixture.CartaoId,
             valorOriginal = 300m, quantidadeParcelas = 1, descricao = "Compra única",
             rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 300m } }

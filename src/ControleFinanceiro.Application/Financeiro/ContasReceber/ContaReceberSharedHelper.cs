@@ -24,7 +24,7 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
 
     internal async Task<bool> ValidarCriacaoOuAtualizacaoAsync(
         Guid pagadorId,
-        Guid? responsavelId,
+        Guid? recebedorId,
         Guid formaPagamentoId,
         Guid? cartaoId,
         Guid? contaBancariaId,
@@ -36,9 +36,9 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
         if (!await dbContext.Pessoas.AnyAsync(x => x.Id == pagadorId, cancellationToken))
             throw ValidationExceptionFactory.Create("PagadorId", "Pagador não encontrado.");
 
-        if (responsavelId.HasValue &&
-            !await dbContext.Pessoas.AnyAsync(x => x.Id == responsavelId.Value, cancellationToken))
-            throw ValidationExceptionFactory.Create("ResponsavelId", "Responsável não encontrado.");
+        if (recebedorId.HasValue &&
+            !await dbContext.Pessoas.AnyAsync(x => x.Id == recebedorId.Value, cancellationToken))
+            throw ValidationExceptionFactory.Create("RecebedorId", "Recebedor não encontrado.");
 
         var formaPagamento = await lookupCache.GetFormaPagamentoByIdAsync(formaPagamentoId, cancellationToken);
         if (formaPagamento is null)
@@ -263,7 +263,7 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
 
     internal static string SerializarTemplate(CriarContaReceberRequest request) =>
         JsonSerializer.Serialize(new ContaReceberRecorrenciaTemplate(
-            request.NumeroDocumento, request.DataEmissao, request.ResponsavelId,
+            request.NumeroDocumento, request.DataEmissao, request.RecebedorId,
             request.PagadorId, request.DataVencimento, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
             request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -272,7 +272,7 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
 
     internal static string SerializarTemplate(AtualizarContaReceberRequest request) =>
         JsonSerializer.Serialize(new ContaReceberRecorrenciaTemplate(
-            request.NumeroDocumento, request.DataEmissao, request.ResponsavelId,
+            request.NumeroDocumento, request.DataEmissao, request.RecebedorId,
             request.PagadorId, request.DataVencimento, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
             request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -325,7 +325,7 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
         return ContaReceber.Criar(
             template.NumeroDocumento,
             RecorrenciaDateHelper.Shift(template.DataEmissao, monthOffset),
-            template.ResponsavelId, template.PagadorId, dataVencimento,
+            template.RecebedorId, template.PagadorId, dataVencimento,
             template.FormaPagamentoId, template.CartaoId, template.ContaBancariaId,
             template.ValorOriginal, template.ValorDesconto, template.ValorJuros, template.ValorMulta,
             1, 1, null, template.Descricao, template.Observacao,
@@ -338,7 +338,7 @@ public sealed class ContaReceberSharedHelper(IAppDbContext dbContext, ILookupCac
         try
         {
             conta.Atualizar(
-                request.NumeroDocumento, request.DataEmissao, request.ResponsavelId,
+                request.NumeroDocumento, request.DataEmissao, request.RecebedorId,
                 request.PagadorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
                 request.ValorDesconto, request.ValorJuros, request.ValorMulta,

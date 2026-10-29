@@ -35,7 +35,7 @@ public sealed class HeuristicMatchingService : IHeuristicMatchingService
 
         return new HistoricalPredictionData(
             conta.Id,
-            conta.ResponsavelPadraoId,
+            conta.MembroPadraoId,
             null,
             false,
             false,

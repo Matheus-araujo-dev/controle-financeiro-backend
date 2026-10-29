@@ -12,13 +12,13 @@ public sealed class ImportacoesWhatsappBranchesTests(CustomWebApplicationFactory
 {
     private readonly CustomWebApplicationFactory _factory = factory;
 
-    private static readonly object CorpoAprovar = new { recebedorFaturaId = (Guid?)null, responsavelPagamentoFaturaId = (Guid?)null, cartaoIds = (Guid[]?)null };
+    private static readonly object CorpoAprovar = new { recebedorFaturaId = (Guid?)null, pagadorFaturaId = (Guid?)null, cartaoIds = (Guid[]?)null };
     private static readonly object CorpoRevisar = new
     {
         observacao = (string?)null,
         descricaoAjustada = (string?)null,
         contaGerencialId = (Guid?)null,
-        responsavelId = (Guid?)null,
+        pagadorId = (Guid?)null,
         dataVencimentoContaReceber = (DateOnly?)null,
         gerarContaReceber = false,
         marcarComoRecorrente = false

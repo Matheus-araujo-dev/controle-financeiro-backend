@@ -81,7 +81,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
                 {
                     descricao = s.Descricao,
                     recebedorId = s.RecebedorId,
-                    responsavelCompraId = s.ResponsavelCompraId,
+                    pagadorId = s.PagadorId,
                     contaGerencialId = s.ContaGerencialId,
                     confianca = s.Confianca,
                     fonteIA = true,
@@ -142,7 +142,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
                     : [], preferencias.GetValueOrDefault(EstabelecimentoKey.Normalizar(x.Descricao)),
                     x.RascunhoJson is null ? null : JsonSerializer.Deserialize<JsonElement>(x.RascunhoJson), x.UpdatedAtUtc)).ToArray(),
             contas.Select(x => new ContaConciliacaoResponse(x.Id, x.DataCompra ?? x.DataEmissao, x.Descricao, x.ValorLiquido,
-                x.NumeroParcela, x.QuantidadeParcelas, x.ResponsavelCompraId, x.RecebedorId, x.FormaPagamentoId,
+                x.NumeroParcela, x.QuantidadeParcelas, x.PagadorId, x.RecebedorId, x.FormaPagamentoId,
                 x.RegraRecorrenciaId, x.GrupoReembolsoId, rateios.Where(r => r.ContaPagarId == x.Id).Select(r => new RateioConciliacaoResponse(r.ContaGerencialId, r.Valor)).ToArray())).ToArray(), session.AvisoLeitura, session.TotalDocumento);
     }
 

@@ -52,7 +52,7 @@ public sealed class ContaReceberConfiguration : IEntityTypeConfiguration<ContaRe
 
         builder.HasOne<Pessoa>()
             .WithMany()
-            .HasForeignKey(x => x.ResponsavelId)
+            .HasForeignKey(x => x.RecebedorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<FormaPagamento>()
@@ -86,6 +86,6 @@ public sealed class ContaReceberConfiguration : IEntityTypeConfiguration<ContaRe
 
         builder.HasIndex(x => x.ContaVinculadaId);
         builder.HasIndex(x => x.GrupoReembolsoId).HasFilter("\"GrupoReembolsoId\" IS NOT NULL");
-        builder.HasIndex(x => x.GrupoResponsaveisId).HasFilter("\"GrupoResponsaveisId\" IS NOT NULL");
+        builder.HasIndex(x => x.GrupoRecebedoresId).HasFilter("\"GrupoRecebedoresId\" IS NOT NULL");
     }
 }

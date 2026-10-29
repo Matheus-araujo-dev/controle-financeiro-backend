@@ -26,7 +26,7 @@ public sealed class ComprasPlanejadasFluxoTests(CustomWebApplicationFactory fact
             parcelavel = false,
             quantidadeParcelasDesejada = (int?)null,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             link = (string?)null,
             observacao = (string?)null
         });
@@ -57,7 +57,7 @@ public sealed class ComprasPlanejadasFluxoTests(CustomWebApplicationFactory fact
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.ResponsavelId,
+            pagadorId = fixture.PagadorId,
             link = (string?)null,
             observacao = "atualizada"
         });

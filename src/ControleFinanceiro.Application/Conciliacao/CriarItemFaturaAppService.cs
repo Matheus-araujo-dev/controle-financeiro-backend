@@ -37,9 +37,9 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
                 select i.Id).AnyAsync(ct);
             if (jaImportada || jaConciliada) throw Erro("Este item já possui uma conta. Use o vínculo com o lançamento existente.");
 
-            var responsaveisIds = new[] { request.ResponsavelCompraId ?? Guid.Empty }
-                .Concat(request.ResponsaveisAdicionaisIds ?? []).Where(x => x != Guid.Empty).Distinct().ToArray();
-            if (responsaveisIds.Length == 0) throw Erro("Informe ao menos um responsável.");
+            var responsaveisIds = new[] { request.PagadorId ?? Guid.Empty }
+                .Concat(request.PagadoresAdicionaisIds ?? []).Where(x => x != Guid.Empty).Distinct().ToArray();
+            if (responsaveisIds.Length == 0) throw Erro("Informe ao menos um pagador.");
 
             await helper.ValidarCriacaoOuAtualizacaoAsync(item.Data, request.RecebedorId, responsaveisIds[0],
                 request.FormaPagamentoId, fatura.CartaoId, null, null, item.QuantidadeParcelas, request.Rateios, ct, item.Data, faturaImportacaoId: faturaId);
@@ -51,9 +51,9 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
             {
                 var resp = await db.Pessoas.AsNoTracking()
                     .SingleOrDefaultAsync(x => x.Id == responsaveisIds[i], ct)
-                    ?? throw Erro($"Responsável {i + 1} não encontrado.");
-                if (!resp.EhResponsavel)
-                    throw Erro($"A pessoa '{resp.Nome}' não está marcada como responsável.");
+                    ?? throw Erro($"Pagador não encontrado.");
+                if (!resp.EhPagador)
+                    throw Erro($"A pessoa '{resp.Nome}' não está marcada como pagador.");
             }
 
             var template = new CriarContaPagarRequest(null, null, item.Data, responsaveisIds[0], request.RecebedorId,
@@ -64,15 +64,15 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
 
             var baseRateios = request.Rateios.Select(x => RateioPlano.CreateSigned(x.ContaGerencialId, x.Valor)).ToArray();
             var grupoResponsaveisId = responsaveisIds.Length > 1 ? Guid.NewGuid() : (Guid?)null;
-            var valoresPorResponsavel = (request.ValoresPorResponsavel?.Count == responsaveisIds.Length)
-                ? request.ValoresPorResponsavel.ToArray()
+            var valoresPorPagador = (request.ValoresPorPagador?.Count == responsaveisIds.Length)
+                ? request.ValoresPorPagador.ToArray()
                 : ParcelamentoHelper.Distribuir(item.Valor, responsaveisIds.Length).ToArray();
 
             ContaPagar? conta = null;
             var todasContas = new List<ContaPagar>();
             for (var i = 0; i < responsaveisIds.Length; i++)
             {
-                var valorResp = responsaveisIds.Length > 1 ? valoresPorResponsavel[i] : item.Valor;
+                var valorResp = responsaveisIds.Length > 1 ? valoresPorPagador[i] : item.Valor;
                 var rateiosResp = responsaveisIds.Length > 1
                     ? ParcelamentoHelper.DistribuirRateios(baseRateios, valorResp, item.Valor).ToArray()
                     : baseRateios;
@@ -91,7 +91,7 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
             }
 
             conta!.VincularFaturaCartao(faturaId);
-            foreach (var parcela in todasContas.Where(c => c.ResponsavelCompraId == conta.ResponsavelCompraId))
+            foreach (var parcela in todasContas.Where(c => c.PagadorId == conta.PagadorId))
                 parcela.DefinirChaveSerieImportacaoCartao(parcela.NumeroParcela == item.NumeroParcela
                     ? chave
                     : $"{chave}|parcela:{parcela.NumeroParcela}");

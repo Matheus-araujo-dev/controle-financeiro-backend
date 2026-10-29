@@ -8,7 +8,7 @@ internal static class FinancialFixtureSeed
     {
         var pagador = await CreatePessoaAsync(client, "Cliente Fase 3", "Fisica");
         var recebedor = await CreatePessoaAsync(client, "Fornecedor Fase 3", "Juridica");
-        var responsavel = await CreatePessoaAsync(client, "Responsavel Fase 3", "Fisica");
+        var membro = await CreatePessoaAsync(client, "Membro Fase 3", "Fisica");
 
         var formaManual = await CreateFormaPagamentoAsync(client, "Pix manual", "Pix", false, false);
         var formaAuto = await CreateFormaPagamentoAsync(client, "Debito automatico", "Debito", false, true);
@@ -23,7 +23,7 @@ internal static class FinancialFixtureSeed
         return new FixtureIds(
             PagadorId: pagador,
             RecebedorId: recebedor,
-            ResponsavelId: responsavel,
+            MembroId: membro,
             FormaPagamentoManualId: formaManual,
             FormaPagamentoAutoId: formaAuto,
             FormaPagamentoCartaoId: formaCartao,
@@ -125,7 +125,7 @@ internal static class FinancialFixtureSeed
     internal sealed record FixtureIds(
         Guid PagadorId,
         Guid RecebedorId,
-        Guid ResponsavelId,
+        Guid MembroId,
         Guid FormaPagamentoManualId,
         Guid FormaPagamentoAutoId,
         Guid FormaPagamentoCartaoId,

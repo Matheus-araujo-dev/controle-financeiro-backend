@@ -52,7 +52,7 @@ public sealed class ConciliacaoSugestaoService(
             .ToListAsync(ct);
 
         var responsaveis = await db.Pessoas.AsNoTracking()
-            .Where(p => p.FamiliaId == familiaId && p.Ativo && p.EhResponsavel)
+            .Where(p => p.FamiliaId == familiaId && p.Ativo && p.EhPagador)
             .Select(p => new { p.Id, p.Nome })
             .Take(200)
             .ToListAsync(ct);
@@ -61,7 +61,7 @@ public sealed class ConciliacaoSugestaoService(
         var recebedoresJson = string.Join(", ", recebedores.Select(r => $"\"{r.Nome}\" (id:{r.Id})"));
         var responsaveisJson = string.Join(", ", responsaveis.Select(r => $"\"{r.Nome}\" (id:{r.Id})"));
 
-        var exemploJson = """{"sugestoes":[{"itemId":"guid","descricao":"texto limpo","recebedorId":"guid-ou-null","responsavelCompraId":"guid-ou-null","contaGerencialId":"guid-ou-null","confianca":0.0,"contaPagarId":"guid-ou-null","justificativa":"motivo da correspondência ou incerteza"}]}""";
+        var exemploJson = """{"sugestoes":[{"itemId":"guid","descricao":"texto limpo","recebedorId":"guid-ou-null","pagadorId":"guid-ou-null","contaGerencialId":"guid-ou-null","confianca":0.0,"contaPagarId":"guid-ou-null","justificativa":"motivo da correspondência ou incerteza"}]}""";
 
         var systemPrompt = $"""
             Você é um assistente de conciliação de fatura de cartão de crédito.
@@ -86,7 +86,7 @@ public sealed class ConciliacaoSugestaoService(
 
             - "descricao": limpe a descrição original removendo códigos, asteriscos e prefixos de gateway (ex: "PAG*JoseDaSilva" → "José da Silva", "MERCADOLIVRE*MERCADOL" → "Mercado Livre"). Mantenha o nome do estabelecimento legível.
             - "recebedorId": associe ao recebedor que melhor corresponde ao estabelecimento. Null se nenhum se encaixar.
-            - "responsavelCompraId": se a descrição sugerir quem comprou, associe. Caso contrário, null.
+            - "pagadorId": se a descrição sugerir quem comprou, associe. Caso contrário, null.
             - "contaGerencialId": associe à categoria de despesa mais adequada. Null se incerto.
             - "confianca": 0.0 a 1.0, indicando sua certeza geral na sugestão.
             - NUNCA retorne IDs que não estejam nas listas acima.
@@ -149,7 +149,7 @@ public sealed class ConciliacaoSugestaoService(
 
                 var descricao = item["descricao"]?.GetValue<string>();
                 var recebedorStr = item["recebedorId"]?.GetValue<string>();
-                var responsavelStr = item["responsavelCompraId"]?.GetValue<string>();
+                var responsavelStr = item["pagadorId"]?.GetValue<string>();
                 var categoriaStr = item["contaGerencialId"]?.GetValue<string>();
                 var confianca = item["confianca"]?.GetValue<double>() ?? 0;
 

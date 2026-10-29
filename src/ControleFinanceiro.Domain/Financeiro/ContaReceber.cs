@@ -20,7 +20,7 @@ public sealed class ContaReceber : TenantEntity
 
     public DateOnly DataEmissao { get; private set; }
 
-    public Guid? ResponsavelId { get; private set; }
+    public Guid? RecebedorId { get; private set; }
 
     public Guid PagadorId { get; private set; }
 
@@ -68,14 +68,14 @@ public sealed class ContaReceber : TenantEntity
 
     public Guid? GrupoReembolsoId { get; private set; }
 
-    public Guid? GrupoResponsaveisId { get; private set; }
+    public Guid? GrupoRecebedoresId { get; private set; }
 
     public IReadOnlyCollection<RateioContaGerencial> Rateios => _rateios;
 
     public static ContaReceber Criar(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelId,
+        Guid? recebedorId,
         Guid pagadorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -100,7 +100,7 @@ public sealed class ContaReceber : TenantEntity
         conta.DefinirCampos(
             numeroDocumento,
             dataEmissao,
-            responsavelId,
+            recebedorId,
             pagadorId,
             dataVencimento,
             formaPagamentoId,
@@ -126,7 +126,7 @@ public sealed class ContaReceber : TenantEntity
     public static IReadOnlyCollection<ContaReceber> CriarParcelas(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelId,
+        Guid? recebedorId,
         Guid pagadorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -153,7 +153,7 @@ public sealed class ContaReceber : TenantEntity
                 Criar(
                     numeroDocumento,
                     dataEmissao,
-                    responsavelId,
+                    recebedorId,
                     pagadorId,
                     dataVencimento,
                     formaPagamentoId,
@@ -205,7 +205,7 @@ public sealed class ContaReceber : TenantEntity
             parcelas.Add(Criar(
                 numeroDocumento,
                 dataEmissao,
-                responsavelId,
+                recebedorId,
                 pagadorId,
                 dataVenc,
                 formaPagamentoId,
@@ -233,7 +233,7 @@ public sealed class ContaReceber : TenantEntity
     public void Atualizar(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelId,
+        Guid? recebedorId,
         Guid pagadorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -256,7 +256,7 @@ public sealed class ContaReceber : TenantEntity
         DefinirCampos(
             numeroDocumento,
             dataEmissao,
-            responsavelId,
+            recebedorId,
             pagadorId,
             dataVencimento,
             formaPagamentoId,
@@ -371,7 +371,7 @@ public sealed class ContaReceber : TenantEntity
     private void DefinirCampos(
         string? numeroDocumento,
         DateOnly dataEmissao,
-        Guid? responsavelId,
+        Guid? recebedorId,
         Guid pagadorId,
         DateOnly dataVencimento,
         Guid formaPagamentoId,
@@ -418,7 +418,7 @@ public sealed class ContaReceber : TenantEntity
 
         NumeroDocumento = string.IsNullOrWhiteSpace(numeroDocumento) ? null : numeroDocumento.Trim();
         DataEmissao = dataEmissao;
-        ResponsavelId = responsavelId;
+        RecebedorId = recebedorId;
         PagadorId = pagadorId;
         DataVencimento = dataVencimento;
         FormaPagamentoId = formaPagamentoId;
@@ -489,9 +489,9 @@ public sealed class ContaReceber : TenantEntity
         GrupoReembolsoId = grupoReembolsoId;
     }
 
-    public void DefinirGrupoResponsaveis(Guid grupoResponsaveisId)
+    public void DefinirGrupoRecebedores(Guid grupoRecebedoresId)
     {
-        GrupoResponsaveisId = grupoResponsaveisId;
+        GrupoRecebedoresId = grupoRecebedoresId;
     }
 
     private static string AjustarDescricaoParcela(string descricao, int numeroParcela, int quantidadeParcelas)

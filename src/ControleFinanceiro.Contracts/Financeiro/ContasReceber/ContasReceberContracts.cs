@@ -19,7 +19,7 @@ public sealed record ContaReceberListQueryRequest : ListQueryRequest
 
     public IReadOnlyCollection<Guid>? FormaPagamentoIds { get; init; }
 
-    public IReadOnlyCollection<Guid>? ResponsavelIds { get; init; }
+    public IReadOnlyCollection<Guid>? RecebedorIds { get; init; }
 
     public string? StatusCodigo { get; init; }
 
@@ -43,7 +43,7 @@ public sealed record ContaReceberListQueryRequest : ListQueryRequest
 public sealed record CriarContaReceberRequest(
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelId,
+    Guid? RecebedorId,
     Guid PagadorId,
     DateOnly DataVencimento,
     Guid FormaPagamentoId,
@@ -68,7 +68,7 @@ public sealed record AtualizarContaReceberRequest(
     Guid Id,
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelId,
+    Guid? RecebedorId,
     Guid PagadorId,
     DateOnly DataVencimento,
     Guid FormaPagamentoId,
@@ -104,7 +104,7 @@ public sealed record ContaReceberResumoResponse(
     string Descricao,
     Guid PagadorId,
     string PagadorNome,
-    string? ResponsavelNome,
+    string? RecebedorNome,
     DateOnly DataEmissao,
     DateOnly DataVencimento,
     DateOnly? DataLiquidacao,
@@ -139,8 +139,8 @@ public sealed record ContaReceberDetalheResponse(
     Guid Id,
     string? NumeroDocumento,
     DateOnly DataEmissao,
-    Guid? ResponsavelId,
-    string? ResponsavelNome,
+    Guid? RecebedorId,
+    string? RecebedorNome,
     Guid PagadorId,
     string PagadorNome,
     DateOnly DataVencimento,
@@ -174,6 +174,6 @@ public sealed record ContaReceberDetalheResponse(
     DateTime UpdatedAtUtc,
     ContaVinculadaResumo? ContaVinculada = null,
     Guid? GrupoReembolsoId = null,
-    Guid? GrupoResponsaveisId = null,
+    Guid? GrupoRecebedoresId = null,
     GrupoReembolsoInfo? GrupoReembolso = null,
-    GrupoResponsaveisInfo? GrupoResponsaveis = null);
+    GrupoPagadoresInfo? GrupoRecebedores = null);

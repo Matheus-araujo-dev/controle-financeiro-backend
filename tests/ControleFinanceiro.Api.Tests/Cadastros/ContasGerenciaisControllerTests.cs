@@ -178,7 +178,7 @@ public sealed class ContasGerenciaisControllerTests(CustomWebApplicationFactory 
     }
 
     [Fact]
-    public async Task Post_QuandoInformarResponsavelPadrao_DevePersistirERetornarNoDetalheELista()
+    public async Task Post_QuandoInformarMembroPadrao_DevePersistirERetornarNoDetalheELista()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
@@ -198,7 +198,7 @@ public sealed class ContasGerenciaisControllerTests(CustomWebApplicationFactory 
             tipo = "Despesa",
             ativo = true,
             ehPadraoRecebimentoFaturaCartao = false,
-            responsavelPadraoId = pessoa!.Id
+            membroPadraoId = pessoa!.Id
         });
 
         var created = await createResponse.Content.ReadFromJsonAsync<ContaGerencialResponse>();
@@ -206,17 +206,17 @@ public sealed class ContasGerenciaisControllerTests(CustomWebApplicationFactory 
 
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         created.Should().NotBeNull();
-        created!.ResponsavelPadraoId.Should().Be(pessoa.Id);
-        created.ResponsavelPadraoNome.Should().Be("Matheus");
+        created!.MembroPadraoId.Should().Be(pessoa.Id);
+        created.MembroPadraoNome.Should().Be("Matheus");
         listResponse.Should().NotBeNull();
         listResponse!.Items.Should().ContainSingle(item =>
             item.Id == created.Id &&
-            item.ResponsavelPadraoId == pessoa.Id &&
-            item.ResponsavelPadraoNome == "Matheus");
+            item.MembroPadraoId == pessoa.Id &&
+            item.MembroPadraoNome == "Matheus");
     }
 
     [Fact]
-    public async Task Post_QuandoResponsavelPadraoNaoExistir_DeveRetornarErroDeValidacao()
+    public async Task Post_QuandoMembroPadraoNaoExistir_DeveRetornarErroDeValidacao()
     {
         await _factory.ResetDatabaseAsync();
         using var client = _factory.CreateClient();
@@ -228,7 +228,7 @@ public sealed class ContasGerenciaisControllerTests(CustomWebApplicationFactory 
             tipo = "Despesa",
             ativo = true,
             ehPadraoRecebimentoFaturaCartao = false,
-            responsavelPadraoId = Guid.NewGuid()
+            membroPadraoId = Guid.NewGuid()
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -334,8 +334,8 @@ public sealed class ContasGerenciaisControllerTests(CustomWebApplicationFactory 
         bool Ativo,
         bool AceitaLancamentos,
         bool EhPadraoRecebimentoFaturaCartao,
-        Guid? ResponsavelPadraoId,
-        string? ResponsavelPadraoNome);
+        Guid? MembroPadraoId,
+        string? MembroPadraoNome);
 
     private sealed record PessoaResponse(Guid Id, string Nome);
 }

@@ -9,7 +9,7 @@ public sealed class ContaReceberTests
         ContaReceber.Criar(
             numeroDocumento: "REC-1",
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelId: null,
+            recebedorId: null,
             pagadorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 12),
             formaPagamentoId: Guid.NewGuid(),
@@ -91,7 +91,7 @@ public sealed class ContaReceberTests
         var action = () => conta.Atualizar(
             numeroDocumento: "REC-1",
             dataEmissao: new DateOnly(2026, 4, 4),
-            responsavelId: null,
+            recebedorId: null,
             pagadorId: conta.PagadorId,
             dataVencimento: new DateOnly(2026, 4, 12),
             formaPagamentoId: conta.FormaPagamentoId,
@@ -349,13 +349,13 @@ public sealed class ContaReceberTests
     }
 
     [Fact]
-    public void DefinirGrupoResponsaveis_DeveDefinirPropriedade()
+    public void DefinirGrupoRecebedores_DeveDefinirPropriedade()
     {
         var conta = CriarConta();
         var grupoId = Guid.NewGuid();
 
-        conta.DefinirGrupoResponsaveis(grupoId);
+        conta.DefinirGrupoRecebedores(grupoId);
 
-        conta.GrupoResponsaveisId.Should().Be(grupoId);
+        conta.GrupoRecebedoresId.Should().Be(grupoId);
     }
 }

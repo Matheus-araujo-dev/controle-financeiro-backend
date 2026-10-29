@@ -66,7 +66,7 @@ public sealed class ContaPagarEmFaturaTests
         ContaPagar.Criar(
             numeroDocumento: null,
             dataEmissao: new DateOnly(2026, 4, 5),
-            responsavelCompraId: Guid.NewGuid(),
+            pagadorId: Guid.NewGuid(),
             recebedorId: Guid.NewGuid(),
             dataVencimento: new DateOnly(2026, 4, 20),
             formaPagamentoId: Guid.NewGuid(),

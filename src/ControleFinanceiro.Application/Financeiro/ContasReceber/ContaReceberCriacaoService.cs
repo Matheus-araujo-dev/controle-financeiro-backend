@@ -39,7 +39,7 @@ public sealed class ContaReceberCriacaoService(
         ContaReceberSharedHelper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
 
         var liquidarNaCriacao = await helper.ValidarCriacaoOuAtualizacaoAsync(
-            pagadorId, request.ResponsavelId, request.FormaPagamentoId,
+            pagadorId, request.RecebedorId, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.DataLiquidacao,
             request.QuantidadeParcelas, request.Rateios, cancellationToken);
 
@@ -51,7 +51,7 @@ public sealed class ContaReceberCriacaoService(
         }
 
         var contas = ContaReceber.CriarParcelas(
-            request.NumeroDocumento, request.DataEmissao, request.ResponsavelId,
+            request.NumeroDocumento, request.DataEmissao, request.RecebedorId,
             pagadorId, request.DataVencimento, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.ValorOriginal,
             request.ValorDesconto, request.ValorJuros, request.ValorMulta,
@@ -88,7 +88,7 @@ public sealed class ContaReceberCriacaoService(
         ContaReceberSharedHelper.ValidarRecorrencia(request.DataEmissao, request.Recorrencia, request.QuantidadeParcelas);
 
         await helper.ValidarCriacaoOuAtualizacaoAsync(
-            pagadoresIds[0], request.ResponsavelId, request.FormaPagamentoId,
+            pagadoresIds[0], request.RecebedorId, request.FormaPagamentoId,
             request.CartaoId, request.ContaBancariaId, request.DataLiquidacao,
             request.QuantidadeParcelas, request.Rateios, cancellationToken);
 
@@ -100,7 +100,7 @@ public sealed class ContaReceberCriacaoService(
                 ?? throw ValidationExceptionFactory.Create("PagadoresAdicionaisIds", $"Pagador {i + 1} não encontrado.");
         }
 
-        var grupoResponsaveisId = Guid.NewGuid();
+        var grupoRecebedoresId = Guid.NewGuid();
         var valoresPorPagador = (request.ValoresPorPagador?.Count == pagadoresIds.Length)
             ? request.ValoresPorPagador.ToArray()
             : ParcelamentoHelper.Distribuir(request.ValorOriginal, pagadoresIds.Length).ToArray();
@@ -115,7 +115,7 @@ public sealed class ContaReceberCriacaoService(
             var rateiosPagador = ParcelamentoHelper.DistribuirRateios(baseRateios, valorPagador, valorBase);
 
             var contas = ContaReceber.CriarParcelas(
-                request.NumeroDocumento, request.DataEmissao, request.ResponsavelId,
+                request.NumeroDocumento, request.DataEmissao, request.RecebedorId,
                 pagadorId, request.DataVencimento, request.FormaPagamentoId,
                 request.CartaoId, request.ContaBancariaId, valorPagador,
                 request.ValorDesconto / pagadoresIds.Length,
@@ -127,7 +127,7 @@ public sealed class ContaReceberCriacaoService(
                 DateOnly.FromDateTime(DateTime.Today));
 
             foreach (var conta in contas)
-                conta.DefinirGrupoResponsaveis(grupoResponsaveisId);
+                conta.DefinirGrupoRecebedores(grupoRecebedoresId);
 
             todasContas.AddRange(contas);
         }

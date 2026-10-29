@@ -120,7 +120,7 @@ public sealed class RecorrenciaAppService(
         var ordenadas = ((query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
             "descricao" => Ordenar(rows, query, x => x.Descricao),
-            "pessoanome" => Ordenar(rows, query, x => x.PessoaNome),
+            "pessoanome" => Ordenar(rows, query, x => x.PessoaPrincipalNome),
             "valorliquido" => Ordenar(rows, query, x => x.ValorLiquido),
             "diaordemmensal" => Ordenar(rows, query, x => x.DiaOrdemMensal),
             "datainicio" => Ordenar(rows, query, x => x.DataInicio),

@@ -273,7 +273,7 @@ public sealed class ContaReceberQueryService(IAppDbContext dbContext, ILookupCac
 
         return new ContaReceberDetalheResponse(
             conta.Id, conta.NumeroDocumento, conta.DataEmissao,
-            conta.RecebedorId, pessoaRecebedor?.Nome,
+            conta.RecebedorId, recebedor?.Nome,
             conta.PagadorId, pagador.Nome,
             conta.DataVencimento, conta.DataLiquidacao,
             conta.FormaPagamentoId, formaPagamento.Nome, formaPagamento.EhCartao, formaPagamento.BaixarAutomaticamente,

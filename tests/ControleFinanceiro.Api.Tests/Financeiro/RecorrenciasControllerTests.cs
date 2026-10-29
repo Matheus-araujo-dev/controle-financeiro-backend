@@ -94,7 +94,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
             item.Descricao == "Aluguel da sede" &&
             item.ValorLiquido == 450m &&
             item.PessoaNome == "Fornecedor Fase 3" &&
-            item.PessoaSecundariaNome == "Membro Fase 3");
+            item.PagadorNome == "Membro Fase 3");
 
         recorrencias.Items.Should().Contain(item =>
             item.Id == contaReceberCriada!.Recorrencia!.Id &&
@@ -102,7 +102,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
             item.Descricao == "Mensalidade de consultoria" &&
             item.ValorLiquido == 1200m &&
             item.PessoaNome == "Cliente Fase 3" &&
-            item.PessoaSecundariaNome == "Membro Fase 3");
+            item.PagadorNome == "Membro Fase 3");
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public sealed class RecorrenciasControllerTests(CustomWebApplicationFactory fact
         string Descricao,
         decimal ValorLiquido,
         string PessoaNome,
-        string? PessoaSecundariaNome);
+        string? PagadorNome);
 
     private sealed record RecorrenciaListSummaryResponse(int TotalRegistros, decimal ValorTotal);
 

@@ -241,7 +241,7 @@ public sealed class MovimentacoesControllerTests(CustomWebApplicationFactory fac
         var contaReceberResponse = await client.PostAsJsonAsync("/api/v1/contas-receber", new
         {
             dataEmissao = "2026-04-04",
-            responsavelId = responsavelSecundarioId,
+            recebedorId = responsavelSecundarioId,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-04-25",
             formaPagamentoId = fixture.FormaPagamentoManualId,

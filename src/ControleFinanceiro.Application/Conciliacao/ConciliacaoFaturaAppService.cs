@@ -36,8 +36,13 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         if (buffer.Length == 0) throw Erro("Arquivo vazio.");
         buffer.Position = 0;
         var hash = Convert.ToHexString(await SHA256.HashDataAsync(buffer, ct));
-        var existente = await db.Conciliacoes.AsNoTracking().SingleOrDefaultAsync(x => x.FaturaId == faturaId && x.HashArquivo == hash, ct);
-        if (existente is not null) return await ObterAsync(faturaId, existente.Id, ct);
+        var existente = await db.Conciliacoes.Include(x => x.Itens).SingleOrDefaultAsync(x => x.FaturaId == faturaId && x.HashArquivo == hash, ct);
+        if (existente is not null)
+        {
+            if (existente.Itens.Any(x => x.StatusItem == StatusItemConciliacao.Pendente && x.RascunhoJson is null))
+                await AutoSugerirAsync(faturaId, existente, ct);
+            return await ObterAsync(faturaId, existente.Id, ct);
+        }
         buffer.Position = 0;
         var parsed = await reader.ParseAsync(buffer, ct, fatura.DataVencimento, senha);
         if (parsed.Itens.Count == 0) throw Erro(parsed.AvisoFormato ?? "Nenhum lançamento encontrado.");
@@ -55,10 +60,6 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         var session = Domain.Conciliacao.Conciliacao.CriarFatura(Path.GetFileName(nome), faturaId, hash, itens, parsed.AvisoFormato, parsed.TotalDocumento);
         db.Conciliacoes.Add(session);
 
-        var totalPdf = session.TotalDocumento ?? itens.Sum(i => i.Valor);
-        if (totalPdf > 0 && totalPdf != fatura.ValorTotal)
-            fatura.AtualizarValorTotal(totalPdf);
-
         await db.SaveChangesAsync(ct);
 
         await AutoSugerirAsync(faturaId, session, ct);
@@ -75,6 +76,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
 
             foreach (var s in sugestoes.Sugestoes.Where(s => s.Confianca >= 0.5))
             {
+                if (!session.Itens.Any(x => x.Id == s.ItemId && x.StatusItem == StatusItemConciliacao.Pendente && x.RascunhoJson is null)) continue;
                 var rascunho = JsonSerializer.Serialize(new
                 {
                     descricao = s.Descricao,
@@ -82,7 +84,9 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
                     pagadorId = s.PagadorId,
                     contaGerencialId = s.ContaGerencialId,
                     confianca = s.Confianca,
-                    fonteIA = true
+                    fonteIA = true,
+                    contaPagarSugeridaId = s.ContaPagarId,
+                    justificativa = s.Justificativa
                 });
 
                 session.SalvarRascunho(s.ItemId, rascunho);
@@ -90,7 +94,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
 
             await db.SaveChangesAsync(ct);
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // LLM failure should not block the import
         }
@@ -103,10 +107,7 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         if (session is null) return null;
         var fatura = await db.FaturasCartao.AsNoTracking().SingleOrDefaultAsync(x => x.Id == faturaId, ct);
         if (fatura is null) return null;
-        var contas = await db.ContasPagar.AsNoTracking()
-            .Where(x => x.CartaoId == fatura.CartaoId && x.DataVencimento == fatura.DataVencimento
-                && (!x.FaturaCartaoId.HasValue || x.FaturaCartaoId == faturaId)
-                && x.StatusContaId != StatusConta.CanceladaId).ToListAsync(ct);
+        var contas = await (await ContasDoCiclo.ConsultarAsync(db, fatura, ct)).AsNoTracking().ToListAsync(ct);
         var contaIds = contas.Select(x => x.Id).ToArray();
         var rateios = await db.RateiosContaGerencial.AsNoTracking().Where(x => x.ContaPagarId.HasValue && contaIds.Contains(x.ContaPagarId.Value)).ToListAsync(ct);
         var consumidas = session.Itens.Where(x => x.ContaPagarVinculadaId.HasValue).Select(x => x.ContaPagarVinculadaId!.Value).ToHashSet();
@@ -115,6 +116,20 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         var preferencias = await memoria.ConsultarAsync(cartaoId, session.Itens.Select(x => x.Descricao), ct);
         var sugestoes = session.Itens.Where(x => x.StatusItem == StatusItemConciliacao.Pendente)
             .ToDictionary(x => x.Id, x => FaturaMatching.Encontrar(new(x.Id, x.Data, x.Descricao, x.Valor, x.NumeroParcela, x.QuantidadeParcelas), comparaveis, preferencias.GetValueOrDefault(EstabelecimentoKey.Normalizar(x.Descricao))?.Descricao));
+        foreach (var item in session.Itens.Where(x => x.StatusItem == StatusItemConciliacao.Pendente && x.RascunhoJson != null))
+        {
+            using var draft = JsonDocument.Parse(item.RascunhoJson!);
+            if (!draft.RootElement.TryGetProperty("contaPagarSugeridaId", out var value)
+                || value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var contaId)) continue;
+            var conta = comparaveis.SingleOrDefault(x => x.Id == contaId);
+            if (conta is null || conta.NumeroParcela != item.NumeroParcela || conta.QuantidadeParcelas != item.QuantidadeParcelas
+                || Math.Sign(conta.Valor) != Math.Sign(item.Valor)) continue;
+            var motivo = draft.RootElement.TryGetProperty("justificativa", out var reason) && reason.ValueKind == JsonValueKind.String
+                ? reason.GetString() : "Confira a correspondência sugerida";
+            // Uma sugestão da LLM nunca é marcada como confirmação clara automática.
+            sugestoes[item.Id] = sugestoes[item.Id].Where(x => x.ContaId != contaId)
+                .Append(new CorrespondenciaFatura(contaId, item.Valor - conta.Valor, 50, $"IA: {motivo}", false)).ToArray();
+        }
         var disputadas = sugestoes.Values.SelectMany(x => x.Where(c => c.CorrespondenciaClara))
             .GroupBy(x => x.ContaId).Where(x => x.Count() > 1).Select(x => x.Key).ToHashSet();
         return new(session.Id, faturaId, session.NomeArquivo, session.Status.ToString(),
@@ -145,10 +160,8 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         if (session.Itens.Any(x => x.Id != itemId && x.ContaPagarVinculadaId == request.ContaPagarId))
             throw Erro("Esta conta já foi vinculada a outro item desta fatura.");
         var fatura = await db.FaturasCartao.SingleAsync(x => x.Id == faturaId, ct);
-        var conta = await db.ContasPagar
-            .SingleOrDefaultAsync(x => x.Id == request.ContaPagarId && x.CartaoId == fatura.CartaoId
-                && x.DataVencimento == fatura.DataVencimento
-                && (!x.FaturaCartaoId.HasValue || x.FaturaCartaoId == faturaId), ct);
+        var conta = await (await ContasDoCiclo.ConsultarAsync(db, fatura, ct))
+            .SingleOrDefaultAsync(x => x.Id == request.ContaPagarId, ct);
         if (conta is null) throw Erro("Selecione uma conta desta fatura.");
         if (conta.StatusContaId == StatusConta.CanceladaId) throw Erro("Conta cancelada não pode ser conciliada.");
         if (conta.NumeroParcela != item.NumeroParcela || conta.QuantidadeParcelas != item.QuantidadeParcelas
@@ -226,8 +239,8 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         DateOnly[] vencimentos = [request.ParcelarIgual ? fatura.DataVencimento : request.DataVencimento];
         if (request.ContaPagarId is { } contaId)
         {
-            var conta = await db.ContasPagar.AsNoTracking().SingleOrDefaultAsync(x => x.Id == contaId
-                && x.FaturaCartaoId == faturaId && x.CartaoId == fatura.CartaoId, ct);
+            var conta = await (await ContasDoCiclo.ConsultarAsync(db, fatura, ct)).AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == contaId, ct);
             if (conta is null || conta.GrupoReembolsoId.HasValue || conta.StatusContaId == StatusConta.CanceladaId
                 || conta.ValorLiquido <= 0) throw Erro("Selecione uma conta válida desta fatura sem reembolso existente.");
             if (request.ParcelarIgual)

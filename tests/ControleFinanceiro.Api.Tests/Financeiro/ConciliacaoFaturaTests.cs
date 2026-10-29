@@ -76,7 +76,7 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
             var invoice = FaturaCartao.Criar(fixture.CartaoId, "2026-09", new DateOnly(2026,9,10), new DateOnly(2026,9,20), 33.34m, null);
             db.FaturasCartao.Add(invoice);
             var account = ContaPagar.Criar(null, new DateOnly(2026,9,1), null, fixture.RecebedorId,
-                invoice.DataVencimento, fixture.FormaPagamentoCartaoId, fixture.CartaoId, null,
+                new DateOnly(2026,9,15), fixture.FormaPagamentoCartaoId, fixture.CartaoId, null,
                 33.34m, 0, 0, 0, 3, 2, Guid.NewGuid(), null, "Compra 2/3", null,
                 StatusConta.EmFaturaId, false, null, OrigemLancamento.Manual,
                 [RateioPlano.Create(fixture.ContaGerencialDespesaId, 33.34m)]);
@@ -313,4 +313,3 @@ public sealed class ConciliacaoFaturaTests(CustomWebApplicationFactory factory) 
         accounts.Should().OnlyContain(x => x.EhRecorrente && x.StatusContaId == StatusConta.EmFaturaId);
     }
 }
-

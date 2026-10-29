@@ -23800,6 +23800,15 @@
           "confianca": {
             "type": "number",
             "format": "double"
+          },
+          "contaPagarId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "justificativa": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

@@ -43,7 +43,7 @@ public sealed record GrupoReembolsoInfo(
     Guid GrupoReembolsoId,
     IReadOnlyList<ContaVinculadaResumo> Contas);
 
-/// <summary>Resumo do grupo de responsáveis de um mesmo lançamento.</summary>
-public sealed record GrupoResponsaveisInfo(
-    Guid GrupoResponsaveisId,
+/// <summary>Resumo do grupo de pagadores de um mesmo lançamento.</summary>
+public sealed record GrupoPagadoresInfo(
+    Guid GrupoPagadoresId,
     IReadOnlyList<ContaVinculadaResumo> Contas);

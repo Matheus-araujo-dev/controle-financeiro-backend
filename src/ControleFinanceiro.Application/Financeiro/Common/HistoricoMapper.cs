@@ -31,7 +31,7 @@ public static class HistoricoMapper
         "Id", "FamiliaId", "CreatedAtUtc", "UpdatedAtUtc", "CreatedBy", "UpdatedBy",
         "RecebedorId", "PagadorId", "PagadorId", "PagadorId",
         "FormaPagamentoId", "CartaoId", "ContaBancariaId", "StatusContaId",
-        "RegraRecorrenciaId", "GrupoParcelamentoId", "GrupoReembolsoId", "GrupoResponsaveisId",
+        "RegraRecorrenciaId", "GrupoParcelamentoId", "GrupoReembolsoId", "GrupoPagadoresId", "GrupoRecebedoresId",
         "OrigemCompraPlanejadaId", "ContaVinculadaId",
     };
 

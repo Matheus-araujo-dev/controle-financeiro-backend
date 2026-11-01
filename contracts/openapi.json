@@ -18204,7 +18204,7 @@
             "format": "uuid",
             "nullable": true
           },
-          "grupoResponsaveisId": {
+          "grupoPagadoresId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -18212,8 +18212,8 @@
           "grupoReembolso": {
             "$ref": "#/components/schemas/GrupoReembolsoInfo"
           },
-          "grupoResponsaveis": {
-            "$ref": "#/components/schemas/GrupoResponsaveisInfo"
+          "grupoPagadores": {
+            "$ref": "#/components/schemas/GrupoPagadoresInfo"
           }
         },
         "additionalProperties": false
@@ -18543,7 +18543,7 @@
             "format": "uuid",
             "nullable": true
           },
-          "grupoResponsaveisId": {
+          "grupoRecebedoresId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -18551,8 +18551,8 @@
           "grupoReembolso": {
             "$ref": "#/components/schemas/GrupoReembolsoInfo"
           },
-          "grupoResponsaveis": {
-            "$ref": "#/components/schemas/GrupoResponsaveisInfo"
+          "grupoRecebedores": {
+            "$ref": "#/components/schemas/GrupoPagadoresInfo"
           }
         },
         "additionalProperties": false
@@ -21004,10 +21004,10 @@
         },
         "additionalProperties": false
       },
-      "GrupoResponsaveisInfo": {
+      "GrupoPagadoresInfo": {
         "type": "object",
         "properties": {
-          "grupoResponsaveisId": {
+          "grupoPagadoresId": {
             "type": "string",
             "format": "uuid"
           },

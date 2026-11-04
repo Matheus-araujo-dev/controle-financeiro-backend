@@ -84,7 +84,7 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
                     fatura.DataVencimento, item.Data).ToArray();
 
                 if (grupoResponsaveisId.HasValue)
-                    foreach (var c in contas) c.DefinirGrupoResponsaveis(grupoResponsaveisId.Value);
+                    foreach (var c in contas) c.DefinirGrupoPagadores(grupoResponsaveisId.Value);
 
                 conta ??= contas[0];
                 todasContas.AddRange(contas);

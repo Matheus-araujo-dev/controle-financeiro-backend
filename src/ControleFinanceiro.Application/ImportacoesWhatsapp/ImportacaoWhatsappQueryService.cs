@@ -259,7 +259,7 @@ public sealed class ImportacaoWhatsappQueryService(
                             ? contaDescricao
                             : null,
                         item.PagadorId,
-                        item.PagadorId.HasValue && pessoasMap.TryGetValue(item.PagadorId.Value, out var pagadorNome)
+                        item.PagadorId.HasValue && responsaveis.TryGetValue(item.PagadorId.Value, out var pagadorNome)
                             ? pagadorNome
                             : null,
                         item.ContaReceberId,
@@ -276,7 +276,7 @@ public sealed class ImportacaoWhatsappQueryService(
                                     ? contaPredita
                                     : null,
                                 predicao.PagadorId,
-                                predicao.PagadorId.HasValue && pessoasMap.TryGetValue(predicao.PagadorId.Value, out var pessoaPredita)
+                                predicao.PagadorId.HasValue && responsaveis.TryGetValue(predicao.PagadorId.Value, out var pessoaPredita)
                                     ? pessoaPredita
                                     : null,
                                 predicao.DescricaoAjustada,

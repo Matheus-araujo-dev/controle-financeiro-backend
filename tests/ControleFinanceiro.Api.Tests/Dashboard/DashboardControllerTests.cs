@@ -1206,7 +1206,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
             parcelavel = true,
             quantidadeParcelasDesejada = 10,
             contaGerencialId = fixture.ContaGerencialDespesaId,
-            responsavelId = fixture.MembroId
+            pagadorId = fixture.MembroId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -1257,7 +1257,7 @@ public sealed class DashboardControllerTests(CustomWebApplicationFactory factory
         var response = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
         {
             dataEmissao,
-            responsavelCompraId = fixture.MembroId,
+            pagadorId = fixture.MembroId,
             recebedorId = fixture.RecebedorId,
             dataVencimento = "2026-04-20",
             formaPagamentoId = fixture.FormaPagamentoCartaoId,

@@ -26,9 +26,9 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
             from contaPagar in contasPagarJoin.DefaultIfEmpty()
             join contaReceber in dbContext.ContasReceber.AsNoTracking() on movimento.ContaReceberId equals contaReceber.Id into contasReceberJoin
             from contaReceber in contasReceberJoin.DefaultIfEmpty()
-            join responsavelPagar in dbContext.Pessoas.AsNoTracking() on contaPagar.ResponsavelCompraId equals responsavelPagar.Id into respPagarJoin
+            join responsavelPagar in dbContext.Pessoas.AsNoTracking() on contaPagar.PagadorId equals responsavelPagar.Id into respPagarJoin
             from responsavelPagar in respPagarJoin.DefaultIfEmpty()
-            join responsavelReceber in dbContext.Pessoas.AsNoTracking() on contaReceber.ResponsavelId equals responsavelReceber.Id into respReceberJoin
+            join responsavelReceber in dbContext.Pessoas.AsNoTracking() on contaReceber.RecebedorId equals responsavelReceber.Id into respReceberJoin
             from responsavelReceber in respReceberJoin.DefaultIfEmpty()
             select new
             {
@@ -45,8 +45,8 @@ public sealed class MovimentacaoFinanceiraAppService(IAppDbContext dbContext, IL
                 movimento.ContaReceberId,
                 movimento.FaturaCartaoId,
                 movimento.TransferenciaId,
-                ContaPagarResponsavelId = contaPagar != null ? contaPagar.ResponsavelCompraId : null,
-                ContaReceberResponsavelId = contaReceber != null ? contaReceber.ResponsavelId : null,
+                ContaPagarResponsavelId = contaPagar != null ? contaPagar.PagadorId : null,
+                ContaReceberResponsavelId = contaReceber != null ? contaReceber.RecebedorId : null,
                 ContaPagarRecebedorId = contaPagar != null ? (Guid?)contaPagar.RecebedorId : null,
                 ContaReceberPagadorId = contaReceber != null ? (Guid?)contaReceber.PagadorId : null,
                 ResponsavelNome = responsavelPagar != null ? responsavelPagar.Nome : (responsavelReceber != null ? responsavelReceber.Nome : null),

@@ -47,14 +47,17 @@ public sealed class ConciliacaoSugestaoService(
         var recebedores = await db.Pessoas.AsNoTracking()
             .Where(p => p.FamiliaId == familiaId && p.Ativo && p.EhRecebedor)
             .Select(p => new { p.Id, p.Nome })
-            .Take(200)
             .ToListAsync(ct);
 
         var responsaveis = await db.Pessoas.AsNoTracking()
             .Where(p => p.FamiliaId == familiaId && p.Ativo && p.EhPagador)
             .Select(p => new { p.Id, p.Nome })
-            .Take(200)
             .ToListAsync(ct);
+
+        var recebedorLookup = recebedores.Select(r => (r.Id, r.Nome)).ToList();
+        var heuristicMatches = semPreferencia.ToDictionary(
+            i => i.Id,
+            i => DescricaoEntityMatcher.EncontrarMelhorMatch(i.Descricao, recebedorLookup));
 
         var categoriasJson = string.Join(", ", categorias.Select(c => $"\"{c.Descricao}\" (id:{c.Id})"));
         var recebedoresJson = string.Join(", ", recebedores.Select(r => $"\"{r.Nome}\" (id:{r.Id})"));
@@ -72,7 +75,7 @@ public sealed class ConciliacaoSugestaoService(
 
             Regras:
             - "descricao": limpe a descrição original removendo códigos, asteriscos e prefixos de gateway (ex: "PAG*JoseDaSilva" → "José da Silva", "MERCADOLIVRE*MERCADOL" → "Mercado Livre"). Mantenha o nome do estabelecimento legível.
-            - "recebedorId": associe ao recebedor que melhor corresponde ao estabelecimento. Null se nenhum se encaixar.
+            - "recebedorId": compare o nome do estabelecimento (após limpeza) com os recebedores cadastrados. Ignore diferenças de acentuação, maiúsculas/minúsculas e abreviações. Ex: "TOP BURGUER ACAI" corresponde a "Top burguer açai", "MERCADOLIVRE*MERCADOL" corresponde a "Mercado Livre". Null somente se nenhum recebedor tiver nome semelhante.
             - "pagadorId": se a descrição sugerir quem comprou, associe. Caso contrário, null.
             - "contaGerencialId": associe à categoria de despesa mais adequada. Null se incerto.
             - "confianca": 0.0 a 1.0, indicando sua certeza geral na sugestão.
@@ -94,16 +97,48 @@ public sealed class ConciliacaoSugestaoService(
         {
             var request = new LlmRequest(LlmModelTier.Fast, systemPrompt, messages);
             var completion = await llmClient.CompleteAsync(request, ct);
-            return ParseSugestoes(completion.Text, semPreferencia,
+            var result = ParseSugestoes(completion.Text, semPreferencia,
                 categorias.Select(c => c.Id).ToHashSet(),
                 recebedores.Select(r => r.Id).ToHashSet(),
                 responsaveis.Select(r => r.Id).ToHashSet());
+            return EnriquecerComHeuristica(result, heuristicMatches);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Falha ao obter sugestões de conciliação via IA");
-            return new([]);
+            return FallbackHeuristico(semPreferencia, heuristicMatches);
         }
+    }
+
+    internal static SugestoesConciliacaoResponse EnriquecerComHeuristica(
+        SugestoesConciliacaoResponse llmResult,
+        IReadOnlyDictionary<Guid, (Guid? Id, double Score)> heuristicMatches)
+    {
+        var enriched = llmResult.Sugestoes.Select(s =>
+        {
+            if (s.RecebedorId is not null) return s;
+            if (!heuristicMatches.TryGetValue(s.ItemId, out var match)) return s;
+            if (match.Id is null || match.Score < 0.7) return s;
+            return s with
+            {
+                RecebedorId = match.Id,
+                Confianca = Math.Max(s.Confianca, match.Score)
+            };
+        }).ToList();
+        return new(enriched);
+    }
+
+    private static SugestoesConciliacaoResponse FallbackHeuristico(
+        IReadOnlyList<ItemConciliacao> itens,
+        IReadOnlyDictionary<Guid, (Guid? Id, double Score)> heuristicMatches)
+    {
+        var sugestoes = itens.Select(i =>
+        {
+            if (!heuristicMatches.TryGetValue(i.Id, out var match) || match.Id is null || match.Score < 0.7)
+                return new SugestaoItemConciliacaoResponse(i.Id, null, null, null, null, 0);
+            return new SugestaoItemConciliacaoResponse(i.Id, null, match.Id, null, null, match.Score);
+        }).ToList();
+        return new(sugestoes);
     }
 
     internal static SugestoesConciliacaoResponse ParseSugestoes(

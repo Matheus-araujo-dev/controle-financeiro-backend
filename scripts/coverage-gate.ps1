@@ -27,7 +27,9 @@ Write-Host "=== Gate de cobertura (collector + ReportGenerator, line >= $Thresho
 dotnet test (Join-Path $backend 'ControleFinanceiro.sln') -c Debug --nologo `
     --collect:"XPlat Code Coverage" `
     --results-directory $results `
-    --settings (Join-Path $backend 'coverlet.runsettings')
+    --settings (Join-Path $backend 'coverlet.runsettings') `
+    --logger "trx;LogFileName=test-results.trx" `
+    --logger "console;verbosity=normal"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`nGATE REPROVADO: testes falharam." -ForegroundColor Red
     exit 1

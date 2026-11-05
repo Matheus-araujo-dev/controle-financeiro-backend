@@ -284,7 +284,7 @@ public sealed class ImportacaoWhatsappRevisaoService(
         var contaReceber = ContaReceber.Criar(
             numeroDocumento: null,
             dataEmissao: payload.DataIdentificada ?? DateOnly.FromDateTime(DateTime.UtcNow),
-            pagadorId: request.PagadorId,
+            recebedorId: null,
             pagadorId: request.PagadorId.Value,
             dataVencimento: dataVencimentoContaReceber.Value,
             formaPagamentoId: formaPagamento.Id,

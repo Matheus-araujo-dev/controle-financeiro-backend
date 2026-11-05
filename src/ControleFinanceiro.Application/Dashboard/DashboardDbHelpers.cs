@@ -128,7 +128,7 @@ public sealed class DashboardDbHelpers(
             select new RateioLancamentoInfo(
                 conta.Id, "ContaPagar", conta.Descricao, conta.RecebedorId,
                 conta.DataEmissao, conta.DataVencimento, conta.ValorLiquido,
-                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.ResponsavelCompraId))
+                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.PagadorId))
             .ToListAsync(cancellationToken);
 
         var rateiosReceber = await (
@@ -140,7 +140,7 @@ public sealed class DashboardDbHelpers(
             select new RateioLancamentoInfo(
                 conta.Id, "ContaReceber", conta.Descricao, conta.PagadorId,
                 conta.DataEmissao, conta.DataVencimento, conta.ValorLiquido,
-                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.ResponsavelId))
+                rateio.Valor, conta.StatusContaId, rateio.ContaGerencialId, conta.RecebedorId))
             .ToListAsync(cancellationToken);
 
         rateiosPagar.AddRange(rateiosReceber);
@@ -157,7 +157,7 @@ public sealed class DashboardDbHelpers(
                 i.TipoSugestao == TipoSugestaoImportacaoWhatsapp.CompraCartao &&
                 i.Status == StatusItemImportadoWhatsapp.Confirmado &&
                 (familiaId.HasValue && i.FamiliaId == familiaId.Value))
-            .Select(i => new { i.Id, i.PayloadSugeridoJson, i.DescricaoAjustada, i.MarcarComoRecorrente, i.ContaGerencialId, i.ResponsavelId,
+            .Select(i => new { i.Id, i.PayloadSugeridoJson, i.DescricaoAjustada, i.MarcarComoRecorrente, i.ContaGerencialId, i.PagadorId,
                 Materializada = dbContext.ContasPagar.Any(c => c.OrigemImportacaoWhatsappId == i.ImportacaoWhatsappId) })
             .ToListAsync(cancellationToken);
 
@@ -198,7 +198,7 @@ public sealed class DashboardDbHelpers(
                 payload.BuildRecurringSeriesKey(),
                 payload.BuildInstallmentSeriesKey(),
                 item.ContaGerencialId,
-                item.ResponsavelId, item.Materializada));
+                item.PagadorId, item.Materializada));
         }
 
         return compras;
@@ -214,7 +214,7 @@ public sealed class DashboardDbHelpers(
                 .Where(c => c.StatusContaId != StatusConta.CanceladaId &&
                             c.DataVencimento >= dataInicial && c.DataVencimento <= dataFinal)
                 .Select(c => new ContaJanelaInfo(c.Id, "ContaPagar", c.Descricao, c.DataVencimento,
-                    c.ValorLiquido, c.StatusContaId, c.RecebedorId, c.ResponsavelCompraId,
+                    c.ValorLiquido, c.StatusContaId, c.RecebedorId, c.PagadorId,
                     c.RegraRecorrenciaId, c.Origem))
                 .ToListAsync(cancellationToken);
         }
@@ -224,7 +224,7 @@ public sealed class DashboardDbHelpers(
             .Where(c => c.StatusContaId != StatusConta.CanceladaId &&
                         c.DataVencimento >= dataInicial && c.DataVencimento <= dataFinal)
             .Select(c => new ContaJanelaInfo(c.Id, "ContaReceber", c.Descricao, c.DataVencimento,
-                c.ValorLiquido, c.StatusContaId, c.PagadorId, c.ResponsavelId,
+                c.ValorLiquido, c.StatusContaId, c.PagadorId, c.RecebedorId,
                 c.RegraRecorrenciaId, c.Origem))
             .ToListAsync(cancellationToken);
     }
@@ -246,13 +246,13 @@ public sealed class DashboardDbHelpers(
         var contasPagarRegra = await dbContext.ContasPagar
             .AsNoTracking()
             .Where(c => c.RegraRecorrenciaId != null && regraIds.Contains(c.RegraRecorrenciaId.Value) && c.StatusContaId != StatusConta.CanceladaId)
-            .Select(c => new ContaRecorrenciaInfo(c.Id, c.RegraRecorrenciaId!.Value, c.DataVencimento, c.ValorLiquido, c.Descricao, c.Origem, c.RecebedorId, c.ResponsavelCompraId))
+            .Select(c => new ContaRecorrenciaInfo(c.Id, c.RegraRecorrenciaId!.Value, c.DataVencimento, c.ValorLiquido, c.Descricao, c.Origem, c.RecebedorId, c.PagadorId))
             .ToListAsync(cancellationToken);
 
         var contasReceberRegra = await dbContext.ContasReceber
             .AsNoTracking()
             .Where(c => c.RegraRecorrenciaId != null && regraIds.Contains(c.RegraRecorrenciaId.Value) && c.StatusContaId != StatusConta.CanceladaId)
-            .Select(c => new ContaRecorrenciaInfo(c.Id, c.RegraRecorrenciaId!.Value, c.DataVencimento, c.ValorLiquido, c.Descricao, c.Origem, c.PagadorId, c.ResponsavelId))
+            .Select(c => new ContaRecorrenciaInfo(c.Id, c.RegraRecorrenciaId!.Value, c.DataVencimento, c.ValorLiquido, c.Descricao, c.Origem, c.PagadorId, c.RecebedorId))
             .ToListAsync(cancellationToken);
 
         var projecoes = new List<RecorrenciaProjetada>();

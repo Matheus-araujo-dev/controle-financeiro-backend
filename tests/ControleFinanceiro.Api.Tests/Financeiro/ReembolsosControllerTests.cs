@@ -256,7 +256,7 @@ public sealed class ReembolsosControllerTests(CustomWebApplicationFactory factor
         {
             numeroDocumento = (string?)null,
             dataEmissao = "2026-04-01",
-            pagadorId = (Guid?)null,
+            recebedorId = (Guid?)null,
             pagadorId = fixture.PagadorId,
             dataVencimento = "2026-05-01",
             formaPagamentoId = fixture.FormaPagamentoManualId,

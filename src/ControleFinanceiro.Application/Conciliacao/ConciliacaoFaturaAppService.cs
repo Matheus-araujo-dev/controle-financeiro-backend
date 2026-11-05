@@ -218,10 +218,11 @@ public sealed class ConciliacaoFaturaAppService(IAppDbContext db, IPdfFaturaRead
         if (request.ValorTotal <= 0 || decimal.Round(request.ValorTotal, 2) != request.ValorTotal
             || request.PagadoresIds is null || request.PagadoresIds.Count == 0 || request.DataVencimento == default)
             throw Erro("Informe valor, pagadores e vencimento válidos para a prévia.");
-        var pagadores = request.PagadoresIds.Distinct().ToArray();
-        var nomes = await db.Pessoas.AsNoTracking().Where(x => pagadores.Contains(x.Id))
+        var pagadores = request.PagadoresIds.ToArray();
+        var idsDistintos = pagadores.Distinct().ToArray();
+        var nomes = await db.Pessoas.AsNoTracking().Where(x => idsDistintos.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Nome, ct);
-        if (nomes.Count != pagadores.Length) throw Erro("Um ou mais pagadores não foram encontrados.");
+        if (nomes.Count != idsDistintos.Length) throw Erro("Um ou mais pagadores não foram encontrados.");
         var fatura = await db.FaturasCartao.AsNoTracking().SingleAsync(x => x.Id == faturaId, ct);
         DateOnly[] vencimentos = [request.ParcelarIgual ? fatura.DataVencimento : request.DataVencimento];
         if (request.ContaPagarId is { } contaId)

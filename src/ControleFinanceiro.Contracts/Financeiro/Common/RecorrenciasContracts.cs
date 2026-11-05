@@ -60,7 +60,7 @@ public sealed record RecorrenciaListItemResponse(
     string Descricao,
     decimal ValorLiquido,
     string PessoaNome,
-    string? PagadorNome,
+    string? PessoaSecundariaNome,
     bool Encerrada = false);
 
 public sealed record RecorrenciaListSummaryResponse(

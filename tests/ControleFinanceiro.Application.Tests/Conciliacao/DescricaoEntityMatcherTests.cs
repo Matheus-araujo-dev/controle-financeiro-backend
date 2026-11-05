@@ -1,4 +1,5 @@
 using ControleFinanceiro.Application.Conciliacao;
+using ControleFinanceiro.Contracts.Conciliacao;
 using FluentAssertions;
 
 namespace ControleFinanceiro.Application.Tests.Conciliacao;

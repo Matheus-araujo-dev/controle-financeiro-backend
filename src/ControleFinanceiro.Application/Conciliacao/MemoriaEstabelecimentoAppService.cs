@@ -30,6 +30,10 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
         var pagadores = conta.GrupoReembolsoId.HasValue
             ? await db.ContasReceber.AsNoTracking().Where(x => x.GrupoReembolsoId == conta.GrupoReembolsoId && x.StatusContaId != StatusConta.CanceladaId)
                 .Select(x => x.PagadorId).Distinct().ToArrayAsync(ct) : [];
+        var coPagadores = conta.GrupoPagadoresId.HasValue
+            ? await db.ContasPagar.AsNoTracking()
+                .Where(x => x.GrupoPagadoresId == conta.GrupoPagadoresId && x.PagadorId != conta.PagadorId && x.StatusContaId != StatusConta.CanceladaId)
+                .Select(x => x.PagadorId).Distinct().ToArrayAsync(ct) : [];
         var valores = new Dictionary<string, string>
         {
             ["descricao"] = JsonSerializer.Serialize(descricaoPreferida ?? conta.Descricao, JsonOptions),
@@ -38,7 +42,8 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
             ["rateios"] = JsonSerializer.Serialize(rateios.Select(r => new RateioMemoriaResponse(r.ContaGerencialId, r.Valor / conta.ValorLiquido)), JsonOptions),
             ["ehRecorrente"] = JsonSerializer.Serialize(conta.EhRecorrente, JsonOptions),
             ["gerarReembolso"] = JsonSerializer.Serialize(conta.GrupoReembolsoId.HasValue, JsonOptions),
-            ["reembolsoPagadoresIds"] = JsonSerializer.Serialize(pagadores, JsonOptions)
+            ["reembolsoPagadoresIds"] = JsonSerializer.Serialize(pagadores, JsonOptions),
+            ["pagadoresAdicionaisIds"] = JsonSerializer.Serialize(coPagadores, JsonOptions)
         };
         if (campos is not null)
         {

@@ -30,7 +30,45 @@ dotnet test (Join-Path $backend 'ControleFinanceiro.sln') -c Debug --nologo `
     --settings (Join-Path $backend 'coverlet.runsettings') `
     --logger "trx;LogFileName=test-results.trx" `
     --logger "console;verbosity=normal"
-if ($LASTEXITCODE -ne 0) {
+$testExitCode = $LASTEXITCODE
+
+if ($testExitCode -ne 0) {
+    Write-Host "`n========== TESTES FALHARAM — Detalhes dos TRX ==========" -ForegroundColor Red
+    $trxFiles = Get-ChildItem -Path $results -Recurse -Filter "*.trx" -ErrorAction SilentlyContinue
+    if ($trxFiles) {
+        foreach ($trx in $trxFiles) {
+            Write-Host "`n--- TRX: $($trx.FullName) ---" -ForegroundColor Yellow
+            try {
+                [xml]$xml = Get-Content $trx.FullName -Raw
+                $allResults = $xml.TestRun.Results.UnitTestResult
+                $failed = $allResults | Where-Object { $_.outcome -eq 'Failed' }
+                $totalCount = ($allResults | Measure-Object).Count
+                $failedCount = ($failed | Measure-Object).Count
+                Write-Host "Total: $totalCount | Falharam: $failedCount" -ForegroundColor Cyan
+                foreach ($f in $failed) {
+                    Write-Host "`n  FAILED: $($f.testName)" -ForegroundColor Red
+                    if ($f.Output -and $f.Output.ErrorInfo) {
+                        if ($f.Output.ErrorInfo.Message) {
+                            Write-Host "  Message: $($f.Output.ErrorInfo.Message)"
+                        }
+                        if ($f.Output.ErrorInfo.StackTrace) {
+                            $stackLines = $f.Output.ErrorInfo.StackTrace -split "`n" | Select-Object -First 15
+                            Write-Host "  StackTrace (first 15 lines):"
+                            foreach ($line in $stackLines) {
+                                Write-Host "    $line"
+                            }
+                        }
+                    }
+                    Write-Host "  ---"
+                }
+            } catch {
+                Write-Host "  Erro ao ler TRX: $_" -ForegroundColor Yellow
+            }
+        }
+    } else {
+        Write-Host "  Nenhum arquivo TRX encontrado em $results" -ForegroundColor Yellow
+    }
+    Write-Host "`n========== FIM DOS DETALHES ==========" -ForegroundColor Red
     Write-Host "`nGATE REPROVADO: testes falharam." -ForegroundColor Red
     exit 1
 }

@@ -55,7 +55,7 @@ public sealed class DashboardAnomaliasTests(CustomWebApplicationFactory factory)
             var result = await client.PostAsJsonAsync("/api/v1/contas-pagar", new
             {
                 dataEmissao = "2027-01-05", dataVencimento = "2027-01-10",
-                responsavelCompraId = fixture.MembroId, recebedorId = fixture.RecebedorId,
+                pagadorId = fixture.MembroId, recebedorId = fixture.RecebedorId,
                 formaPagamentoId = fixture.FormaPagamentoManualId, valorOriginal = 100m,
                 quantidadeParcelas = 1, descricao = "Internet",
                 rateios = new[] { new { contaGerencialId = fixture.ContaGerencialDespesaId, valor = 100m } }

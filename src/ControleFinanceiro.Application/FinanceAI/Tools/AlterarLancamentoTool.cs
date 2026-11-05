@@ -144,7 +144,7 @@ public sealed class AlterarLancamentoTool(IAppDbContext db) : IFinanceTool
         conta.Atualizar(
             numeroDocumento: conta.NumeroDocumento,
             dataEmissao: conta.DataEmissao,
-            pagadorId: conta.PagadorId,
+            recebedorId: conta.RecebedorId,
             pagadorId: conta.PagadorId,
             dataVencimento: novaData,
             formaPagamentoId: conta.FormaPagamentoId,

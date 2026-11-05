@@ -95,12 +95,6 @@ public sealed class RecorrenciaAppService(
 
     public async Task<RecorrenciaListResponse> ListarAsync(RecorrenciaListQueryRequest query, CancellationToken cancellationToken)
     {
-        // Cada item é uma regra + sua conta de origem (Origem != Recorrencia, a conta original que
-        // criou a regra). Como o tipo da regra define a tabela, origens de pagar/receber nunca colidem.
-        // Os filtros e o dedup (origem mais antiga por regra) rodam no banco — não materializa mais as
-        // tabelas inteiras. O EF Core não traduz UNION com projeção para tipo custom, então a fusão
-        // pagar+receber, ordenação e paginação ocorrem sobre o conjunto JÁ FILTRADO (recorrências são
-        // de baixo volume, tornando a etapa final em memória barata).
         var tipo = query.Tipo?.Trim();
         var incluiPagar = !string.Equals(tipo, "Receber", StringComparison.OrdinalIgnoreCase);
         var incluiReceber = !string.Equals(tipo, "Pagar", StringComparison.OrdinalIgnoreCase);
@@ -120,7 +114,7 @@ public sealed class RecorrenciaAppService(
         var ordenadas = ((query.SortBy ?? string.Empty).ToLowerInvariant() switch
         {
             "descricao" => Ordenar(rows, query, x => x.Descricao),
-            "pessoanome" => Ordenar(rows, query, x => x.PessoaNome),
+            "pessoanome" => Ordenar(rows, query, x => x.PessoaPrincipalNome),
             "valorliquido" => Ordenar(rows, query, x => x.ValorLiquido),
             "diaordemmensal" => Ordenar(rows, query, x => x.DiaOrdemMensal),
             "datainicio" => Ordenar(rows, query, x => x.DataInicio),

@@ -19,7 +19,6 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
         return memorias.ToDictionary(x => x.Chave, x => JsonSerializer.Deserialize<PreferenciasFaturaResponse>(x.PreferenciasJson, JsonOptions)!);
     }
 
-    // Chamado apenas na confirmação; não grava sozinho, participando da mesma transação da conta.
     public async Task AprenderAsync(ItemConciliacao item, ContaPagar conta, bool aprender, IReadOnlyList<string>? campos, CancellationToken ct, string? descricaoPreferida = null)
     {
         if (!aprender || campos is { Count: 0 } || !conta.CartaoId.HasValue) return;

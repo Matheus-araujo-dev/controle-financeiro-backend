@@ -106,31 +106,29 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                 WHERE f."Id" = sub."FaturaCartaoId";
                 """);
 
-            // 2. Drop existing non-unique index and create unique one
-            migrationBuilder.DropIndex(
-                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas",
-                table: "contas_pagar");
+            // 2. Drop existing non-unique index (IF EXISTS handles both truncated and full names)
+            migrationBuilder.Sql("""
+                DROP INDEX IF EXISTS "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas";
+                DROP INDEX IF EXISTS "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParce";
+                """);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas_DataVencimento",
-                table: "contas_pagar",
-                columns: new[] { "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento" },
-                unique: true,
-                filter: "\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");
+            // 3. Create unique index
+            migrationBuilder.Sql("""
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas_DataVencimento"
+                ON contas_pagar ("CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento")
+                WHERE "CartaoId" IS NOT NULL AND "ChaveSerieImportacaoCartao" IS NOT NULL;
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas_DataVencimento",
-                table: "contas_pagar");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas",
-                table: "contas_pagar",
-                columns: new[] { "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas" },
-                filter: "\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");
+            migrationBuilder.Sql("""
+                DROP INDEX IF EXISTS "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas_DataVencimento";
+                CREATE INDEX IF NOT EXISTS "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas"
+                ON contas_pagar ("CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas")
+                WHERE "CartaoId" IS NOT NULL AND "ChaveSerieImportacaoCartao" IS NOT NULL;
+                """);
         }
     }
 }

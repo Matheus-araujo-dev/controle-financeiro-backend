@@ -151,7 +151,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                 FROM (
                     SELECT "FaturaCartaoId", SUM("ValorLiquido") AS total
                     FROM contas_pagar
-                    WHERE "FaturaCartaoId" IS NOT NULL AND "StatusContaId" != 5
+                    WHERE "FaturaCartaoId" IS NOT NULL AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
                     GROUP BY "FaturaCartaoId"
                 ) sub
                 WHERE f."Id" = sub."FaturaCartaoId";

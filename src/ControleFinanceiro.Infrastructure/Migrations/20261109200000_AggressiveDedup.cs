@@ -46,7 +46,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                            ) AS rn
                     FROM contas_pagar
                     WHERE "CartaoId" IS NOT NULL
-                      AND "StatusContaId" != 5
+                      AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
                 )
                 UPDATE itens_conciliacao
                 SET "ContaPagarVinculadaId" = r.survivor_id
@@ -73,7 +73,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                                ) AS rn
                         FROM contas_pagar
                         WHERE "CartaoId" IS NOT NULL
-                          AND "StatusContaId" != 5
+                          AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
                     ) d WHERE d.rn > 1
                 );
                 """);
@@ -98,7 +98,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                                    ) AS rn
                             FROM contas_pagar
                             WHERE "CartaoId" IS NOT NULL
-                              AND "StatusContaId" != 5
+                              AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
                         ) d WHERE d.rn > 1
                     ) dup ON dup."Id" = cp."Id"
                     WHERE cp."GrupoReembolsoId" IS NOT NULL
@@ -123,7 +123,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                                ) AS rn
                         FROM contas_pagar
                         WHERE "CartaoId" IS NOT NULL
-                          AND "StatusContaId" != 5
+                          AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
                     ) d WHERE d.rn > 1
                 );
                 """);
@@ -150,7 +150,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                 FROM (
                     SELECT "FaturaCartaoId", SUM("ValorLiquido") AS total
                     FROM contas_pagar
-                    WHERE "FaturaCartaoId" IS NOT NULL AND "StatusContaId" != 5
+                    WHERE "FaturaCartaoId" IS NOT NULL AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
                     GROUP BY "FaturaCartaoId"
                 ) sub
                 WHERE f."Id" = sub."FaturaCartaoId";

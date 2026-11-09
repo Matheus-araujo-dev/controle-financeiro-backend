@@ -14,13 +14,13 @@ namespace ControleFinanceiro.Infrastructure.Migrations
             //    Also cleans up related rateios_conta_gerencial, contas_receber
             //    (reembolsos) and itens_conciliacao links to the duplicates.
             migrationBuilder.Sql("""
-                -- Identify duplicates: rows sharing (CartaoId, ChaveSerieImportacaoCartao, NumeroParcela, QuantidadeParcelas)
+                -- Identify duplicates: rows sharing (CartaoId, ChaveSerieImportacaoCartao, NumeroParcela, QuantidadeParcelas, DataVencimento)
                 -- where ChaveSerieImportacaoCartao IS NOT NULL and CartaoId IS NOT NULL.
                 -- Keep the row with the smallest Id (the first created).
                 WITH ranked AS (
                     SELECT "Id",
                            ROW_NUMBER() OVER (
-                               PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas"
+                               PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento"
                                ORDER BY "CreatedAtUtc" ASC, "Id" ASC
                            ) AS rn
                     FROM contas_pagar
@@ -39,6 +39,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     AND survivor."ChaveSerieImportacaoCartao" = dup."ChaveSerieImportacaoCartao"
                     AND survivor."NumeroParcela" = dup."NumeroParcela"
                     AND survivor."QuantidadeParcelas" = dup."QuantidadeParcelas"
+                    AND survivor."DataVencimento" = dup."DataVencimento"
                     AND survivor."Id" != dup."Id"
                     AND survivor."Id" NOT IN (SELECT "Id" FROM duplicates)
                 WHERE ic."ContaPagarVinculadaId" = d."Id";
@@ -51,7 +52,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     SELECT d."Id" FROM (
                         SELECT "Id",
                                ROW_NUMBER() OVER (
-                                   PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas"
+                                   PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento"
                                    ORDER BY "CreatedAtUtc" ASC, "Id" ASC
                                ) AS rn
                         FROM contas_pagar
@@ -67,7 +68,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     SELECT dup."GrupoReembolsoId" FROM (
                         SELECT "Id", "GrupoReembolsoId",
                                ROW_NUMBER() OVER (
-                                   PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas"
+                                   PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento"
                                    ORDER BY "CreatedAtUtc" ASC, "Id" ASC
                                ) AS rn
                         FROM contas_pagar
@@ -83,7 +84,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                     SELECT d."Id" FROM (
                         SELECT "Id",
                                ROW_NUMBER() OVER (
-                                   PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas"
+                                   PARTITION BY "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento"
                                    ORDER BY "CreatedAtUtc" ASC, "Id" ASC
                                ) AS rn
                         FROM contas_pagar
@@ -111,9 +112,9 @@ namespace ControleFinanceiro.Infrastructure.Migrations
                 table: "contas_pagar");
 
             migrationBuilder.CreateIndex(
-                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas",
+                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas_DataVencimento",
                 table: "contas_pagar",
-                columns: new[] { "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas" },
+                columns: new[] { "CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento" },
                 unique: true,
                 filter: "\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");
         }
@@ -122,7 +123,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(
-                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas",
+                name: "IX_contas_pagar_CartaoId_ChaveSerieImportacaoCartao_NumeroParcela_QuantidadeParcelas_DataVencimento",
                 table: "contas_pagar");
 
             migrationBuilder.CreateIndex(

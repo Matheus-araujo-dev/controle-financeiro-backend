@@ -1286,7 +1286,7 @@ namespace ControleFinanceiro.Infrastructure.Migrations
 
                     b.HasIndex("StatusContaId", "DataVencimento");
 
-                    b.HasIndex("CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas")
+                    b.HasIndex("CartaoId", "ChaveSerieImportacaoCartao", "NumeroParcela", "QuantidadeParcelas", "DataVencimento")
                         .IsUnique()
                         .HasFilter("\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");
 

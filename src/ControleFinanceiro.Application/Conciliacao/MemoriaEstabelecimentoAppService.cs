@@ -46,8 +46,8 @@ public sealed class MemoriaEstabelecimentoAppService(IAppDbContext db)
         };
         if (campos is not null)
         {
-            if (campos.Any(x => !valores.ContainsKey(x))) throw ValidationExceptionFactory.Create("CamposParaAprender", "Campo de memória inválido.");
             valores = valores.Where(x => campos.Contains(x.Key)).ToDictionary(x => x.Key, x => x.Value);
+            if (valores.Count == 0) return;
         }
         var memoria = await db.MemoriasEstabelecimento.SingleOrDefaultAsync(x => x.CartaoId == conta.CartaoId && x.Chave == key, ct);
         if (memoria is null) { memoria = MemoriaEstabelecimento.Criar(conta.CartaoId.Value, key); db.MemoriasEstabelecimento.Add(memoria); }

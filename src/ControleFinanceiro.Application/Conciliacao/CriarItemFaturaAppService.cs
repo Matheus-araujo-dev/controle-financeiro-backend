@@ -14,7 +14,19 @@ namespace ControleFinanceiro.Application.Conciliacao;
 public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation atomic, ContaPagarSharedHelper helper,
     IContaPagarRecorrenciaService recorrencias, IReembolsoAppService reembolsos, MemoriaEstabelecimentoAppService memoria)
 {
-    public Task<bool> CriarAsync(Guid faturaId, Guid sessionId, Guid itemId, CriarItemFaturaRequest request, CancellationToken ct)
+    public async Task<bool> CriarAsync(Guid faturaId, Guid sessionId, Guid itemId, CriarItemFaturaRequest request, CancellationToken ct)
+    {
+        try
+        {
+            return await CriarCoreAsync(faturaId, sessionId, itemId, request, ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            return true;
+        }
+    }
+
+    private Task<bool> CriarCoreAsync(Guid faturaId, Guid sessionId, Guid itemId, CriarItemFaturaRequest request, CancellationToken ct)
         => atomic.ExecutarAsync(async () =>
         {
             var session = await db.Conciliacoes.Include(x => x.Itens).SingleOrDefaultAsync(x => x.Id == sessionId && x.FaturaId == faturaId, ct);
@@ -116,6 +128,10 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
             await db.SaveChangesAsync(ct);
             return true;
         }, ct);
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is { } inner &&
+        inner.GetType().GetProperty("SqlState")?.GetValue(inner)?.ToString() == "23505";
 
     private static Exception Erro(string message) => ValidationExceptionFactory.Create("Conciliacao", message);
 }

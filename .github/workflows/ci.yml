@@ -69,7 +69,8 @@ jobs:
 
       - name: Test with coverage gate
         shell: pwsh
-        run: ./scripts/coverage-gate.ps1 -Threshold 80
+        run: |
+          ./scripts/coverage-gate.ps1 -Threshold 80 2>&1 | Tee-Object -FilePath TestResults/gate-output.txt
 
       - name: Post test failure details to PR
         if: failure() && github.event_name == 'pull_request'
@@ -79,6 +80,11 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           BODY="## CI Test Failure Diagnostic\n\n"
+          # Gate output (dotnet test stdout/stderr)
+          if [ -f TestResults/gate-output.txt ]; then
+            GATE_LAST=$(tail -100 TestResults/gate-output.txt)
+            BODY+="### Gate Output (last 100 lines)\n\`\`\`\n${GATE_LAST}\n\`\`\`\n\n"
+          fi
           # Find TRX files and extract failures
           for trx in $(find TestResults/coverage-collector -name '*.trx' 2>/dev/null); do
             FNAME=$(basename "$trx")

@@ -57,7 +57,8 @@ public sealed class ContaPagarConfiguration : IEntityTypeConfiguration<ContaPaga
         builder.HasIndex(x => new { x.CartaoId, x.StatusContaId })
             .HasFilter("\"CartaoId\" IS NOT NULL");
         builder.HasIndex(x => x.OrigemImportacaoWhatsappId);
-        builder.HasIndex(x => new { x.CartaoId, x.ChaveSerieImportacaoCartao, x.NumeroParcela, x.QuantidadeParcelas })
+        builder.HasIndex(x => new { x.CartaoId, x.ChaveSerieImportacaoCartao, x.NumeroParcela, x.QuantidadeParcelas, x.DataVencimento })
+            .IsUnique()
             .HasFilter("\"CartaoId\" IS NOT NULL AND \"ChaveSerieImportacaoCartao\" IS NOT NULL");
         builder.HasIndex(x => x.Descricao);
         builder.HasIndex(x => x.NumeroDocumento);

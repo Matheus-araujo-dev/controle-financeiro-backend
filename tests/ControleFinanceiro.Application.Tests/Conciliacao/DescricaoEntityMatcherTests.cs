@@ -1,5 +1,6 @@
 using ControleFinanceiro.Application.Conciliacao;
 using ControleFinanceiro.Contracts.Conciliacao;
+using ControleFinanceiro.Domain.Conciliacao;
 using FluentAssertions;
 
 namespace ControleFinanceiro.Application.Tests.Conciliacao;
@@ -177,5 +178,65 @@ public sealed class DescricaoEntityMatcherTests
 
         id.Should().Be(IdFarmacia);
         score.Should().BeGreaterOrEqualTo(0.9);
+    }
+
+    [Fact]
+    public void FallbackHeuristico_PreencheRecebedorComScoreAlto()
+    {
+        var item = ItemConciliacao.Criar(DateOnly.FromDateTime(DateTime.Today), "TOP BURGUER ACAI", 50m, null);
+        var matches = new Dictionary<Guid, (Guid? Id, double Score)>
+        {
+            [item.Id] = (IdTopBurguer, 0.95)
+        };
+
+        var result = ConciliacaoSugestaoService.FallbackHeuristico([item], matches);
+
+        result.Sugestoes.Should().HaveCount(1);
+        result.Sugestoes[0].RecebedorId.Should().Be(IdTopBurguer);
+        result.Sugestoes[0].Confianca.Should().Be(0.95);
+    }
+
+    [Fact]
+    public void FallbackHeuristico_IgnoraScoreBaixo()
+    {
+        var item = ItemConciliacao.Criar(DateOnly.FromDateTime(DateTime.Today), "LOJA XYZ", 30m, null);
+        var matches = new Dictionary<Guid, (Guid? Id, double Score)>
+        {
+            [item.Id] = (IdTopBurguer, 0.4)
+        };
+
+        var result = ConciliacaoSugestaoService.FallbackHeuristico([item], matches);
+
+        result.Sugestoes.Should().HaveCount(1);
+        result.Sugestoes[0].RecebedorId.Should().BeNull();
+        result.Sugestoes[0].Confianca.Should().Be(0);
+    }
+
+    [Fact]
+    public void FallbackHeuristico_SemMatchRetornaSugestaoVazia()
+    {
+        var item = ItemConciliacao.Criar(DateOnly.FromDateTime(DateTime.Today), "COMPRA DESCONHECIDA", 100m, null);
+        var matches = new Dictionary<Guid, (Guid? Id, double Score)>();
+
+        var result = ConciliacaoSugestaoService.FallbackHeuristico([item], matches);
+
+        result.Sugestoes.Should().HaveCount(1);
+        result.Sugestoes[0].RecebedorId.Should().BeNull();
+        result.Sugestoes[0].Confianca.Should().Be(0);
+    }
+
+    [Fact]
+    public void FallbackHeuristico_MatchComIdNuloRetornaSugestaoVazia()
+    {
+        var item = ItemConciliacao.Criar(DateOnly.FromDateTime(DateTime.Today), "LOJA ABC", 25m, null);
+        var matches = new Dictionary<Guid, (Guid? Id, double Score)>
+        {
+            [item.Id] = (null, 0.95)
+        };
+
+        var result = ConciliacaoSugestaoService.FallbackHeuristico([item], matches);
+
+        result.Sugestoes.Should().HaveCount(1);
+        result.Sugestoes[0].RecebedorId.Should().BeNull();
     }
 }

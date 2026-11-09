@@ -128,7 +128,7 @@ public sealed class ConciliacaoSugestaoService(
         return new(enriched);
     }
 
-    private static SugestoesConciliacaoResponse FallbackHeuristico(
+    internal static SugestoesConciliacaoResponse FallbackHeuristico(
         IReadOnlyList<ItemConciliacao> itens,
         IReadOnlyDictionary<Guid, (Guid? Id, double Score)> heuristicMatches)
     {

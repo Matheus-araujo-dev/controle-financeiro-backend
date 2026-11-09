@@ -28,10 +28,6 @@ jobs:
     name: Test (PostgreSQL)
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
 
     services:
       postgres:
@@ -73,71 +69,7 @@ jobs:
 
       - name: Test with coverage gate
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force TestResults | Out-Null
-          ./scripts/coverage-gate.ps1 -Threshold 80 2>&1 | Tee-Object -FilePath TestResults/gate-output.txt
-
-      - name: Post test failure details to PR
-        if: failure() && github.event_name == 'pull_request'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          BODY="## CI Test Failure Diagnostic\n\n"
-          # Gate output (dotnet test stdout/stderr)
-          if [ -f TestResults/gate-output.txt ]; then
-            GATE_LAST=$(tail -100 TestResults/gate-output.txt)
-            BODY+="### Gate Output (last 100 lines)\n\`\`\`\n${GATE_LAST}\n\`\`\`\n\n"
-          fi
-          # Find TRX files and extract failures
-          for trx in $(find TestResults/coverage-collector -name '*.trx' 2>/dev/null); do
-            FNAME=$(basename "$trx")
-            TOTAL=$(grep -c 'outcome=' "$trx" 2>/dev/null || echo 0)
-            FAILED_TESTS=$(grep -oP 'testName="[^"]*"[^>]*outcome="Failed"' "$trx" 2>/dev/null | grep -oP 'testName="\K[^"]*' || true)
-            FAILED_TESTS2=$(grep -oP 'outcome="Failed"[^>]*testName="[^"]*"' "$trx" 2>/dev/null | grep -oP 'testName="\K[^"]*' || true)
-            ALL_FAILED=$(echo -e "$FAILED_TESTS\n$FAILED_TESTS2" | sort -u | grep -v '^$')
-            FCOUNT=$(echo "$ALL_FAILED" | grep -c . 2>/dev/null || echo 0)
-            BODY+="**$FNAME**: $TOTAL results, $FCOUNT failed\n\n"
-            echo "$ALL_FAILED" | head -30 | while read -r t; do
-              [ -n "$t" ] && BODY+="\`$t\`\n"
-            done
-            # Extract error messages
-            MSGS=$(python3 -c "
-          import re, sys
-          content = open('$trx').read()
-          msgs = re.findall(r'<Message>(.*?)</Message>', content, re.DOTALL)
-          for m in msgs[:10]:
-              print(m[:500])
-              print('---')
-          " 2>/dev/null || true)
-            if [ -n "$MSGS" ]; then
-              BODY+="\n<details><summary>Error messages</summary>\n\n\`\`\`\n${MSGS}\n\`\`\`\n</details>\n\n"
-            fi
-          done
-          # Coverage summary
-          if [ -f TestResults/coverage-report/Summary.txt ]; then
-            COV=$(head -30 TestResults/coverage-report/Summary.txt)
-            BODY+="### Coverage\n\`\`\`\n${COV}\n\`\`\`\n"
-          else
-            BODY+="_No coverage report (tests failed before coverage)_\n"
-          fi
-          # Post comment via GitHub API
-          ESCAPED=$(echo -e "$BODY" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-          curl -s -X POST \
-            -H "Authorization: token $GH_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
-            -d "{\"body\": $ESCAPED}" || true
-
-      - name: Upload test results on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-failure-results
-          path: |
-            TestResults/coverage-collector/**/*.trx
-          if-no-files-found: ignore
+        run: ./scripts/coverage-gate.ps1 -Threshold 80
 
       - name: Publish validated API contract
         uses: actions/upload-artifact@v4

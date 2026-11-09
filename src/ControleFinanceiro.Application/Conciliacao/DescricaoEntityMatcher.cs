@@ -44,10 +44,20 @@ public static class DescricaoEntityMatcher
         if (descNorm == nomeNorm || descLimpa == nomeNorm)
             return 1.0;
 
+        var descNormSemEspaco = descNorm.Replace(" ", "");
+        var descLimpaSemEspaco = descLimpa.Replace(" ", "");
+        var nomeSemEspaco = nomeNorm.Replace(" ", "");
+
+        if (descNormSemEspaco == nomeSemEspaco || descLimpaSemEspaco == nomeSemEspaco)
+            return 1.0;
+
         if (nomeNorm.Length >= 4)
         {
             if (descNorm.Contains(nomeNorm) || descLimpa.Contains(nomeNorm))
                 return 0.95;
+            if (nomeSemEspaco.Length >= 4 &&
+                (descNormSemEspaco.Contains(nomeSemEspaco) || descLimpaSemEspaco.Contains(nomeSemEspaco)))
+                return 0.9;
             if (descNorm.Length >= 4 && nomeNorm.Contains(descNorm))
                 return 0.9;
             if (descLimpa.Length >= 4 && nomeNorm.Contains(descLimpa))

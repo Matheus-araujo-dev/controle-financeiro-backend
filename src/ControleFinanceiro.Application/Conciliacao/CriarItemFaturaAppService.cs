@@ -103,10 +103,13 @@ public sealed class CriarItemFaturaAppService(IAppDbContext db, IAtomicOperation
             }
 
             conta!.VincularFaturaCartao(faturaId);
-            foreach (var parcela in todasContas.Where(c => c.PagadorId == conta.PagadorId))
+            foreach (var parcela in todasContas)
+            {
+                var pagadorSuffix = parcela.PagadorId == conta.PagadorId ? "" : $"|pagador:{parcela.PagadorId}";
                 parcela.DefinirChaveSerieImportacaoCartao(parcela.NumeroParcela == item.NumeroParcela
-                    ? chave
-                    : $"{chave}|parcela:{parcela.NumeroParcela}");
+                    ? $"{chave}{pagadorSuffix}"
+                    : $"{chave}|parcela:{parcela.NumeroParcela}{pagadorSuffix}");
+            }
             db.ContasPagar.AddRange(todasContas); db.RateiosContaGerencial.AddRange(todasContas.SelectMany(x => x.Rateios));
             session.ConciliarContaPagar(itemId, conta.Id, null);
             await db.SaveChangesAsync(ct);

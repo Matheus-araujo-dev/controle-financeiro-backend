@@ -20,7 +20,48 @@ namespace ControleFinanceiro.Infrastructure.Migrations
             //
             // The survivor is picked by: FaturaCartaoId set > ChaveSerieImportacaoCartao set > earliest.
 
-            // Step 1: Re-point itens_conciliacao from duplicates to their survivors.
+            // Step 1a: Delete itens_conciliacao that reference duplicates where the
+            // survivor already has an item in the same conciliation session.
+            // This avoids unique constraint violation on (ConciliacaoId, ContaPagarVinculadaId).
+            migrationBuilder.Sql("""
+                WITH ranked AS (
+                    SELECT "Id",
+                           FIRST_VALUE("Id") OVER (
+                               PARTITION BY "CartaoId", "DataVencimento", "Descricao",
+                                            COALESCE("DataCompra", "DataEmissao"),
+                                            "ValorLiquido", "NumeroParcela",
+                                            "QuantidadeParcelas", "PagadorId"
+                               ORDER BY
+                                   CASE WHEN "FaturaCartaoId" IS NOT NULL THEN 0 ELSE 1 END,
+                                   CASE WHEN "ChaveSerieImportacaoCartao" IS NOT NULL THEN 0 ELSE 1 END,
+                                   "CreatedAtUtc" ASC, "Id" ASC
+                           ) AS survivor_id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY "CartaoId", "DataVencimento", "Descricao",
+                                            COALESCE("DataCompra", "DataEmissao"),
+                                            "ValorLiquido", "NumeroParcela",
+                                            "QuantidadeParcelas", "PagadorId"
+                               ORDER BY
+                                   CASE WHEN "FaturaCartaoId" IS NOT NULL THEN 0 ELSE 1 END,
+                                   CASE WHEN "ChaveSerieImportacaoCartao" IS NOT NULL THEN 0 ELSE 1 END,
+                                   "CreatedAtUtc" ASC, "Id" ASC
+                           ) AS rn
+                    FROM contas_pagar
+                    WHERE "CartaoId" IS NOT NULL
+                      AND "StatusContaId" != '44444444-4444-4444-4444-444444444444'
+                )
+                DELETE FROM itens_conciliacao ic
+                USING ranked r
+                WHERE ic."ContaPagarVinculadaId" = r."Id"
+                  AND r.rn > 1
+                  AND EXISTS (
+                      SELECT 1 FROM itens_conciliacao ic2
+                      WHERE ic2."ConciliacaoId" = ic."ConciliacaoId"
+                        AND ic2."ContaPagarVinculadaId" = r.survivor_id
+                  );
+                """);
+
+            // Step 1b: Re-point remaining itens_conciliacao from duplicates to survivors.
             migrationBuilder.Sql("""
                 WITH ranked AS (
                     SELECT "Id",

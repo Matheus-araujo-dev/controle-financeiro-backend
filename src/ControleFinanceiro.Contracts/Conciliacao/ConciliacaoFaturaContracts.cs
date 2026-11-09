@@ -25,7 +25,8 @@ public sealed record CriarItemFaturaRequest(string Descricao, Guid RecebedorId, 
 
 public sealed record RateioMemoriaResponse(Guid ContaGerencialId, decimal Proporcao);
 public sealed record PreferenciasFaturaResponse(string? Descricao, Guid? PagadorId, Guid? RecebedorId,
-    IReadOnlyList<RateioMemoriaResponse>? Rateios, bool? EhRecorrente, bool? GerarReembolso, IReadOnlyList<Guid>? ReembolsoPagadoresIds);
+    IReadOnlyList<RateioMemoriaResponse>? Rateios, bool? EhRecorrente, bool? GerarReembolso, IReadOnlyList<Guid>? ReembolsoPagadoresIds,
+    IReadOnlyList<Guid>? PagadoresAdicionaisIds = null);
 
 public sealed record RascunhoFaturaRequest(JsonElement Dados, DateTime AtualizadoEmUtc);
 public sealed record RascunhoFaturaResponse(DateTime AtualizadoEmUtc);

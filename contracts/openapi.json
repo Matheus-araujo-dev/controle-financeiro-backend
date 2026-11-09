@@ -22582,6 +22582,14 @@
               "format": "uuid"
             },
             "nullable": true
+          },
+          "pagadoresAdicionaisIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
